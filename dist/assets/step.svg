@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" fill="none">
+<title>日光下的石阶与新芽</title>
+<rect x="1" y="1" width="298" height="418" rx="25" fill="#F8F7F3" stroke="#B5A069" stroke-width="1.5"/>
+<rect x="13" y="13" width="274" height="394" rx="17" stroke="#B5A069" stroke-opacity=".5"/>
+<path d="M47 316V136a103 103 0 0 1 206 0v180Z" fill="#E7ECD9"/>
+<path d="M65 188v-50a85 85 0 0 1 170 0v50" stroke="#B5A069"/>
+<circle cx="173" cy="110" r="28" fill="#DDBD9B"/>
+<path d="m153 139-57 152h117l-23-152Z" fill="#F8F7F3" fill-opacity=".7"/>
+<path d="M48 219c34-20 54-21 87-13 37-17 81-13 118 12v103H48Z" fill="#D6DFC9"/>
+<path d="M119 223h93v31h-93Z" fill="#EEE9DE" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="m119 223 15-16h92l-14 16Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="M96 265h116v31H96Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="m96 265 23-24h116l-23 24Z" fill="#EEE9DE" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="M67 311h145v34H67Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="m67 311 29-31h145l-29 31Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="m212 223 14-16v34m-14 24 23-24v45m-23 25 29-31v34l-29 31Z" fill="#B5A069" fill-opacity=".4" stroke="#375544" stroke-width="1.4" stroke-linejoin="round"/>
+<path d="M81 326h62m-39-48h45m-19-43h43m-35-21h45" stroke="#B5A069" stroke-width="1.1" stroke-linecap="round"/>
+<path d="M92 300c2-18-2-32-11-42m9 23 18-14" stroke="#375544" stroke-width="1.7" stroke-linecap="round"/>
+<path d="M88 277c-17-1-27-13-24-27 17 0 28 12 24 27Zm4 4c0-18 11-30 26-29 2 18-8 30-26 29Z" fill="#375544"/>
+<path d="m80 301 11-3 8 2m-53 39 14-5m187-1 11 4M62 234c-4-12-3-23 3-32m0 21-11-8" stroke="#375544" stroke-width="1.4" stroke-linecap="round"/>
+<path d="M62 222c-10-2-15-9-12-17 10 1 15 8 12 17Zm3-11c0-11 6-18 15-18 1 10-5 18-15 18Z" fill="#375544"/>
+<path d="M79 371h142" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="150" cy="388" r="3" fill="#B5A069"/>
+</svg>

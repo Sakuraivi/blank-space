@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" fill="none">
+<title>从阳台望向远山</title>
+<rect x="1" y="1" width="298" height="418" rx="25" fill="#F8F7F3" stroke="#B5A069" stroke-width="1.5"/>
+<rect x="13" y="13" width="274" height="394" rx="17" stroke="#B5A069" stroke-opacity=".5"/>
+<path d="M47 316V135a103 103 0 0 1 206 0v181Z" fill="#EEE9DE"/>
+<path d="M63 302V137a87 87 0 0 1 174 0v165Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.8"/>
+<circle cx="186" cy="113" r="23" fill="#DDBD9B" fill-opacity=".7"/>
+<path d="M64 200c27-10 42-43 65-46 24-4 40 26 57 23 19-5 31-28 51-21v98H64Z" fill="#E7ECD9"/>
+<path d="M64 225c39-9 57-42 80-40 26 1 39 25 57 18 15-5 23-18 36-17v68H64Z" fill="#D6DFC9"/>
+<path d="M64 243c48-23 74-12 111-17 28-4 47-13 62-10v63H64Z" fill="#B5A069" fill-opacity=".35"/>
+<path d="M102 165q17-20 29-20m66-9 12-3m-9 0 7 5" stroke="#B5A069" stroke-width="1.1" stroke-linecap="round"/>
+<path d="m63 302 32-23h111l31 23v28H63Z" fill="#DDBD9B" fill-opacity=".5"/>
+<path d="M95 279v23m111-23v23M63 319h174" stroke="#B5A069" stroke-width="1.1"/>
+<path d="M53 239h194v9H53Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.8"/>
+<path d="M64 248v54m29-54v54m29-54v54m28-54v54m29-54v54m29-54v54m29-54v54M58 302h184" stroke="#375544" stroke-width="2"/>
+<path d="M220 330c-4-31 7-52 25-70m-19 40-20-22m28 6 17-1" stroke="#375544" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M223 300c-17 0-28-10-28-25 18-1 28 10 28 25Zm8-10c3-17 14-26 28-23 0 16-12 26-28 23Zm7-18c-9-12-7-25 4-33 10 10 9 23-4 33Z" fill="#375544"/>
+<path d="M206 330h32l-5 23h-22Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.5"/>
+<path d="M53 337h133" stroke="#B5A069" stroke-opacity=".6"/>
+<path d="M79 371h142" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="150" cy="388" r="3" fill="#B5A069"/>
+</svg>

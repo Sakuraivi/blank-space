@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" fill="none">
+<title>小灯照亮书页与一枝花</title>
+<rect x="1" y="1" width="298" height="418" rx="25" fill="#F8F7F3" stroke="#B5A069" stroke-width="1.5"/>
+<rect x="13" y="13" width="274" height="394" rx="17" stroke="#B5A069" stroke-opacity=".5"/>
+<path d="M49 252V134a101 101 0 0 1 202 0v118Z" fill="#E7ECD9"/>
+<path d="M68 222V135a82 82 0 0 1 164 0v87" stroke="#B5A069" stroke-opacity=".7"/>
+<path d="M122 128 62 293h166l-60-165Z" fill="#DDBD9B" fill-opacity=".35"/>
+<path d="M40 292h220v14H40Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.8"/>
+<path d="M56 307v45m188-45v45M50 352h200" stroke="#375544" stroke-width="2" stroke-linecap="round"/>
+<ellipse cx="143" cy="278" rx="42" ry="7" fill="#B5A069" fill-opacity=".2"/>
+<path d="M142 170v100m-26 6q26-14 52 0v5h-52Z" fill="#375544" stroke="#375544" stroke-width="2"/>
+<path d="m118 108-24 66h97l-25-66Z" fill="#F8F7F3" stroke="#375544" stroke-width="2" stroke-linejoin="round"/>
+<path d="M126 112 112 168m45-56 14 56M96 173q47 10 94 0" stroke="#B5A069" stroke-width="1.2"/>
+<path d="M141 101v7m-5-7h11" stroke="#375544" stroke-width="2" stroke-linecap="round"/>
+<path d="m66 279 52 8 40-10-50-8Z" fill="#375544" stroke="#375544" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="m68 271 45 7 43-9v8l-43 9-45-7Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.5"/>
+<path d="m74 274 35 6m9 0 30-6" stroke="#B5A069"/>
+<path d="M192 240q-3 21 1 45 15 6 31 0 4-24 1-45Z" fill="#EEE9DE" stroke="#375544" stroke-width="1.6"/>
+<ellipse cx="208.5" cy="240" rx="16.5" ry="4" fill="#F8F7F3" stroke="#375544" stroke-width="1.3"/>
+<path d="M208 263c8-43-5-65 7-103m-5 61-17-19" stroke="#375544" stroke-width="1.7" stroke-linecap="round"/>
+<path d="M207 219c-14 1-23-8-22-20 14-1 22 6 22 20Z" fill="#375544"/>
+<path d="M215 160c-16 4-25-5-19-13-10-11 1-23 12-16 8-15 23-8 20 3 17 2 17 16 6 20 3 11-11 16-19 6Z" fill="#DDBD9B" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="215" cy="145" r="5" fill="#B5A069"/>
+<path d="M79 371h142" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="150" cy="388" r="3" fill="#B5A069"/>
+</svg>

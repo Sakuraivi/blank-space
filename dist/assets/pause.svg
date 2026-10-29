@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" fill="none">
+<title>拱窗前的空椅与一盆植物</title>
+<rect x="1" y="1" width="298" height="418" rx="25" fill="#F8F7F3" stroke="#B5A069" stroke-width="1.5"/>
+<rect x="13" y="13" width="274" height="394" rx="17" stroke="#B5A069" stroke-opacity=".5"/>
+<path d="M35 335H265M53 355H247" stroke="#B5A069" stroke-opacity=".4"/>
+<path d="M61 264V123a89 89 0 0 1 178 0v141Z" fill="#E7ECD9"/>
+<path d="M76 261V124a74 74 0 0 1 148 0v137" fill="#EEE9DE" stroke="#375544" stroke-width="2"/>
+<path d="M87 248V124a63 63 0 0 1 126 0v124Z" fill="#F8F7F3" stroke="#B5A069"/>
+<path d="M87 197c37-31 78-35 126-23v74H87Z" fill="#E7ECD9"/>
+<path d="M87 220c39-13 81-8 126 2v26H87Z" fill="#D6DFC9"/>
+<path d="M150 62v187M88 151h124" stroke="#375544" stroke-width="1.5"/>
+<path d="m151 250 62-1 38 83H108Z" fill="#DDBD9B" fill-opacity=".28"/>
+<path d="M64 264h172v8H64Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.4"/>
+<ellipse cx="122" cy="345" rx="57" ry="9" fill="#E7ECD9"/>
+<path d="M85 306h63l-3 10H88Z" fill="#DDBD9B" stroke="#375544" stroke-width="2" stroke-linejoin="round"/>
+<path d="M92 306v-41q0-8 8-8h29q8 0 8 8v41" fill="#DDBD9B" stroke="#375544" stroke-width="2"/>
+<path d="M101 267v31m11-31v31m12-31v31M92 317l-8 29m54-29 8 29" stroke="#375544" stroke-width="2" stroke-linecap="round"/>
+<path d="M167 323h47l-7 30h-33Z" fill="#DDBD9B" stroke="#375544" stroke-width="1.8"/>
+<path d="M163 318h55v8h-55Z" fill="#EEE9DE" stroke="#375544" stroke-width="1.8"/>
+<path d="M190 317v-66m0 44-21-18m21 6 22-24m-22 12-12-22" stroke="#375544" stroke-width="1.5"/>
+<path d="M188 286c-21 1-30-13-27-25 19 1 27 12 27 25Zm5-6c-1-20 9-34 23-35 4 18-6 31-23 35Zm-4-18c-16-4-20-17-15-28 14 4 19 15 15 28Zm4-6c-3-17 3-30 16-36 7 16 0 29-16 36Z" fill="#375544"/>
+<path d="M79 371h142" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="150" cy="388" r="3" fill="#B5A069"/>
+</svg>

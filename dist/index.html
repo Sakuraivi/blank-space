@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F8F7F3">
+  <meta name="description" content="留白：从一件生活小事开始，借一个新的角度，留下一份自己认可的记录。">
+  <meta name="referrer" content="no-referrer">
+  <title>留白 · 给今天留一点空白</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23375544'/%3E%3Cpath d='M19 47V28a13 13 0 0126 0v19M32 16v31M19 32h26' fill='none' stroke='%23F8F7F3' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <button class="brand" data-action="home" aria-label="留白，返回首页">
+      <svg viewBox="0 0 34 40" aria-hidden="true"><path d="M4 35V18a13 13 0 0 1 26 0v17M17 5v30M4 22h26"/></svg>
+      <span>留白<small>生活片刻整理</small></span>
+    </button>
+    <nav aria-label="主导航"><button class="text-button" data-action="saved">我的记录</button><button class="text-button about-button" data-action="about">使用说明</button></nav>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="site-footer"><span>给生活留一点自己的余地。</span><button data-action="about" class="text-button">引导原型 v0.1</button></footer>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-body" id="modal-content"></div></dialog>
+  <noscript>这个体验需要开启 JavaScript。你的输入不会在页面中自动上传。</noscript>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

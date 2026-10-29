@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" fill="none">
+<title>圆桌上的两只杯子与生长的藤蔓</title>
+<rect x="1" y="1" width="298" height="418" rx="25" fill="#F8F7F3" stroke="#B5A069" stroke-width="1.5"/>
+<rect x="13" y="13" width="274" height="394" rx="17" stroke="#B5A069" stroke-opacity=".5"/>
+<path d="M54 257V132a96 96 0 0 1 192 0v125Z" fill="#E7ECD9"/>
+<path d="M72 213v-78a78 78 0 0 1 156 0v78" stroke="#B5A069"/>
+<path d="M38 340q112-27 224 0" stroke="#B5A069" stroke-opacity=".5"/>
+<ellipse cx="150" cy="337" rx="75" ry="10" fill="#E7ECD9"/>
+<path d="M145 250v75l-34 11m44-86v75l34 11" stroke="#375544" stroke-width="5" stroke-linecap="round"/>
+<path d="M56 238v9c0 21 188 21 188 0v-9" fill="#DDBD9B" stroke="#375544" stroke-width="1.8"/>
+<ellipse cx="150" cy="235" rx="94" ry="28" fill="#EEE9DE" stroke="#375544" stroke-width="1.8"/>
+<ellipse cx="112" cy="234" rx="29" ry="8" fill="#DDBD9B" fill-opacity=".6"/>
+<ellipse cx="190" cy="224" rx="29" ry="8" fill="#DDBD9B" fill-opacity=".6"/>
+<path d="M96 203h32v21q0 12-16 12t-16-12Z" fill="#F8F7F3" stroke="#375544" stroke-width="1.7"/>
+<ellipse cx="112" cy="203" rx="16" ry="4" fill="#B5A069" stroke="#375544" stroke-width="1.3"/>
+<path d="M129 207c20-4 20 20 0 17" stroke="#375544" stroke-width="2"/>
+<path d="M172 190h33v23q0 12-16.5 12T172 213Z" fill="#375544" stroke="#375544" stroke-width="1.7"/>
+<ellipse cx="188.5" cy="190" rx="16.5" ry="4" fill="#EEE9DE" stroke="#375544" stroke-width="1.3"/>
+<path d="M206 195c19-3 19 20 0 17" stroke="#375544" stroke-width="2"/>
+<path d="M110 186c-10-12 12-15 3-29m76 16c-9-11 12-14 3-28" stroke="#B5A069" stroke-width="1.3" stroke-linecap="round"/>
+<path d="M44 288c16-33 3-70 12-104s20-39 22-70m174 154c-23-34 1-60-7-89-5-19-20-23-22-46" stroke="#375544" stroke-width="1.6"/>
+<path d="M52 261c-19-4-24-19-17-31 15 3 22 15 17 31Zm3-35c15-3 24-17 20-30-16 0-24 14-20 30Zm2-42c-15-6-18-20-9-29 13 5 17 17 9 29Zm17-44c17-1 26-12 24-24-15-2-25 8-24 24Zm168 102c17-2 25-15 21-27-16 1-24 13-21 27Zm3-40c-18-2-26-15-21-27 17 1 25 13 21 27Zm-13-44c13-5 18-17 12-27-14 3-19 15-12 27Z" fill="#375544"/>
+<path d="M79 371h142" stroke="#B5A069" stroke-width="1.2"/>
+<circle cx="150" cy="388" r="3" fill="#B5A069"/>
+</svg>
