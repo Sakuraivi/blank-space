@@ -27,7 +27,7 @@ const modeFor = id => MODES.find(mode => mode.id === id);
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export function createSession(modeId = 'moment') {
   if (!modeFor(modeId)) throw new RangeError('Unknown mode');
-  return { id: newId(), modeId, createdAt: new Date().toISOString(), story: '', focus: '', cardId: null, cardReflection: '', answers: {}, review: null, confirmed: false };
+  return { id: newId(), modeId, createdAt: new Date().toISOString(), story: '', focus: '', cardId: null, cardReflection: '', answers: {}, turns: [], feedback: [], review: null, confirmed: false };
 }
 export function makeReview(session) {
   const mode = modeFor(session?.modeId);
@@ -39,7 +39,17 @@ export function makeReview(session) {
   add('story', '这件事', session.story, '你写下的故事');
   add('focus', '此刻在意', session.focus, '你写下的关注点');
   add('cardReflection', '卡片联想', session.cardReflection, '你写下的卡片联想');
-  for (const question of mode.questions) add(question.id, question.label, session.answers?.[question.id], `你对「${question.label}」的回答`);
+  const turns = Array.isArray(session.turns) ? session.turns : [];
+  const corrections = Array.isArray(session.feedback) ? session.feedback.filter(f => typeof f.correction === 'string' && f.correction.trim()) : [];
+  if (turns.length || corrections.length) {
+    const dialogue = [...turns.map(t => ({ question: t.question, answer: t.answer })), ...mode.questions.map(q => ({ question: q.prompt, answer: session.answers?.[q.id] }))]
+      .filter(t => typeof t.question === 'string' && typeof t.answer === 'string' && t.answer.trim())
+      .map(t => `问题：${t.question}\n我的回答：${t.answer}`).join('\n\n');
+    add('dialogue', '这次聊到', dialogue, '本次实际问题，以及你写下的回答');
+    add('corrections', '我的补充', corrections.map(f => f.correction).join('\n\n'), '你对 AI 理解的纠正或补充');
+  } else {
+    for (const question of mode.questions) add(question.id, question.label, session.answers?.[question.id], `你对「${question.label}」的回答`);
+  }
   return { title: `${mode.label}的记录`, sections };
 }
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -70,4 +80,62 @@ export function validateSavedRecord(value) {
 
 export function shouldWarnBeforeUnload(session) {
   return Boolean(session && !session.confirmed && (session.story?.trim() || session.review));
+}
+
+export function aiEvidence(session) {
+  const result = {};
+  const add = (id, value) => { if (typeof value === 'string' && value.trim()) result[id] = value; };
+  for (const field of ['story', 'focus', 'cardReflection']) add(`u_${field}`, session[field]);
+  for (const q of modeFor(session.modeId)?.questions ?? []) add(`u_${q.id}`, session.answers?.[q.id]);
+  for (const turn of session.turns ?? []) add(`u_turn_${turn.id}`, turn.answer);
+  (session.feedback ?? []).forEach((item, i) => add(`u_feedback_${i + 1}`, item.correction));
+  return result;
+}
+
+// A second display boundary; the server owns authoritative validation and limits.
+export function validateUiCandidate(candidate, session, { stage, allowNextStep = false } = {}) {
+  const limits = { reflection: 320, hypothesis: 200, question: 120, nextStep: 160 };
+  if (!isObject(candidate) || Object.keys(candidate).length !== 4 || Object.keys(limits).some(k => !Object.hasOwn(candidate, k))) return null;
+  const evidence = aiEvidence(session);
+  for (const [key, max] of Object.entries(limits)) {
+    const claim = candidate[key];
+    if (claim === null) continue;
+    if (!isObject(claim) || Object.keys(claim).length !== 2 || !Object.hasOwn(claim, 'text') || !Object.hasOwn(claim, 'evidenceIds') || !stringWithin(claim.text, max) || !claim.text.trim() || !Array.isArray(claim.evidenceIds) || claim.evidenceIds.length < 1 || claim.evidenceIds.length > 6 || new Set(claim.evidenceIds).size !== claim.evidenceIds.length || claim.evidenceIds.some(id => !Object.hasOwn(evidence, id))) return null;
+  }
+  if (!['reflect', 'review'].includes(stage)) return null;
+  if (candidate.question && (stage !== 'reflect' || (session.turns?.length ?? 0) >= 3)) return null;
+  if (candidate.nextStep && (stage !== 'review' || !allowNextStep)) return null;
+  return structuredClone(candidate);
+}
+
+export function makeAiReview(session, candidate) {
+  const sections = [];
+  const add = (key, label) => {
+    const claim = candidate[key];
+    if (claim) sections.push({ id: `ai_${key}`, label, text: claim.text, source: 'AI 根据本次表达整理，由你修改和确认' });
+  };
+  add('reflection', '根据我的表达整理');
+  if (!(session.feedback ?? []).some(f => f.verdict === 'rejected' && f.hypothesisText === candidate.hypothesis?.text)) add('hypothesis', '一个可能的理解（还不确定）');
+  add('nextStep', '如果我愿意，可以尝试');
+  return sections.length ? { title: `${modeFor(session.modeId).label}的记录`, sections } : makeReview(session);
+}
+
+export function confirmedRecord(session) {
+  if (!session?.confirmed) return null;
+  return validateSavedRecord({ id: session.id, modeId: session.modeId, createdAt: session.createdAt,
+    story: '', focus: '', cardId: session.cardId, cardReflection: '', answers: {},
+    review: session.review, confirmed: true });
+}
+
+export function aiRequestSession(session) {
+  return { id: session.id, modeId: session.modeId, createdAt: session.createdAt,
+    story: session.story, focus: session.focus, cardId: session.cardId, cardReflection: session.cardReflection,
+    answers: Object.fromEntries((modeFor(session.modeId)?.questions ?? []).map(q => [q.id, session.answers?.[q.id] ?? ''])),
+    turns: (session.turns ?? []).map(t => ({ id: t.id, question: t.question, answer: t.answer })),
+    feedback: (session.feedback ?? []).map(f => ({ hypothesisText: f.hypothesisText, verdict: f.verdict, correction: f.correction })),
+    review: null, confirmed: false };
+}
+
+export function acceptsAiReply(reply, expected, current) {
+  return Boolean(current.active && current.sessionId === expected.sessionId && current.requestId === expected.requestId && current.revision === expected.revision && reply?.requestId === expected.requestId && reply?.revision === expected.revision);
 }

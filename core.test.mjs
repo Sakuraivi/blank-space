@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MODES, CARDS, createSession, makeReview, validateSavedRecord } from './dist/core.mjs';
+import { MODES, CARDS, createSession, makeReview, validateSavedRecord } from './public/core.mjs';
 test('three modes and six cards have stable usable interfaces', () => {
   assert.deepEqual(MODES.map(m => m.id), ['moment', 'concern', 'choice']);
   assert.deepEqual(CARDS.map(c => c.id), ['pause', 'glow', 'connect', 'distance', 'turn', 'step']);
@@ -41,7 +41,7 @@ test('saved record accepts edited review, strips unknown fields and rejects untr
 });
 
 test('warns before leaving unfinished new and edited saved sessions', async () => {
-  const { shouldWarnBeforeUnload } = await import('./dist/core.mjs');
+  const { shouldWarnBeforeUnload } = await import('./public/core.mjs');
   const session = createSession();
   assert.equal(shouldWarnBeforeUnload(null), false);
   assert.equal(shouldWarnBeforeUnload(session), false);
