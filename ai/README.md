@@ -1,6 +1,6 @@
 # 留白 AI 接入契约 v0.2
 
-更新：2026-10-30。当前已实现 DeepSeek 适配器、同源服务端、D1 额度账本、管理员 Key 页面和可选 AI 对话分支；全量自动化 78/78 通过。真实 Key 尚未填写，真实模型能力尚未验证，本次版本尚未确认发布。
+更新：2026-10-30。版本 2 已发布，部署状态 `succeeded`；DeepSeek 适配器、同源服务端、D1 额度账本、管理员 Key 页面和可选 AI 对话分支已实现，全量自动化 78/78 通过。D1 两张业务表已通过平台工具验证。线上验收尚未全部完成；真实 Key 未填写，真实模型能力和账单未验证。
 
 ## 已确定的产品与费用边界
 
@@ -78,7 +78,7 @@ feedback: [{ hypothesisText: '模型曾给出的理解', verdict: 'rejected', co
 
 ## 凭据与身份
 
-管理员页面 `/admin.html` 通过 `/api/admin/status`、`/api/admin/config` 查询、设置、替换或删除 Key。仅 Sites 已认证的管理员可操作。首次用托管配置 `LIUBAI_BOOTSTRAP_EMAIL` 匹配站点所有者，之后按站点范围的稳定用户 ID 授权。
+管理员页面 `/admin.html` 通过 `/api/admin/status`、`/api/admin/config` 查询、设置、替换或删除 Key。当前 ChatGPT 登录复用 Sites 的管理员身份源，并非 DeepSeek 的要求；体验者不需此登录。首次用托管配置 `LIUBAI_BOOTSTRAP_EMAIL` 匹配站点所有者，之后按站点范围的稳定用户 ID 授权。线上已看到未授权提示，尚未验证所有者正向登录、首次绑定及配置操作。邮箱 OTP 等替代认证只是未来建议，本轮未实施。
 
 `LIUBAI_SECRET_KEY` 是服务端的 32 字节 Base64 主密钥。API Key 使用随机 IV 的 AES-GCM 加密后存入 D1，后台不回传明文；体验码只存摘要。匿名访客不能读写管理配置。Key、主密钥和体验码不进入前端资源、Git、localStorage、提示词或错误响应。保存设置不会发起模型调用，不等于连接成功。
 
@@ -108,7 +108,13 @@ npm run build
 | DeepSeek 适配、D1 账本、管理页与同源 API | completed | 代码及路由/适配器/账本测试通过；尚无真实 Key |
 | 前端 AI 分支、纠正和整理 | completed | 完整 mock 流程、失败原话回退及取消后迟到响应不覆盖均通过浏览器验收 |
 | 最终构建 | completed | 构建命令退出码 0 |
-| 默认禁用的生产发布验证 | not started | 生产部署、状态接口和真实管理员身份待确认 |
+| 默认未配置 Key 的版本发布 | completed | 版本 2，部署 succeeded；D1 表通过平台工具验证 |
+| 线上验收 | in progress | 自定义域名新版首页及 AI 禁用状态已验；真实管理员正向登录、生产伪造身份头及完整交互仍待确认 |
+| 自定义域名 | completed | blank.sakura.observer 的 status/provider_status/ssl_status 均 active，浏览器 HTTPS 首页正常，无登录拦截 |
 | 真实模型小样本与费用核验 | not started | 用户填 Key 后，在同一 18 次限额内执行 |
+
+已发布版本 2 对应源提交 `4cc2a75db7135d48b8b1d53db53724330d2607a3`、部署 `appgdep_6ae38543a7488191bc82d1c39c4df0e0`，平台状态为 `succeeded`。`pilot_config` 和 `pilot_requests` 的存在已通过平台工具验证。线上管理页显示未授权提示，不能据此推定站点所有者登录和配置成功；Node 遇到的 Cloudflare 403 也不是应用授权返回的证据。
+
+自定义域名 `blank.sakura.observer` 已完成 Sites 绑定及 1 CNAME、2 TXT 配置，DNS 解析确认。最新刷新显示 status、provider_status、ssl_status 均 active，last_error 为 null；浏览器 HTTPS 首页已显示新版留白，无 ChatGPT 登录拦截，AI 暂未开放且按钮禁用。早期 pending/404 已解除；这只证明域名证书和首页路由，不替代管理员正向授权、生产伪造身份头或真实模型验证。
 
 首批真实样例至少包括：开心片刻不强找问题、信息不足可空、第三方动机保持不确定、用户纠正后撤回、卡牌只作角度、停止/跳过、注入文本与迫近危险表达。分别记录关键错误、忠实性、自然度、追问价值、延迟和用量；不合并成单一满意度。生产发布和真实模型验收是不同步骤，不能以部署成功代替质量验证。

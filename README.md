@@ -3,9 +3,20 @@
 从一件生活小事开始，经关注点、可选生活图像卡和最多三个问题，留下一份自己修改并确认的记录。默认保留本地记录；可选 AI 试用由站点管理员统一承担 DeepSeek API 费用，朋友使用体验码进入。
 
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
-- [现有站点](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
+- [留白体验入口](https://blank.sakura.observer)
+- [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
-2026-10-30 状态：AI 接入代码、管理页、D1 账本和自动化测试已完成；最终构建与本地浏览器验收通过，生产发布仍待完成。真实 DeepSeek Key 尚未填写，尚无真实模型调用或质量验证。现有站点地址不代表本次 AI 版本已经发布。
+2026-10-30 状态：版本 2 已发布，Sites 部署结果为 `succeeded`；D1 的 `pilot_config`、`pilot_requests` 已通过平台工具确认存在。最终构建、本地浏览器验收与 78 项自动化通过，但线上完整验收仍未完成。真实 DeepSeek Key 尚未填写，没有真实模型调用或质量验证。
+
+## 发布与域名进度
+
+- 已发布应用源提交：`4cc2a75db7135d48b8b1d53db53724330d2607a3`。
+- 部署：`appgdep_6ae38543a7488191bc82d1c39c4df0e0`，版本 2，状态 `succeeded`。
+- 自定义域名 `blank.sakura.observer` 已在 Sites 绑定，已创建 1 条 CNAME 和 2 条 TXT，DNS 解析已确认。
+- 最新 Sites 检查的 `status`、`provider_status`、`ssl_status` 均为 `active`，`last_error` 为 null。
+- 浏览器访问 `https://blank.sakura.observer` 已显示新版留白首页，无 ChatGPT 登录拦截；AI 显示“暂未开放”，按钮禁用，符合真实 Key 未配置的状态。
+
+生产管理页已能显示未授权提示；站点所有者正向登录与生产伪造身份头测试仍未验证。Node 公网请求遇到的 Cloudflare 403 仅是边缘访问结果，不能代替应用授权验收。完整证据与待办见 [QA.md](QA.md)。
 
 ## 两种体验与数据边界
 
@@ -34,7 +45,9 @@
 
 ## 管理员配置
 
-管理页源文件为 `public/admin.html`，部署后路径为 `/admin.html`。页面依赖 Sites 提供的登录身份，仅已授权管理员可读写配置；体验者使用本地流程和体验码，不需要登录 ChatGPT。
+管理页源文件为 `public/admin.html`，线上路径为 `/admin.html`。管理员当前使用 ChatGPT 登录，是复用 Sites 托管平台的身份源，用于保护模型 Key 和测试额度；这不是 DeepSeek API 的要求。体验者使用本地流程和体验码，不需要登录 ChatGPT。
+
+线上管理员页面已显示未授权提示，但站点所有者登录、首次绑定和配置写入尚未完成验证。未来可考虑邮箱 OTP 等独立身份方案；目前仅为建议，尚未请求或实施认证改造。
 
 后台需先具备 D1 `DB` 绑定和托管秘密配置：
 
@@ -83,6 +96,6 @@ python -m http.server 4173 --bind 127.0.0.1 --directory public
 
 ## 下一步验收
 
-本地浏览器验收与最终构建已经通过。下一步完成默认未配置 Key 的生产发布检查，再由管理员填写真实 Key。用少量虚构生活材料做真实连接与输出质量检查，调用计入同一 18 次额度。未经验证不宣称模型效果合格，也不把礼貌好评当作准确性证据。
+本地浏览器验收与最终构建已经通过，版本 2 已部署，自定义域名的证书和首页 HTTPS 路由已验。下一步补齐站点所有者管理授权、生产伪造身份头和完整线上交互验收，再由管理员填写真实 Key。用少量虚构生活材料做真实连接与输出质量检查，调用计入同一 18 次额度。未经验证不宣称模型效果合格，也不把礼貌好评当作准确性证据。
 
 之后邀请 3–5 位愿意体验的成年人，允许私下操作，只提交他们愿意提供的流程反馈。观察纠正是否有效、总结是否忠实、卡片是否有帮助及再次使用意愿。完整机制见 [AI 接入契约](ai/README.md)。
