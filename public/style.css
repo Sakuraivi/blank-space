@@ -78,17 +78,50 @@ button svg { flex-shrink: 0; }
 .topic-concern { background: #eadbe5; }
 .topic-choice { background: #f0dbd3; }
 .topic:hover { border-color: #af8c9e; }
-.topic[aria-pressed=true] { border-color: var(--berry); box-shadow: inset 0 0 0 .5px var(--berry); }
 .topic-icon { display: grid; place-items: center; width: 40px; height: 40px; color: #80526e; flex-shrink: 0; }
 .topic-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .topic-copy { min-width: 0; }
 .topic strong { display: block; font-size: 14px; font-weight: 650; }
 .topic small { display: block; font-size: 11px; color: #705864; margin-top: 3px; }
-.topic-check { margin-left: auto; width: 21px; height: 21px; display: grid; place-items: center; border: 1px solid #bfa7b4; border-radius: 50%; font-size: 12px; line-height: 1; flex-shrink: 0; }
-.topic[aria-pressed=true] .topic-check { background: var(--berry); color: var(--white); border-color: var(--berry); }
+.topic-entry { min-height: 104px; }
+.topic-entry .topic-copy { flex: 1; }
+.topic-entry strong { font-size: 15px; }
+.topic-entry small { font-size: 12px; line-height: 1.75; }
+.topic-entry-label { margin-left: auto; font-size: 11px; color: var(--berry); white-space: nowrap; flex-shrink: 0; }
 .home-note { display: flex; gap: 10px; align-items: flex-start; max-width: 760px; margin: 20px auto 0; color: var(--muted); }
 .home-note > svg { width: 17px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.4; flex-shrink: 0; margin-top: 1px; }
 .prototype-note { font-size: 11px; line-height: 1.85; }
+/* The three topic cards carry the start action; the room sets the mood. */
+.entry-hero { min-height: 310px; grid-template-columns: 1fr 1fr; }
+.entry-hero .hero-copy { padding: 27px 0 28px 40px; }
+.entry-hero .hero-welcome { margin-bottom: 11px; }
+.entry-hero h1 { font-size: clamp(35px, 3.5vw, 47px); line-height: 1.35; }
+.entry-hero .hero-intro { margin: 14px 0 12px; }
+.entry-hero .hero-art, .entry-hero .hero-art img { height: 310px; }
+.entry-hero .hero-art figcaption { bottom: 13px; right: 33px; }
+.entry-hero .hero-meta { margin-top: 8px; }
+.preview-link { min-height: 42px; font-size: 13px; color: var(--berry); text-decoration: underline; text-underline-offset: 5px; }
+.preview-link:hover { color: var(--berry-dark); }
+/* Method selection belongs to the first expression, before its setup locks. */
+.story-method { min-width: 0; margin: 0 0 24px; padding: 15px 17px; border: 1px solid #e5d5d5; border-radius: 15px; background: #fbf3ee; }
+.story-method > legend, .story-method-options > legend { padding: 0; margin-bottom: 9px; font-size: 13px; font-weight: 550; }
+.story-method-options { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 0; padding: 0; border: 0; }
+.story-method-option { min-width: 0; min-height: 45px; padding: 10px 13px; border: 1px solid #d9c2cf; border-radius: 11px; background: #fffdfa; text-align: left; font-size: 13px; line-height: 1.7; }
+.story-method-option strong { display: block; font-weight: 550; }
+.story-method-option small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.story-method-option[aria-pressed=true] { background: #eee1eb; border-color: var(--berry); color: var(--berry); box-shadow: inset 0 0 0 .5px var(--berry); }
+.story-method-option:hover:not(:disabled) { border-color: var(--berry); }
+.story-method-note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.85; overflow-wrap: anywhere; }
+.story-method .text-button { font-size: 12px; }
+/* A read-only finished letter, visually related to the user's keepsake. */
+.preview-letter { background: var(--white); border: 1px solid #dec8c6; border-radius: 3px 3px 27px 3px; padding: 23px 25px; margin: 19px 0 22px; box-shadow: 4px 5px 0 #ead8d9; }
+.preview-letter-meta, .preview-letter .preview-letter-meta { color: var(--muted); font-size: 11px; line-height: 1.8; padding-bottom: 13px; margin: 0 0 17px; border-bottom: 1px solid var(--line); }
+.preview-letter h2, .preview-letter > h3 { color: var(--ink); font-size: 24px; line-height: 1.55; margin: 0 0 20px; }
+.preview-letter-section { margin-top: 18px; }
+.preview-letter-section h3, .preview-letter-section h4, .preview-letter-next h3, .preview-letter-next h4 { color: var(--muted); font-size: 12px; font-weight: 550; line-height: 1.8; margin: 0 0 6px; }
+.preview-letter-section p { color: var(--ink); font-size: 14px; line-height: 1.95; margin: 0; overflow-wrap: anywhere; }
+.preview-letter-next { padding-top: 16px; margin-top: 22px; border-top: 1px dashed var(--line); }
+.preview-letter-next p { color: #705864; font-size: 13px; line-height: 1.9; margin: 0; }
 /* AI remains a choice in the same calm visual language. */
 .ai-entry { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 24px; margin-top: 18px; border-radius: 18px; background: #fff9f0; border: 1px solid #e4cec7; }
 .ai-entry > div { min-width: 0; }
@@ -245,7 +278,7 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
   .hero .primary { padding-left: 18px; padding-right: 18px; }
   .topic small { font-size: 10px; }
   .topic strong { font-size: 13px; }
-  .topic-check { display: none; }
+  .topic-entry-label { display: none; }
   .workspace { margin-left: 32px; margin-right: 32px; }
   .workspace-body { grid-template-columns: 220px minmax(0, 1fr); gap: 20px; }
   .aside { padding: 24px 18px; }
@@ -286,7 +319,27 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
   .topic-icon { width: 34px; height: 34px; }
   .topic strong { font-size: 14px; }
   .topic small { font-size: 11px; margin-top: 1px; }
-  .topic-check { display: grid; }
+  .topic-entry { min-height: 78px; }
+  .topic-entry strong { font-size: 14px; }
+  .topic-entry small { font-size: 11px; }
+  .topic-entry-label { display: block; }
+  .entry-hero { display: block; min-height: 0; }
+  .entry-hero .hero-copy { padding: 23px 23px 22px; }
+  .entry-hero .hero-welcome { margin-bottom: 8px; }
+  .entry-hero h1 { max-width: 200px; font-size: 32px; line-height: 1.4; }
+  .entry-hero .hero-intro { max-width: none; margin: 14px 0 8px; font-size: 13px; }
+  .entry-hero .hero-art { position: absolute; top: 15px; right: 4px; width: 126px; height: 143px; margin: 0; pointer-events: none; }
+  .entry-hero .hero-art img { height: 143px; }
+  .entry-hero .hero-art figcaption { display: none; }
+  .entry-hero .hero-meta { margin-top: 4px; }
+  .preview-link { font-size: 12px; }
+  .story-method { margin-bottom: 20px; padding: 13px; }
+  .story-method-option { padding: 9px 11px; font-size: 12px; }
+  .story-method-note { font-size: 11px; }
+  .preview-letter { padding: 20px 18px; margin: 15px 0 20px; }
+  .preview-letter h2, .preview-letter > h3 { font-size: 22px; }
+  .preview-letter-section p { font-size: 13px; }
+  .preview-letter-next p { font-size: 12px; }
   .ai-entry { flex-direction: column; align-items: stretch; gap: 13px; padding: 18px 20px; margin-top: 16px; }
   .ai-entry p { font-size: 12px; }
   .ai-entry .secondary, .ai-entry .primary { align-self: flex-start; min-height: 45px; font-size: 13px; }
@@ -367,6 +420,9 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
   .hero-art { height: 215px; }
   .hero-art img { height: 218px; }
   .hero-art figcaption { font-size: 9px; }
+  .entry-hero .hero-copy { padding-left: 20px; padding-right: 20px; }
+  .entry-hero h1 { max-width: 181px; font-size: 30px; }
+  .entry-hero .hero-art { right: 1px; width: 106px; }
   .panel { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
