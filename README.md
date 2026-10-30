@@ -6,6 +6,14 @@
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
 - [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
+## 简明设置与来信阅读：版本8待发布
+
+2026-10-31：访客设置与启用同意页不再展示共享次数、预算、预留计算、token及深度思考等内部信息，保留服务可用状态、付款方、发送对象和个人Key的清除规则。后台预算、来源隔离和同意门禁不变。
+
+来信预览修复弹窗通用样式覆盖标题和正文的问题。预览与实际完成页共用纸张排版，正文在桌面和390像素视口均为16px、1.95倍行高；示例经历与感受连成自然段，用一句想记住的话作为阅读重点。真实成品保留用户确认的内容与标签，PNG导出保持原有独立排版。
+
+151项自动化、语法和diff检查通过；默认可用/未开放/个人GLM配置与同意、本地记录确认完成页、桌面与390px浏览器检查通过。使用假Key且模型账本为空，无真实API调用。实现与验收 `completed`，发布 `in progress`；正式结果见 [QA.md](QA.md)。
+
 ## 主题直接入口：版本7已发布
 
 更新：2026-10-31（Asia/Shanghai）。本节为当前已发布的入口优化；下方版本5及更早记录保留各自发布时的事实。本次契约见 [direct-theme-entry](openspec/changes/direct-theme-entry/design.md)。

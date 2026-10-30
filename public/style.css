@@ -113,15 +113,21 @@ button svg { flex-shrink: 0; }
 .story-method-option:hover:not(:disabled) { border-color: var(--berry); }
 .story-method-note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.85; overflow-wrap: anywhere; }
 .story-method .text-button { font-size: 12px; }
-/* A read-only finished letter, visually related to the user's keepsake. */
-.preview-letter { background: var(--white); border: 1px solid #dec8c6; border-radius: 3px 3px 27px 3px; padding: 23px 25px; margin: 19px 0 22px; box-shadow: 4px 5px 0 #ead8d9; }
-.preview-letter-meta, .preview-letter .preview-letter-meta { color: var(--muted); font-size: 11px; line-height: 1.8; padding-bottom: 13px; margin: 0 0 17px; border-bottom: 1px solid var(--line); }
-.preview-letter h2, .preview-letter > h3 { color: var(--ink); font-size: 24px; line-height: 1.55; margin: 0 0 20px; }
-.preview-letter-section { margin-top: 18px; }
-.preview-letter-section h3, .preview-letter-section h4, .preview-letter-next h3, .preview-letter-next h4 { color: var(--muted); font-size: 12px; font-weight: 550; line-height: 1.8; margin: 0 0 6px; }
-.preview-letter-section p { color: var(--ink); font-size: 14px; line-height: 1.95; margin: 0; overflow-wrap: anywhere; }
-.preview-letter-next { padding-top: 16px; margin-top: 22px; border-top: 1px dashed var(--line); }
-.preview-letter-next p { color: #705864; font-size: 13px; line-height: 1.9; margin: 0; }
+/* The preview and confirmed record share a quiet, readable sheet of paper. */
+.letter-paper { color: #493942; background: #fffdf8; border: 1px solid #e6d8ce; border-radius: 4px 4px 24px 4px; padding: 34px 36px; box-shadow: 3px 4px 0 #eee0d8; }
+.preview-letter { margin: 24px 0 8px; }
+.letter-paper .letter-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin: 0 0 22px; color: #796771; font-size: 12px; line-height: 1.7; }
+.letter-paper .letter-title { margin: 0 0 25px; font-size: 27px; line-height: 1.5; font-weight: 650; color: var(--berry-dark); overflow-wrap: anywhere; }
+.letter-paper .letter-text { max-width: 34em; margin: 0; font-size: 16px; line-height: 1.95; font-weight: 400; color: #493942; white-space: pre-wrap; overflow-wrap: anywhere; }
+.letter-story .letter-text + .letter-text { margin-top: 18px; }
+.letter-paper .letter-label { margin: 0 0 9px; font-size: 13px; line-height: 1.75; font-weight: 500; color: #796771; }
+.letter-section { margin-top: 26px; }
+.letter-remember { margin-top: 28px; padding-left: 17px; border-left: 2px solid #d7b6b1; }
+.letter-remember .letter-text { color: var(--berry-dark); font-weight: 550; }
+.letter-next { margin-top: 28px; }
+.letter-paper .letter-signoff { margin-top: 32px; color: #796771; font-size: 13px; line-height: 1.8; text-align: right; }
+dialog:has(.preview-letter) { width: min(700px, calc(100vw - 24px)); }
+.modal-body > .preview-intro { margin: 0; font-size: 13px; }
 /* AI remains a choice in the same calm visual language. */
 .ai-entry { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 24px; margin-top: 18px; border-radius: 18px; background: #fff9f0; border: 1px solid #e4cec7; }
 .ai-entry > div { min-width: 0; }
@@ -219,14 +225,8 @@ button svg { flex-shrink: 0; }
 .done-heading { text-align: center; margin-bottom: 26px; }
 .done-heading h1 { font-size: 32px; }
 .done-heading p { font-size: 13px; color: var(--muted); margin-top: 9px; }
-.keepsake { background: var(--white); border: 1px solid #dec8c6; border-radius: 3px 3px 36px 3px; padding: 33px 41px; position: relative; box-shadow: 7px 8px 0 #e6cfd0; }
+.keepsake { position: relative; padding: 36px 42px; }
 .keepsake::before { content: ""; position: absolute; width: 65px; height: 20px; top: -9px; left: calc(50% - 32px); transform: rotate(-4deg); background: #d8b9cbd9; }
-.keepsake-head { display: flex; justify-content: space-between; gap: 15px; color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 21px; }
-.keepsake h2 { font-size: 26px; line-height: 1.6; overflow-wrap: anywhere; }
-.keepsake-section { margin-top: 24px; }
-.keepsake-section h3 { font-size: 12px; color: #795b6c; margin-bottom: 7px; font-weight: 500; }
-.keepsake-section p { font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 2; }
-.keepsake-bottom { font-size: 12px; color: var(--muted); margin-top: 30px; padding-top: 17px; border-top: 1px dashed var(--line); }
 .done-actions { justify-content: center; margin-top: 31px; }
 .done-secondary { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
 /* Dialogs and records are usable at keyboard and phone sizes. */
@@ -336,10 +336,13 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
   .story-method { margin-bottom: 20px; padding: 13px; }
   .story-method-option { padding: 9px 11px; font-size: 12px; }
   .story-method-note { font-size: 11px; }
-  .preview-letter { padding: 20px 18px; margin: 15px 0 20px; }
-  .preview-letter h2, .preview-letter > h3 { font-size: 22px; }
-  .preview-letter-section p { font-size: 13px; }
-  .preview-letter-next p { font-size: 12px; }
+  .letter-paper { padding: 26px 22px; }
+  .preview-letter { margin: 20px 0 6px; }
+  .letter-paper .letter-title { font-size: 24px; margin-bottom: 22px; }
+  .letter-paper .letter-meta { font-size: 11px; margin-bottom: 20px; }
+  .letter-remember { padding-left: 13px; margin-top: 24px; }
+  .letter-next { margin-top: 24px; }
+  .modal-body:has(> .preview-letter) { padding: 22px 16px; }
   .ai-entry { flex-direction: column; align-items: stretch; gap: 13px; padding: 18px 20px; margin-top: 16px; }
   .ai-entry p { font-size: 12px; }
   .ai-entry .secondary, .ai-entry .primary { align-self: flex-start; min-height: 45px; font-size: 13px; }
@@ -394,10 +397,7 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
   .done-heading { margin-bottom: 26px; }
   .done-heading h1 { font-size: 26px; }
   .done-heading p { font-size: 12px; }
-  .keepsake { padding: 27px 23px; }
-  .keepsake-head { font-size: 10px; gap: 10px; }
-  .keepsake h2 { font-size: 23px; }
-  .keepsake-section p { font-size: 14px; }
+  .keepsake { padding: 29px 23px; }
   .done-actions .primary { width: 100%; }
   .done-actions .secondary { flex: 1; }
   .done-secondary { gap: 14px; }
