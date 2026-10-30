@@ -8,6 +8,13 @@
       "when": 1793294483549,
       "tag": "0000_glamorous_jackal",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793373123503,
+      "tag": "0001_rapid_shocker",
+      "breakpoints": true
     }
   ]
 }

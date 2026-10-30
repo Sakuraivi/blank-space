@@ -15,3 +15,12 @@ test('operational result logs expose only bounded metadata, never supplied prose
 test('diagnostic sink failure never replaces an otherwise usable result', () => {
   assert.doesNotThrow(() => recordAiResult({ status: 'candidate', stage: 'review' }, () => { throw Error('sink unavailable'); }));
 });
+
+test('route metadata is logged only for an exact known provider and model', () => {
+  const logs = [];
+  const write = line => logs.push(JSON.parse(line));
+  recordAiResult({ status: 'candidate', providerId: 'kimi', modelId: 'kimi-k3.1-pro', sourceMode: 'personal' }, write);
+  assert.deepEqual(logs[0].route, { providerId: 'kimi', modelId: 'kimi-k3.1-pro', sourceMode: 'personal' });
+  recordAiResult({ status: 'fallback', providerId: 'secret-not-a-provider', modelId: 'secret-not-a-model', sourceMode: 'personal' }, write);
+  assert.equal(logs[1].route, undefined);
+});

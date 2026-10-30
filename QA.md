@@ -199,3 +199,48 @@
 
 
 v4收尾状态：主代理匿名读取生产 `/api/ai/status`，确认 `remainingCalls:16`、`defaultAvailable:false`、`enabled:true`。错误界面截图已保存为工作区 `outputs/liubai-ai-smoke.jpg`，不含Key字段。没有第三次调用；生成语义、纠正、真实usage及实际费用仍未验证。
+
+## 多服务商实现（待发布）
+
+更新：2026-10-30（Asia/Shanghai）。本节记录新源码和离线验收，保留前述v3/v4生产事实。最终构建已通过，生产发布尚未发生，不将本节视为已上线；既有生产两次失败记录不重置。
+
+### 实现与自动化
+
+- 四家官方目录和模型：DeepSeek `deepseek-flash`、Kimi `kimi-k3.1-pro`、GLM `glm-4.7-flash`、OpenAI `gpt-6-luna`。固定端点、模型参数与费用依据见 `ai/providers.mjs`、`ai/provider-sources.md`。
+- 个人来源自费，不占共享次数/金额；默认来源保留18次及¥0.90保守预留上限、另留¥0.10。两者仍受会话5次、并发2次、单次请求边界与异常用量停用约束。
+- 新协议为`multi-v1` / `multi-provider-v1`；缺个人Key、未知模型、默认路由变化或错路由候选均不静默换Key或服务商。场景规则每轮仍由服务端注入，同一候选验证适用于四家。
+- 追加迁移`drizzle/0001_rapid_shocker.sql`已通过旧账本迁移测试：两条旧行的兼容迁移值为default，每行50000微元预留，不释放历史资格或费用预留；此字段不证明旧请求实际使用默认Key。
+- 最新全量 `node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs ai/*.test.mjs server/*.test.mjs` **143/143通过**，此后代码未改变。OpenSpec严格校验通过，最终 `build-site` 构建退出码0。
+- 本地D1最初尝试`migrations apply`因starter未配置迁移目录失败；随后按starter方式用Wrangler的文件执行命令运行`drizzle/0001_rapid_shocker.sql`，五条ALTER成功。没有修改旧迁移或历史账本；此为本地证据，不能替代生产迁移验收。
+- 构建产物Worker在本地4173的`/api/ai/status`返回200 JSON、`configVersion:multi-v1`、四家目录、`defaultAvailable:false`。
+- 测试使用假凭据、假供应商和测试数据库；此轮没有真实模型请求或新增真实API费用。生产既有失败的真实费用仍未知。
+
+### 本地浏览器离线证据
+
+主代理提供的fixture安全元数据位于工作区 `work/liubai/multi-browser-evidence.json`，不包含Key、原文或模型正文。
+
+| 场景 | 已见结果 |
+| --- | --- |
+| 四家候选 | DeepSeek默认来源、Kimi/GLM/OpenAI个人来源均到模拟候选 |
+| GLM个人认证失败 | 默认配置存在时模拟401，显示当前服务商错误、保留原话，没有换默认Key |
+| OpenAI纠正与整理 | 纠正理解后进入可编辑整理，用户可修改并确认 |
+| 活动会话设置 | 来源、服务商、模型和Key锁定 |
+| 编辑与取消 | 切provider清空新Key输入；取消不改已应用配置；已有Key不回填DOM |
+| fixture调用归属 | 总6次：personal5/default1；personal预留均为0 |
+| fixture共享余量 | 18→17次，¥0.90→¥0.85；不是生产余量或实际扣费 |
+| 390像素布局 | `document.scrollWidth=375 <= 390`，无页面横向溢出；截图`outputs/liubai-multi-mobile.jpg` |
+| 离页再返回 | 到无默认服务页面后再后退，API Key为空、当前选择未配置；未采集`event.persisted`，不宣称实际BFcache恢复事件已触发 |
+
+### 独立慢响应取消与迟到候选
+
+本case运行在独立4181 fixture和独立内存账本，仅1次personal模拟调用，`reserved_micros=0`；不能混入4180的六次fixture计数。
+
+- 模拟候选延迟20秒，用户先取消并转为本地整理，随后改写整理文本。
+- 后台最终记为`finished/candidate`后，页面仍保留用户原编辑文本；迟到候选未覆盖它。
+- 此case为假供应商响应，没有真实模型调用或费用；后台候选完成不等于前端有权采用它。
+
+### 当前剩余步骤
+
+- `completed`：四家协议适配、来源和费用门禁、旧账本迁移测试与本地执行、143项自动化、严格校验、上述桌面/390像素/离页返回/迟到响应离线检查及最终构建。
+- `in progress`：既有站点生产迁移与部署；未预写发布ID或成功状态。实际BFcache恢复事件未单独取得证据。
+- `not started`：四家真实账户可用性、真实语义及纠正质量、真实token用量和账单。需使用可用的对应官方账户，Key仍由用户在页面自行输入，不在聊天提供。

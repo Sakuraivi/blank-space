@@ -6,6 +6,47 @@
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
 - [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
+## 多服务商实现（待发布）
+
+当前源码已实现 DeepSeek、Kimi、GLM 和 OpenAI。下方版本3/4按发布时事实保留；本节描述尚待发布的新实现，不能据此认定正式站点已更新。变更契约见 [multi-provider-ai](openspec/changes/multi-provider-ai/design.md)。
+
+| 服务商 | 当前受控试用模型 | Key 产品与费用提示 |
+| --- | --- | --- |
+| DeepSeek | `deepseek-flash` | DeepSeek 开放平台 API Key |
+| Kimi | `kimi-k3.1-pro` | 中国站按量 API Key；会员、Kimi Code、国际站 Key 不适用；思考强度为 low，最多2000 completion tokens（含思考），费用较高 |
+| GLM（智谱） | `glm-4.7-flash` | 中国站标准 API Key；Coding Plan、Z.ai 国际站 Key 不适用 |
+| OpenAI | `gpt-6-luna` | OpenAI API 项目 Key；ChatGPT/Codex 登录令牌不适用，API 计费与订阅分开 |
+
+模型和端点由服务端白名单控制，不提供任意 URL 或模型名输入。协议、模型与价格核验依据见 [provider-sources.md](ai/provider-sources.md)。每次请求仍注入留白统一场景规则，并验证同一候选结构；适配接入不代表真实模型质量已通过。
+
+- 公开设置明确选择「组织者默认服务」或「使用个人 API Key」。个人来源必须完整绑定服务商、模型、Key；输入栏统一名为「API Key」。缺 Key、错 Key、权限或余额问题均不切换服务商或付费方。
+- **默认服务受共享18次及人民币0.90元保守预留上限约束，另留0.10元余量；个人 Key 自费，不占共享次数或金额。** 两种来源仍受每次体验最多5次、全局并发2次和模型单次请求边界限制。
+- 默认服务按模型保守预留：DeepSeek、GLM、OpenAI每次至少¥0.05，Kimi每次¥0.40；剩余共享次数不保证都足以调用任意模型。预留不是实际扣费，也不是供应商账单硬上限。失败、超时和取消不自动退款或重试。
+- 设置暂存编辑，取消不改已应用配置；切换服务商清空新 Key 输入，不把另一家的 Key 带过去。已保存的 Key 不回填到 DOM，只留当前页面内存。进行中的体验冻结配置，离页同时清除设置和会话凭据，后退缓存不恢复它或切默认。
+- 同意说明显示真实服务商、模型、来源与付费方；正文仍只包括本次表达。协议升级为 `configVersion: multi-v1`、`consentVersion: multi-provider-v1`，旧页面须刷新后重新选择并确认。
+
+默认服务由托管端配置，公开设置不读写这些秘密：
+
+| 环境项 | 用途 |
+| --- | --- |
+| `LIUBAI_DEFAULT_PROVIDER` | `deepseek`、`kimi`、`glm` 或 `openai`；省略时为 `deepseek` |
+| `LIUBAI_DEFAULT_MODEL` | 可选，必须属于所选服务商白名单；省略时使用该家的默认试用模型 |
+| `LIUBAI_DEFAULT_DEEPSEEK_KEY` / `LIUBAI_DEFAULT_KIMI_KEY` / `LIUBAI_DEFAULT_GLM_KEY` / `LIUBAI_DEFAULT_OPENAI_KEY` | 仅使用所选服务商对应的秘密 Key |
+
+仅 DeepSeek 保留旧已启用 D1 加密配置兼容；其他家不会借用它。保留 `LIUBAI_SECRET_KEY` 与 `LIUBAI_BOOTSTRAP_EMAIL` 的旧管理用途，不扩大匿名配置权限。
+
+追加迁移 `drizzle/0001_rapid_shocker.sql` 保存来源、模型、价格版本与预留。旧行按 `default`、每行50000微元保留；这里的default是兼容旧共享额度的迁移值，不代表旧请求实际使用默认Key。生产既有两次失败尝试不能因多服务商改版重置或追溯释放。
+
+验证：最新全量 **143/143通过**，OpenSpec严格校验通过，最终 `build-site` 构建退出码0。构建产物Worker在本地4173的状态接口返回200、`multi-v1`、四家目录及`defaultAvailable:false`；追加迁移通过本地D1文件执行完成五条ALTER。
+
+离线浏览器已覆盖四家候选、GLM认证失败不切默认、OpenAI纠正及编辑确认、活动会话锁定、切服务商清输入和取消不改配置。390视口实测文档宽度375，无横向溢出；离页返回后Key为空。另在独立慢响应fixture中，用户取消后修改的本地整理没有被迟到候选覆盖。此轮没有真实推理调用或真实API费用；原生产两次失败的实际费用仍未核验。详情和截图路径见 [QA.md](QA.md)。
+
+```powershell
+node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs ai/*.test.mjs server/*.test.mjs
+```
+
+当前进度：实现、自动化、本地迁移、移动/离页/迟到验证及最终构建 `completed`；既有站点生产发布 `in progress`；四家真实账户可用性、内容质量与账单核验 `not started`。尚未记录本次发布成功，最终发布证据和待办见 [QA.md](QA.md)。
+
 ## 版本3发布记录（最新v4见文末）
 
 2026-10-30：`warm-public-ai` 已作为 **版本 3** 发布到 [blank.sakura.observer](https://blank.sakura.observer)。公开个人设置、个人/默认凭据选择和暖感界面均已上线；最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。完整证据见 [QA.md](QA.md)，剩余真实模型验收见 [任务清单](openspec/changes/warm-public-ai/tasks.md)。

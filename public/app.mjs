@@ -1,5 +1,6 @@
 import { MODES, CARDS, createSession, makeReview, validateSavedRecord, shouldWarnBeforeUnload, aiEvidence, validateUiCandidate, makeAiReview, confirmedRecord, aiRequestSession, acceptsAiReply } from './core.mjs';
 import { createPersonalKeyPreference } from './personal-key.mjs';
+import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, findAiProfile, sameAiRoute, aiErrorMessage as providerErrorMessage } from './ai-settings.mjs';
 
 const main = document.querySelector('#main');
 const modal = document.querySelector('#modal');
@@ -13,7 +14,9 @@ let noticeTimer;
 let pendingAction = null;
 let focusBeforeModal = null;
 let feedbackDraft = {};
-let aiStatus = { enabled: false, loading: true };
+let aiStatus = { ...emptyAiStatus(), loading: true };
+let aiSettingsDraft = null;
+let pendingAiConsent = null;
 let activeAiController = null;
 const personalKey = createPersonalKeyPreference();
 const aiState = options => ({ enabled: Boolean(options), revision: 0, requestId: null, status: 'idle', candidate: null, answer: '', verdict: '', correction: '', allowNextStep: false, reviewKind: 'local', reviewSources: {}, ...options });
@@ -48,26 +51,48 @@ async function loadAiStatus() {
     const response=await fetch('/api/ai/status',{cache:'no-store',credentials:'same-origin'});
     if(!response.ok)throw Error();
     const value=await response.json();
-    aiStatus={enabled:value.enabled===true && value.provider==='DeepSeek' && value.consentVersion==='deepseek-v1' && typeof value.configVersion==='string',defaultAvailable:value.defaultAvailable===true,personalKeySupported:value.personalKeySupported===true,provider:'DeepSeek',model:value.model,configVersion:value.configVersion,consentVersion:value.consentVersion,remainingCalls:value.remainingCalls,reason:value.reason,loading:false};
-  }catch{aiStatus={enabled:false,loading:false};}
+    aiStatus=normalizeAiStatus(value);
+  }catch{aiStatus=emptyAiStatus();}
   if(state.screen==='home')render();
 }
-function aiSourceLabel(){return personalKey.hasKey()?'本页个人 Key':aiStatus.defaultAvailable?'组织者的默认 Key':'尚未配置 Key';}
+function selectedAiProfile(){return aiSelectionProfile(personalKey.selection(),aiStatus);}
+function aiProviderLabel(){return state.ai?.providerLabel||selectedAiProfile()?.providerLabel||'所选服务商';}
+function aiSourceLabel(){const profile=hasAI()?state.ai:selectedAiProfile();return profile?`${profile.sourceMode==='personal'?'本页个人服务':'组织者默认服务'} · ${profile.providerLabel} · ${profile.modelLabel}`:'尚未配置可用服务';}
+function sharedBudgetNote(){return `${typeof aiStatus.remainingCalls==='number'?`共享剩余 ${aiStatus.remainingCalls} 次`:'共享额度暂不可读'}${typeof aiStatus.remainingBudgetCny==='number'?`，保守可用预算 ¥${aiStatus.remainingBudgetCny.toFixed(2)}`:''}；实际可用还受所选模型费用限制。`;}
 function aiHomeMarkup(){
-  const available=aiStatus.enabled&&(personalKey.hasKey()||aiStatus.defaultAvailable);
-  const note=aiStatus.loading?'正在查看 AI 是否可用…':!aiStatus.enabled?'本轮 AI 暂不可用，仍可按原话慢慢整理。':personalKey.hasKey()?'已选择个人 Key，费用由你的 DeepSeek 账户承担。':aiStatus.defaultAvailable?'不用填写 Key，也可以使用组织者提供的小额体验。':'填入自己的 DeepSeek Key，就可以试试智能追问。';
-  return `<div class="ai-entry"><div><span class="aside-label">也可以，让 AI 陪你一起想</span><p>${note}</p></div><div class="actions"><button class="secondary" data-action="ai-start" ${aiStatus.loading?'disabled':''}>${available?'试试 AI 陪我整理':'设置 Key，开始 AI'}</button><button class="text-button" data-action="ai-settings">AI 设置</button></div></div>`;
+  const selection=personalKey.selection();const profile=selectedAiProfile();const available=canUseAiSelection(selection,aiStatus,personalKey.hasKey());
+  const note=aiStatus.loading?'正在查看 AI 是否可用…':!aiStatus.enabled?'本轮 AI 暂不可用，仍可按原话慢慢整理。':selection.sourceMode==='personal'&&profile?`已选择 ${profile.providerLabel} · ${profile.modelLabel}。个人账户付费，不占组织者共享额度。`:aiStatus.defaultEnabled&&profile?`可以使用组织者提供的 ${profile.providerLabel} 服务。共享剩余 ${aiStatus.remainingCalls??'—'} 次，另受费用上限限制。`:aiStatus.defaultAvailable?'组织者的共享体验暂不可用，也可以选择个人服务。':'选择 DeepSeek、Kimi、GLM 或 OpenAI，填入自己的 API Key，试试智能追问。';
+  return `<div class="ai-entry"><div><span class="aside-label">也可以，让 AI 陪你一起想</span><p>${e(note)}</p></div><div class="actions"><button class="secondary" data-action="ai-start" ${aiStatus.loading?'disabled':''}>${available?'试试 AI 陪我整理':'设置 Key，开始 AI'}</button><button class="text-button" data-action="ai-settings">AI 设置</button></div></div>`;
 }
+function aiSettingsFields(){
+  const draft=aiSettingsDraft;const locked=Boolean(state.session);const disabled=locked?'disabled':'';
+  if(!draft)return '';
+  if(draft.sourceMode==='default'){
+    const profile=aiStatus.defaultProfile;
+    return `<div class="ai-default-summary"><p>${profile?`使用 <strong>${e(profile.providerLabel)} · ${e(profile.modelLabel)}</strong>，费用由组织者承担。`:'组织者尚未配置默认服务。你可以选择个人服务，或先用本地记录。'}</p>${profile?.modelNote?`<p class="gentle-note">${e(profile.modelNote)}</p>`:''}<p class="gentle-note">${e(sharedBudgetNote())}</p>${aiStatus.defaultAvailable&&!aiStatus.defaultEnabled?`<p class="gentle-note">${e(providerErrorMessage(aiStatus.defaultReason,profile?.providerLabel))}</p>`:''}</div>`;
+  }
+  const provider=aiStatus.providers.find(value=>value.id===draft.providerId);const profile=findAiProfile(aiStatus.providers,draft.providerId,draft.modelId);
+  return `<div class="ai-provider-grid"><div><label class="field-label" for="ai-provider">服务商</label><select class="ai-select" id="ai-provider" ${disabled}>${aiStatus.providers.map(value=>`<option value="${e(value.id)}" ${value.id===draft.providerId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div><div><label class="field-label" for="ai-model">试用模型</label><select class="ai-select" id="ai-model" aria-describedby="ai-model-help" ${disabled}>${(provider?.models??[]).map(value=>`<option value="${e(value.id)}" ${value.id===draft.modelId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div></div><p id="ai-model-help" class="gentle-note">${e(profile?.modelNote||'仅提供已适配的试用模型。')}</p><label class="field-label" for="personal-key">API Key</label><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="provider-key-help personal-key-help" placeholder="${draft.retainExisting&&personalKey.hasKey()?'本页已填写；留空保留':'填写所选服务商的 API Key'}" ${disabled}><p id="provider-key-help" class="gentle-note">${e(provider?.keyHelp||'请填写所选服务商官方平台的 API Key。')}</p><p id="personal-key-help" class="gentle-note">Key 只留在当前页面内存中，刷新或关闭页面即清除。调用时经留白后台发送给 ${e(provider?.label||'所选服务商')}，不写入记录或浏览器存储。</p><p class="gentle-note">个人账户付费，不占组织者共享次数或金额。每次体验最多调用 5 次，失败和超时可能已计费，不自动重试。</p>`;
+}
+function renderAiSettingsFields(){const fields=document.querySelector('#ai-source-fields');if(fields)fields.innerHTML=aiSettingsFields();document.querySelector('#key-settings-error')?.replaceChildren();}
 async function aiSettings(){
+  const settingsState=state;
   capture();
   await loadAiStatus();
+  if(state!==settingsState)return;
   const locked=Boolean(state.session);
-  openModal('让 AI 陪你整理',`<p>默认使用组织者提供的 Key。你也可以填写自己的 DeepSeek Key，本页会优先使用它。</p><p class="gentle-note">当前选择：${e(aiSourceLabel())}。${typeof aiStatus.remainingCalls==='number'?`本批还可调用 ${aiStatus.remainingCalls} 次。`:''}</p>${locked?'<p class="gentle-note">本次记录进行中。请先完成或结束本次，再更换 Key。</p>':''}<form id="ai-settings-form"><label class="field-label" for="personal-key">个人 DeepSeek API Key（可选）</label><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="personal-key-help" placeholder="${personalKey.hasKey()?'本页已填写；留空则切回默认 Key':'留空使用组织者默认 Key'}" ${locked?'disabled':''}><p id="personal-key-help" class="gentle-note">个人 Key 只留在当前页面内存中，刷新或关闭页面即清除。调用时经留白后台发送给 DeepSeek，不写入记录或浏览器存储。保存设置不会调用模型。</p><p class="gentle-note">${aiStatus.defaultAvailable?'默认 Key 已就绪。':'组织者的默认 Key 尚未配置，请填写个人 Key 或先使用本地记录。'}</p><p class="gentle-note">本轮共用 18 次小额测试上限，个人 Key 也计入次数；失败和超时可能已计费，不自动重试。</p><p id="key-settings-error" class="error-text" role="alert"></p><div class="modal-actions"><button type="button" class="secondary" data-action="clear-personal-key" ${locked?'disabled':''}>清除个人 Key</button><button type="submit" class="primary" ${locked?'disabled':''}>应用到本页</button></div></form>`);
+  aiSettingsDraft=createAiSettingsDraft(personalKey.selection(),aiStatus);
+  openModal('AI 设置',`<p>使用组织者提供的服务，或选择自己的服务商。应用设置不会调用模型。</p><p class="gentle-note">当前选择：${e(aiSourceLabel())}。</p>${locked?'<p class="gentle-note">本次体验进行中，服务选择已锁定。请先完成或结束本次，再更换配置。</p>':''}${!aiStatus.providers.length?'<p class="gentle-note">暂时没有取得服务商目录，请稍后重新打开设置。本地记录仍可使用。</p>':''}<form id="ai-settings-form"><fieldset class="ai-source-options" ${locked?'disabled':''}><legend>使用哪种服务？</legend><label class="ai-source-option"><input type="radio" name="sourceMode" value="default" ${aiSettingsDraft.sourceMode==='default'?'checked':''}><span><strong>组织者默认服务</strong><small>${aiStatus.defaultAvailable?'使用共享体验额度':'尚未配置默认服务'}</small></span></label><label class="ai-source-option"><input type="radio" name="sourceMode" value="personal" ${aiSettingsDraft.sourceMode==='personal'?'checked':''}><span><strong>使用个人 API Key</strong><small>自行付费，不占共享额度</small></span></label></fieldset><div id="ai-source-fields">${aiSettingsFields()}</div><p id="key-settings-error" class="error-text" role="alert"></p><div class="modal-actions"><button type="button" class="secondary" data-action="clear-personal-key" ${locked?'disabled':''}>清除个人 Key</button><button type="button" class="text-button" data-action="close-modal">取消</button><button type="submit" class="primary" ${locked||!aiStatus.providers.length?'disabled':''}>应用到本页</button></div></form>`);
 }
-function aiConsent(){
-  if(!aiStatus.enabled){aiSettings();return;}
-  if(!personalKey.hasKey()&&!aiStatus.defaultAvailable){aiSettings();return;}
-  openModal('开始前，由你选择',`<p>这次使用<strong>${e(aiSourceLabel())}</strong>。${personalKey.hasKey()?'费用由你的 DeepSeek 账户承担。':'费用由组织者承担。'}本次故事、关注点、卡片联想、实际问答和纠正将经留白后台发送给 DeepSeek，用于追问和整理。旧记录不会自动上传。</p><p>AI 的理解可能不准确，你可以纠正、跳过或结束。卡片只提供联想，不作诊断或预测。</p><form id="ai-consent-form"><label class="check-row"><input id="ai-consent" type="checkbox" required><span>我了解并同意将本次表达发送给 DeepSeek。</span></label><div id="ai-consent-error" class="error-text" role="alert"></div><div class="modal-actions"><button class="secondary" type="button" data-action="local-from-consent">只做本地记录</button><button class="primary" type="submit">同意并开始 AI 体验</button></div></form>`);
+async function aiConsent(){
+  if(state.session)return;
+  const consentState=state;
+  await loadAiStatus();
+  if(state!==consentState||state.session)return;
+  if(!canUseAiSelection(personalKey.selection(),aiStatus,personalKey.hasKey())){aiSettings();return;}
+  const profile=selectedAiProfile();
+  pendingAiConsent={sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId,providerLabel:profile.providerLabel,modelLabel:profile.modelLabel,configVersion:aiStatus.configVersion,consentVersion:aiStatus.consentVersion};
+  openModal('开始前，由你选择',`<p>这次使用<strong>${e(aiSourceLabel())}</strong>。</p><p>${profile.sourceMode==='personal'?`费用由你的 ${e(profile.providerLabel)} 账户承担，不占组织者共享额度。`:`费用由组织者承担。${e(sharedBudgetNote())}`}每次体验最多调用 5 次，失败或超时不自动重试。</p>${profile.modelNote?`<p class="gentle-note">${e(profile.modelNote)}</p>`:''}<p>本次故事、关注点、卡片联想、实际问答和纠正将经留白后台发送给 <strong>${e(profile.providerLabel)}</strong>，用于追问和整理。旧记录不会自动上传。</p><p>AI 的理解可能不准确，你可以纠正、跳过或结束。卡片只提供联想，不作诊断或预测。</p><form id="ai-consent-form"><label class="check-row"><input id="ai-consent" type="checkbox" required><span>我了解费用承担方式，并同意将本次表达发送给 ${e(profile.providerLabel)}。</span></label><div id="ai-consent-error" class="error-text" role="alert"></div><div class="modal-actions"><button class="secondary" type="button" data-action="local-from-consent">只做本地记录</button><button class="primary" type="submit">同意并开始 AI 体验</button></div></form>`);
 }
 function hypothesisMarkup(){
   const claim=state.ai.candidate?.hypothesis;if(!claim)return '';
@@ -76,7 +101,7 @@ function hypothesisMarkup(){
 }
 function renderAiReflect(){
   const ai=state.ai;
-  if(ai.status==='loading')return layout(`<div class="ai-loading" role="status" aria-live="polite"><span class="ai-dot" aria-hidden="true"></span><h1>${ai.pendingStage==='review'?'正在整理你愿意留下的内容…':'正在认真看看你的表达…'}</h1><p class="intro">这可能需要一点时间。你可以随时结束，或先用原话整理。</p></div><div class="actions"><button class="back-button" data-action="ai-edit-story">返回修改表达</button><button class="secondary" data-action="ai-local-review">先按原话整理</button></div>`,{title:'慢一点，\n也没有关系。',note:'本次选定文字正在经留白后台发送给 DeepSeek。'});
+  if(ai.status==='loading')return layout(`<div class="ai-loading" role="status" aria-live="polite"><span class="ai-dot" aria-hidden="true"></span><h1>${ai.pendingStage==='review'?'正在整理你愿意留下的内容…':'正在认真看看你的表达…'}</h1><p class="intro">这可能需要一点时间。你可以随时结束，或先用原话整理。</p></div><div class="actions"><button class="back-button" data-action="ai-edit-story">返回修改表达</button><button class="secondary" data-action="ai-local-review">先按原话整理</button></div>`,{title:'慢一点，\n也没有关系。',note:`本次选定文字正在经留白后台发送给 ${aiProviderLabel()}。`});
   if(ai.status==='error'||!ai.candidate)return layout(`<h1>这一次，先把表达留住。</h1><p class="intro" role="status">${e(ai.errorMessage||'AI 暂时没有给出合适的内容。你的输入仍在本页。')}</p><div class="actions"><button class="primary" data-action="ai-local-review">按我的原话整理 ${icon}</button><button class="secondary" data-action="ai-local-questions">继续本地问题</button><button class="back-button" data-action="ai-edit-story">返回修改</button></div>`,{title:'你的表达，\n不会因为等待而丢失。',note:'回到本地记录后，不会继续发送文字给模型。'});
   const candidate=ai.candidate;const question=candidate.question?.text;
   return layout(`<p class="question-count">AI 体验 · ${question?`第 ${state.session.turns.length+1} 个问题，最多 3 个`:'可以在这里开始整理'}</p>${candidate.reflection?`<section class="ai-reflection"><h2>根据你的表达</h2><p>${e(candidate.reflection.text)}</p></section>`:''}${hypothesisMarkup()}<form id="step-form">${question?`<h1 id="question-title">${e(question)}</h1>${inputMarkup(ai.answer,'写下你愿意表达的部分。',{max:3000,rows:4})}`:'<h1>先停在这里，也可以。</h1><p class="intro">没有新的问题需要回答。已有的表达可以直接整理。</p>'}<label class="check-row"><input id="ai-allow-step" type="checkbox" ${ai.allowNextStep?'checked':''}><span>整理时，我愿意看看一个可选的小行动。</span></label><div class="actions"><button class="back-button" type="button" data-action="ai-edit-story">修改前面的表达</button><button class="primary" type="submit">${!question||state.session.turns.length>=2?'开始整理':'写好了，继续'} ${icon}</button></div><div class="actions">${question?'<button class="quiet-button" type="button" data-action="ai-skip">这一题先跳过</button>':''}<button class="quiet-button" type="button" data-action="review-early">到这里就够了</button><button class="quiet-button" type="button" data-action="ai-local-review">只按原话整理</button></div></form>`,{title:'让理解，\n慢慢贴近你的意思。',note:'AI 的理解只是候选，你可以说“不太对”。不必为了完成流程而回答。'});
@@ -99,33 +124,25 @@ function rawDraft(){capture();if(hasAI())commitAiTurn(false);invalidateAI();stat
 function localQuestions(){capture();if(hasAI())commitAiTurn(false);if(state.session.turns.length>=3){rawDraft();return;}invalidateAI();state.ai.enabled=false;state.ai.personalApiKey='';state.question=state.session.turns.length;go('reflect');}
 function enterReflection(){if(hasAI())requestAi(state.session.turns.length>=3?'review':'reflect');else{state.question=0;go('reflect');}}
 function aiErrorMessage(reason){
-  if(reason==='invalid_personal_key')return '个人 Key 格式不正确。请先保留原话，再结束本次并在 AI 设置中更换。';
-  if(reason==='provider_auth_failed')return '这次使用的 Key 未通过 DeepSeek 验证。没有改用其他 Key 重试，你的输入仍在本页。';
-  if(reason==='default_unavailable')return '默认 Key 还未就绪。请先保留原话，结束本次后填写个人 Key。';
-  if(reason==='usage_out_of_bounds')return '本轮用量需要组织者检查，AI 已暂停。你的输入仍在本页。';
-  if(reason==='provider_rate_limited')return 'DeepSeek 暂时繁忙，没有自动重试。你的输入仍在本页，可以按原话整理。';
-  if(reason==='provider_balance_low')return '这次使用的 DeepSeek 账户余额不足。你的输入仍在本页，可以按原话整理。';
-  if(['config_changed','consent_changed','consent_required','consent_mismatch'].includes(reason))return 'AI 配置已变化，本次没有继续发送。请先保存原话，再回首页重新选择。';
-  if(['budget_exhausted','call_limit','rate_limited','quota_exceeded','disabled','not_configured','pricing_expired','session_limit','concurrency_limit'].includes(reason))return '本轮 AI 体验额度暂时不可用。你的输入仍在本页，可以继续本地记录。';
-  if(['input_too_large_or_invalid','context_too_large'].includes(reason))return '这次的表达有些长，AI 暂时没有继续。你可以先按原话保存，或返回把本次想聊的部分写得简短些。';
-  return 'AI 暂时没有给出可用的整理。你的输入仍在本页，可以按原话继续。';
+  return providerErrorMessage(reason,aiProviderLabel());
 }
 async function requestAi(stage){
   if(!hasAI()||state.ai.status==='loading')return;
   if(state.ai.credentialExpired){state.ai.status='error';state.ai.errorMessage='离开页面后，个人 Key 已清除。请先按原话整理，结束本次后重新设置。';render();return;}
   invalidateAI();
   const ai=state.ai;const requestId=crypto.randomUUID();ai.requestId=requestId;ai.status='loading';ai.pendingStage=stage;
-  const expected={requestId,revision:ai.revision,sessionId:state.session.id};
+  const expected={requestId,revision:ai.revision,sessionId:state.session.id,route:ai.route};
   const session=aiRequestSession(state.session);const controller=new AbortController();activeAiController=controller;
   const stillCurrent=()=>hasAI()&&state.session?.id===expected.sessionId&&state.ai.requestId===requestId&&state.ai.revision===expected.revision&&state.screen==='reflect';
   state.screen='reflect';render();main.focus({preventScroll:true});window.scrollTo(0,0);
   const timeout=setTimeout(()=>controller.abort(),50000);
   try{
-    const response=await fetch('/api/ai/generate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({requestId,revision:expected.revision,configVersion:ai.configVersion,consentVersion:'deepseek-v1',personalApiKey:ai.personalApiKey,stage,allowNextStep:ai.allowNextStep,session})});
+    const response=await fetch('/api/ai/generate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({requestId,revision:expected.revision,configVersion:ai.configVersion,consentVersion:ai.consentVersion,...ai.route,personalApiKey:ai.personalApiKey,stage,allowNextStep:ai.allowNextStep,session})});
     const data=await response.json();
     if(!stillCurrent())return;
     if(!response.ok||data.status!=='candidate'){ai.status='error';ai.errorMessage=aiErrorMessage(data.reason||data.error);ai.requestId=null;render();return;}
     if(!acceptsAiReply(data,expected,{active:stillCurrent(),sessionId:state.session.id,requestId:ai.requestId,revision:ai.revision}))throw Error('reply_mismatch');
+    if(!sameAiRoute(data.route,expected.route))throw Error('route_mismatch');
     const candidate=validateUiCandidate(data.candidate,session,{stage,allowNextStep:ai.allowNextStep});
     if(!candidate)throw Error('invalid_candidate');
     if(candidate.hypothesis && (session.feedback??[]).some(f=>f.verdict==='rejected' && f.hypothesisText===candidate.hypothesis.text))candidate.hypothesis=null;
@@ -151,7 +168,7 @@ function renderHome() {
  return `<section class="home"><div class="hero"><div class="hero-copy"><p class="hero-welcome"><span aria-hidden="true">☀</span> 给自己留一小会儿</p><h1>今天的小事，<br>值得慢慢说。</h1><p class="hero-intro">一点开心，一点心事，或一个还没想好的选择。把零散的念头，写成给自己的生活来信。</p><div class="hero-actions"><button class="primary" data-action="start">从一件小事开始 ${icon}</button><button class="text-button" data-action="example">看看一封来信</button></div><p class="hero-meta"><span>约 5–8 分钟</span><span>随时可以停下</span></p></div><figure class="hero-art"><img src="./assets/cozy-room.svg" width="720" height="560" fetchpriority="high" alt="傍晚的窗边亮着一盏灯，沙发旁的小桌上放着打开的本子和一杯热茶。"><figcaption>这里，为你留着一盏灯。</figcaption></figure></div><section class="topic-strip" aria-labelledby="topic-title"><div class="topic-heading"><h2 id="topic-title">今天，想从哪里说起？</h2><p>选一个适合此刻的入口。</p></div><div class="topics">${MODES.map((m,i)=>`<button class="topic topic-${m.id}" data-action="mode" data-mode="${m.id}" aria-pressed="${state.modeId===m.id}"><span class="topic-icon" aria-hidden="true"><svg viewBox="0 0 40 40">${motifs[i]}</svg></span><span class="topic-copy"><strong>${['想留住的片刻','挂在心上的事','还没想好的选择'][i]}</strong><small>${e(m.description)}</small></span><span class="topic-check" aria-hidden="true">${state.modeId===m.id?'✓':'+'}</span></button>`).join('')}</div></section>${aiHomeMarkup()}<div class="home-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg><p class="prototype-note">默认先做本地记录。只有选择 AI 并同意后，本次表达才会发送给模型；确认后，你可以把来信保存在这台设备。</p></div></section>`;
 }
 function renderStory() {const m=getMode();return layout(`<h1 id="question-title">${e(m.opening)}</h1><p class="intro">不用先想好怎么说。零散的一两句，也可以。</p><form id="step-form">${inputMarkup(state.session.story,'可以从“今天有一幕……”开始。',{cls:'story-input'})}<div id="input-error" class="error-text" role="alert"></div><div class="actions"><button type="button" class="back-button" data-action="exit">先不聊了</button><button class="primary" type="submit">我写好了 ${icon}</button></div></form><details class="help-options"><summary>还不知道从哪里开始？</summary><div class="hint-chips"><button class="chip" data-action="hint" data-text="今天让我停了一下的瞬间是……">一个让我停下来的瞬间</button><button class="chip" data-action="hint" data-text="最近我反复想到的一件事是……">最近反复想到的事</button><button class="chip" data-action="hint" data-text="我还没决定的是……">一个还没决定的小事</button></div></details>`,{title:'先给这件小事，\n一点说出来的空间。',note:'这里没有标准答案。先写下你愿意表达的部分。',art:'pause'});}
-function renderFocus() {return layout(`<h1 id="question-title">${e(getMode().focusPrompt)}</h1><p class="intro">可以选一个细节、一种感受，或者只是把这件事放在这里。</p><form id="step-form">${inputMarkup(state.session.focus,'这一次，我比较想聊……',{max:1500,rows:4})}<div class="actions"><button type="button" class="back-button" data-action="back">返回修改</button><button type="button" class="quiet-button" data-action="skip-focus">先继续看看</button><button class="primary" type="submit">从这里继续 ${icon}</button></div></form>`,{title:'这一次，\n先聊你在意的部分。',note:hasAI()?'你已选择 AI 模式，稍后会将本次表达发送给 DeepSeek，帮助追问和整理。':'本地模式会按主题给出固定问题，整理时保留你的原话。'});}
+function renderFocus() {return layout(`<h1 id="question-title">${e(getMode().focusPrompt)}</h1><p class="intro">可以选一个细节、一种感受，或者只是把这件事放在这里。</p><form id="step-form">${inputMarkup(state.session.focus,'这一次，我比较想聊……',{max:1500,rows:4})}<div class="actions"><button type="button" class="back-button" data-action="back">返回修改</button><button type="button" class="quiet-button" data-action="skip-focus">先继续看看</button><button class="primary" type="submit">从这里继续 ${icon}</button></div></form>`,{title:'这一次，\n先聊你在意的部分。',note:hasAI()?`你已选择 ${aiProviderLabel()}，稍后会将本次表达发送给它，帮助追问和整理。`:'本地模式会按主题给出固定问题，整理时保留你的原话。'});}
 function renderCard() {const c=getCard();return layout(`<h1 id="question-title">${c?e(c.prompt):'给这件事，换一个观看角度。'}</h1><p class="intro">随机的图像联想提示。贴不贴切，都由你来决定。</p>${c?`<div class="selected-card reveal"><img src="./assets/${c.art}.svg" alt="${e(c.name)}主题生活插画"><div><h2>${e(c.name)}</h2><p>${e(c.caption)}</p><p class="caption">卡片提供角度，记录来自你的表达。</p><button class="text-button" data-action="redraw">换一张</button></div></div><form id="step-form"><label class="field-label" for="entry">有什么联想？没有也可以留空。</label>${inputMarkup(state.session.cardReflection,'这张图让我想起……',{max:1500,rows:3})}<div class="actions"><button type="button" class="back-button" data-action="back">返回</button><button type="button" class="quiet-button" data-action="skip-card">跳过卡片</button><button class="primary" type="submit">继续聊 ${icon}</button></div></form>`:`<button class="card-back" data-action="draw" aria-label="翻一张联想卡">${windowIcon}<span>翻一张卡</span></button><div class="actions center-actions"><button class="quiet-button" data-action="skip-card">直接聊，跳过卡片</button></div>`}`,{title:'一张图，\n也许带来一点联想。',note:'你可以换一张，也可以直接继续。卡片没有预设的“正确解释”。'});}
 function renderReflect() {if(hasAI())return renderAiReflect();const q=getMode().questions[state.question];return layout(`<p class="question-count">第 ${state.question+1} 个问题，共 3 个</p><h1 id="question-title">${e(q.prompt)}</h1><p class="intro">写到觉得够了，就可以开始整理。</p><form id="step-form">${inputMarkup(state.session.answers[q.id]||'',q.placeholder,{max:3000,rows:5})}<div class="actions"><button type="button" class="back-button" data-action="back">返回</button><button class="primary" type="submit">${state.question===2?'开始整理':'写好了，继续'} ${icon}</button></div><div class="actions"><button type="button" class="quiet-button" data-action="skip-question">这一题先跳过</button><button type="button" class="quiet-button" data-action="review-early">到这里就够了</button></div></form>`,{title:state.question===2?'留下一点发现，\n就已经很好。':'给自己的想法，\n多一点耐心。',note:state.question===2?'你可以只把这件事记住。下一步行动是可选的。':'回答可以很短，也可以暂时不知道。'});}
 function originalFor(id) {if(['story','focus','cardReflection'].includes(id))return state.session[id];if(state.ai?.reviewSources?.[id])return state.ai.reviewSources[id];return state.session.answers[id];}
@@ -175,13 +192,13 @@ function submitStep(event) {
 }
 function openModal(title,body) {focusBeforeModal=document.activeElement;modalContent.innerHTML=`<div class="modal-header"><h2 id="modal-title">${e(title)}</h2><button class="close-button" data-action="close-modal" aria-label="关闭">×</button></div>${body}`;if(!modal.open)modal.showModal();modalContent.querySelector('button')?.focus();}
 function clearSensitiveInputs(){modalContent.querySelectorAll('[data-sensitive-key]').forEach(input=>{input.value='';});}
-function closeModal(){pendingAction=null;clearSensitiveInputs();modal.close();focusBeforeModal?.isConnected&&focusBeforeModal.focus();}
+function closeModal(){pendingAction=null;aiSettingsDraft=null;pendingAiConsent=null;clearSensitiveInputs();modal.close();focusBeforeModal?.isConnected&&focusBeforeModal.focus();}
 function ask(title,body,label,callback){pendingAction=callback;openModal(title,`<p>${e(body)}</p><div class="modal-actions"><button class="secondary" data-action="close-modal">再待一会儿</button><button class="primary" data-action="confirm-action">${e(label)}</button></div>`);}
 function exitSession(){if(!state.session){home();return;}capture();ask('这次先到这里？','尚未保存的输入会从当前页面清除。已经保存到这台设备或导出的记录会保留。','清除本次并结束',()=>{home();notify('本次输入已清除。');});}
 function readRecords(){try{const raw=localStorage.getItem(STORE);if(!raw)return [];if(raw.length>5000000)throw Error('large');const data=JSON.parse(raw);if(!Array.isArray(data))return [];return data.slice(0,30).map(validateSavedRecord).filter(Boolean);}catch{return [];}}
 function saveRecord(){const record=confirmedRecord(state.session);if(!record){notify('记录内容不完整或过长，请修改后重试。');return;}try{const items=readRecords().filter(x=>x.id!==record.id);if(items.length>=30){notify('这台设备已有 30 份记录。请先删除一些，或导出当前记录。');return;}localStorage.setItem(STORE,JSON.stringify([record,...items]));notify('已保存在这台设备。可在“我的记录”中查看或删除。');}catch{notify('浏览器没有允许保存，或存储空间不足。可以下载文字。');}}
 function showSaved(){const items=readRecords();openModal('我的记录',`<p>仅保存在这个浏览器中，不跨设备同步。</p>${items.length?`<ul class="record-list">${items.map(r=>`<li class="record-row"><button class="record-open" data-action="open-record" data-id="${e(r.id)}"><strong>${e(r.review.title)}</strong><small>${e(dateLabel(r.createdAt))}</small></button><button class="text-button danger" data-action="delete-record" data-id="${e(r.id)}">删除</button></li>`).join('')}</ul>`:'<div class="empty-state">还没有保存的记录。<br>完成一次整理后，可以选择留在这里。</div>'}`);}
-function about(){openModal('关于这次体验',`<p>留白用生活问题、可选图像卡和可修改的整理，陪你回看自己的表达。</p><h3>两种体验方式</h3><ul><li>默认本地模式：固定问题引导，原话整理，不向模型发送正文。</li><li>可选 AI 模式：选择默认或个人 Key 并明确同意后，将本次故事、焦点、卡片联想、实际问答及纠正经留白后台发送给 DeepSeek；旧记录不会自动上传。</li><li>AI 只是提供候选理解，可能不准确。你可以纠正、跳过或结束；卡片不作心理诊断或占卜。</li></ul><h3>你的内容如何处理</h3><p>进行中的内容保留在页面内存中，刷新会清除本页输入和个人 Key，结束会清除本次输入。AI 模式中已经发送的文字无法通过清除本页撤回，服务商的数据处理规则适用。</p><p>点击“保存在这台设备”才会写入浏览器存储，只保存确认后的记录，不另存原始问答和 AI 过程。你可以在“我的记录”逐条删除；共用设备上的其他使用者可能看到这些记录。</p><p>页面不请求麦克风权限；键盘语音输入的音频由输入法和设备处理。站点及模型请求会产生必要的访问、用量和错误记录。</p><p>体验反馈不会自动附带复盘正文，不自动上传。你下载后自行决定是否提供给测试组织者。</p>`);}
+function about(){openModal('关于这次体验',`<p>留白用生活问题、可选图像卡和可修改的整理，陪你回看自己的表达。</p><h3>两种体验方式</h3><ul><li>默认本地模式：固定问题引导，原话整理，不向模型发送正文。</li><li>可选 AI 模式：选择组织者默认服务或个人服务，并明确同意后，将本次故事、焦点、卡片联想、实际问答及纠正经留白后台发送给当次所选的服务商（DeepSeek、Kimi、GLM 或 OpenAI）；旧记录不会自动上传。</li><li>AI 只是提供候选理解，可能不准确。你可以纠正、跳过或结束；卡片不作心理诊断或占卜。</li></ul><h3>你的内容如何处理</h3><p>进行中的内容保留在页面内存中，刷新会清除本页输入和个人 Key，结束会清除本次输入。AI 模式中已经发送的文字无法通过清除本页撤回，服务商的数据处理规则适用。</p><p>点击“保存在这台设备”才会写入浏览器存储，只保存确认后的记录，不另存原始问答和 AI 过程。你可以在“我的记录”逐条删除；共用设备上的其他使用者可能看到这些记录。</p><p>页面不请求麦克风权限；键盘语音输入的音频由输入法和设备处理。站点及模型请求会产生必要的访问、用量和错误记录。</p><p>体验反馈不会自动附带复盘正文，不自动上传。你下载后自行决定是否提供给测试组织者。</p>`);}
 function example(){openModal('一份记录可以很简单',`<p>这是虚构示例，不会写入你的记录。</p><div class="example-note"><p>周末和朋友散步，没有提前安排全部行程。走到哪儿，想坐就坐。</p><p>我注意到，自己喜欢一点临时决定的余地。</p><p>想试试：周三晚上留一个小时，不提前安排。</p></div><p>也可以只留下一句：“今天路边的桂花很香，我想记住。”</p><div class="modal-actions"><button class="primary" data-action="start-from-modal">聊聊我的小事</button></div>`);}
 function drawCard(){invalidateAI();const options=CARDS.filter(c=>c.id!==state.session.cardId);const n=new Uint32Array(1);crypto.getRandomValues(n);state.session.cardId=options[n[0]%options.length].id;render();main.focus({preventScroll:true});}
 function download(blob,name){const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
@@ -203,7 +220,37 @@ async function pngExport(button){button.disabled=true;try{
 const feedbackQuestions=[['purpose','你觉得这个工具刚才主要在帮你做什么？'],['friction','哪一步你最想跳过、修改或退出？'],['accuracy','整理里有什么与你想表达的不一样？'],['card','卡片出现后，你想说的内容有什么变化？']];
 function feedback(){openModal('留下体验反馈',`<p>反馈不会自动附带你的复盘内容。文件仅下载到设备，是否交给测试组织者由你决定。</p><form id="feedback-form">${feedbackQuestions.map(([id,label])=>`<div class="feedback-field"><label for="fb-${id}">${label}</label><textarea id="fb-${id}" name="${id}" maxlength="1500" placeholder="可以留空">${e(feedbackDraft[id]||'')}</textarea></div>`).join('')}<div class="feedback-field"><label for="fb-clarity">现在你对那件事的理解是？</label><select id="fb-clarity" name="clarity"><option value="">暂不评价</option value="clearer">更清楚了</option><option value="same">差不多</option><option value="less-clear">更乱了</option></select></div><div class="modal-actions"><button class="primary" type="submit">下载反馈文件</button></div></form>`);document.querySelector('#fb-clarity').value=feedbackDraft.clarity||'';}
 
-document.addEventListener('submit',event=>{if(event.target.id==='ai-settings-form'){event.preventDefault();if(state.session)return;if(!personalKey.set(document.querySelector('#personal-key').value)){document.querySelector('#key-settings-error').textContent='Key 需为 16–256 位英文可打印字符，不能包含空格。';return;}closeModal();if(state.screen==='home')render();notify(personalKey.hasKey()?'个人 Key 已应用到本页；尚未调用模型。':'已选择默认 Key；尚未调用模型。');return;}if(event.target.id==='ai-consent-form'){event.preventDefault();if(!document.querySelector('#ai-consent').checked||!aiStatus.enabled||(!personalKey.hasKey()&&!aiStatus.defaultAvailable)){document.querySelector('#ai-consent-error').textContent='请先配置可用的 Key，并确认发送说明。';return;}const options={personalApiKey:personalKey.forRequest(),configVersion:aiStatus.configVersion,consentVersion:'deepseek-v1'};closeModal();start(state.modeId,options);return;}if(event.target.id==='step-form')submitStep(event);if(event.target.id==='feedback-form'){event.preventDefault();feedbackDraft=Object.fromEntries(new FormData(event.target));const data={version:'0.1',createdAt:new Date().toISOString(),theme:state.session?.modeId||null,usedCard:!!state.session?.cardId,feedback:feedbackDraft};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}),`留白-体验反馈-${fileDate()}.json`);notify('反馈文件已下载。没有上传。');}});
+document.addEventListener('submit',event=>{
+  if(event.target.id==='ai-settings-form'){
+    event.preventDefault();if(state.session||!aiSettingsDraft)return;
+    const sourceMode=event.target.querySelector('[name="sourceMode"]:checked')?.value;
+    const draft={...aiSettingsDraft,sourceMode,providerId:event.target.querySelector('#ai-provider')?.value??aiSettingsDraft.providerId,modelId:event.target.querySelector('#ai-model')?.value??aiSettingsDraft.modelId,apiKey:event.target.querySelector('#personal-key')?.value??''};
+    const result=personalKey.apply(draft,aiStatus.providers);
+    if(!result.ok){document.querySelector('#key-settings-error').textContent=result.reason==='missing_personal_key'?'请填写所选服务商的 API Key。已应用的配置没有改变。':result.reason==='invalid_personal_key'?'Key 需为 16–256 位英文可打印字符，不能包含空格。已应用的配置没有改变。':'服务商或模型不可用，请重新选择。已应用的配置没有改变。';return;}
+    closeModal();if(state.screen==='home')render();notify(personalKey.hasKey()?'个人服务已应用到本页；尚未调用模型。':'已选择组织者默认服务；尚未调用模型。');return;
+  }
+  if(event.target.id==='ai-consent-form'){
+    event.preventDefault();const profile=selectedAiProfile();
+    if(!document.querySelector('#ai-consent').checked||!pendingAiConsent||!canUseAiSelection(personalKey.selection(),aiStatus,personalKey.hasKey())||!sameAiRoute(profile,pendingAiConsent)){document.querySelector('#ai-consent-error').textContent='服务选择已变化或暂不可用，请关闭后重新设置并确认发送说明。';return;}
+    const route=Object.freeze({sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId});
+    const options={...pendingAiConsent,route,personalApiKey:profile.sourceMode==='personal'?personalKey.forRequest().personalApiKey:''};
+    closeModal();start(state.modeId,options);return;
+  }
+  if(event.target.id==='step-form')submitStep(event);
+  if(event.target.id==='feedback-form'){event.preventDefault();feedbackDraft=Object.fromEntries(new FormData(event.target));const data={version:'0.1',createdAt:new Date().toISOString(),theme:state.session?.modeId||null,usedCard:!!state.session?.cardId,feedback:feedbackDraft};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}),`留白-体验反馈-${fileDate()}.json`);notify('反馈文件已下载。没有上传。');}
+});
+
+document.addEventListener('change',event=>{
+  if(!aiSettingsDraft||state.session||!event.target.closest('#ai-settings-form'))return;
+  if(event.target.name==='sourceMode'){
+    clearSensitiveInputs();aiSettingsDraft={...aiSettingsDraft,sourceMode:event.target.value};renderAiSettingsFields();
+  }else if(event.target.id==='ai-provider'){
+    clearSensitiveInputs();aiSettingsDraft=changeAiSettingsProvider(aiSettingsDraft,event.target.value,aiStatus);renderAiSettingsFields();document.querySelector('#ai-provider')?.focus();
+  }else if(event.target.id==='ai-model'){
+    aiSettingsDraft={...aiSettingsDraft,modelId:event.target.value,retainExisting:false};document.querySelector('#personal-key')?.setAttribute('placeholder','填写所选服务商的 API Key');
+    const profile=findAiProfile(aiStatus.providers,aiSettingsDraft.providerId,aiSettingsDraft.modelId);const help=document.querySelector('#ai-model-help');if(help)help.textContent=profile?.modelNote||'仅提供已适配的试用模型。';
+  }
+});
 document.addEventListener('input',event=>{if(state.session && (['entry','ai-correction','ai-allow-step','review-title'].includes(event.target.id)||event.target.hasAttribute('data-review-index')))invalidateAI();if(event.target.id==='entry'){document.querySelector('#char-count').textContent=`${event.target.value.length} / ${event.target.maxLength}`;document.querySelector('#input-error')?.replaceChildren();}if(event.target.closest('#feedback-form'))feedbackDraft=Object.fromEntries(new FormData(document.querySelector('#feedback-form')));});
 document.addEventListener('click',async event=>{
  const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
@@ -244,13 +291,13 @@ document.addEventListener('click',async event=>{
  else if(action==='export-png')await pngExport(button);
  else if(action==='feedback')feedback();
 });
-modal.addEventListener('cancel',()=>{pendingAction=null;clearSensitiveInputs();});
+modal.addEventListener('cancel',()=>{pendingAction=null;aiSettingsDraft=null;pendingAiConsent=null;clearSensitiveInputs();});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeModal();}});
 window.addEventListener('pagehide',()=>{
-  capture();invalidateAI();personalKey.clear();clearSensitiveInputs();
+  capture();invalidateAI();personalKey.clear();aiSettingsDraft=null;pendingAiConsent=null;clearSensitiveInputs();
   if(state.ai?.personalApiKey){state.ai.personalApiKey='';state.ai.credentialExpired=true;state.ai.status='error';state.ai.errorMessage='离开页面后，个人 Key 已清除。请先按原话整理，结束本次后重新设置。';}
 });
-window.addEventListener('pageshow',event=>{if(event.persisted){loadAiStatus();render();}});
+window.addEventListener('pageshow',event=>{if(event.persisted){if(modal.open)closeModal();loadAiStatus();render();}});
 window.addEventListener('beforeunload',event=>{capture();if(shouldWarnBeforeUnload(state.session)){event.preventDefault();event.returnValue='';}});
 render();
 loadAiStatus().then(()=>{if(new URL(location.href).searchParams.get('settings')==='ai')aiSettings();});

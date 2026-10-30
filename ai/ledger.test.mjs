@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, rmdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createLedger, PILOT_LIMITS } from './ledger.mjs';
@@ -11,6 +11,8 @@ const SCHEMA = `CREATE TABLE pilot_requests (
   config_version TEXT NOT NULL, state TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
   finished_at_ms INTEGER, outcome TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, total_tokens INTEGER
 );`;
+const MIGRATION = readFileSync(new URL('../drizzle/0001_rapid_shocker.sql', import.meta.url), 'utf8');
+const route = { providerId: 'kimi', modelId: 'kimi-k3.1-pro', priceVersion: '2026-10-30-v1' };
 const DIGEST = 'a'.repeat(64);
 const reservation = (requestId, overrides = {}) => ({ requestId, sessionId: 'session-1', digest: DIGEST, configVersion: 'v1', now: 1000000, ...overrides });
 
@@ -27,6 +29,7 @@ function d1(sqlite) {
 function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(SCHEMA);
+  sqlite.exec(MIGRATION);
   return { sqlite, ledger: createLedger(d1(sqlite)) };
 }
 
@@ -144,6 +147,7 @@ test('persistent SQL ledger survives close and reopening, without resetting caps
   let sqlite = new DatabaseSync(path);
   try {
     sqlite.exec(SCHEMA);
+    sqlite.exec(MIGRATION);
     const first = createLedger(d1(sqlite));
     await first.reserve(reservation('first'));
     await first.finish('first', { outcome: 'timeout' });
@@ -158,4 +162,144 @@ test('persistent SQL ledger survives close and reopening, without resetting caps
     rmSync(path, { force: true });
     rmdirSync(dir);
   }
+});
+
+test('append-only migration preserves two legacy attempts and their shared reservation', async () => {
+  const sqlite = new DatabaseSync(':memory:');
+  try {
+    const initial = readFileSync(new URL('../drizzle/0000_glamorous_jackal.sql', import.meta.url), 'utf8');
+    sqlite.exec(initial);
+    for (let i = 1; i <= 2; i++) sqlite.prepare(`INSERT INTO pilot_requests
+      (request_id, session_id, digest, config_version, state, created_at_ms, outcome)
+      VALUES (?, 'original-session', ?, 'public-v1', 'finished', 1000000, 'fallback')`).run(`legacy-${i}`, DIGEST);
+    const before = sqlite.prepare('SELECT request_id, session_id, digest, config_version, outcome FROM pilot_requests ORDER BY request_id').all();
+    sqlite.exec(MIGRATION);
+    assert.deepEqual(sqlite.prepare('SELECT request_id, session_id, digest, config_version, outcome FROM pilot_requests ORDER BY request_id').all(), before);
+    const rows = sqlite.prepare('SELECT source_mode, reserved_micros, provider_id, model_id, price_version FROM pilot_requests').all();
+    for (const row of rows) assert.deepEqual({ ...row }, { source_mode: 'default', reserved_micros: 50000, provider_id: null, model_id: null, price_version: null });
+    const stats = await createLedger(d1(sqlite)).stats();
+    assert.equal(stats.usedCalls, 2);
+    assert.equal(stats.remainingCalls, 16);
+    assert.equal(stats.reservedMicros, 100000);
+    assert.equal(stats.remainingBudgetMicros, 800000);
+    assert.equal(stats.personalCalls, 0);
+  } finally { sqlite.close(); }
+});
+
+test('personal attempts never consume shared calls or reservation, even beyond eighteen attempts', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    for (let i = 0; i < 22; i++) {
+      const id = `personal-${i}`;
+      assert.deepEqual(await ledger.reserve(reservation(id, { sourceMode: 'personal', sessionId: `session-${i}`, ...route })), { ok: true });
+      await ledger.finish(id, { outcome: i % 2 ? 'fallback' : 'candidate', usage: { promptTokens: 20, completionTokens: 10, totalTokens: 30 } });
+    }
+    let stats = await ledger.stats();
+    assert.equal(stats.usedCalls, 0);
+    assert.equal(stats.remainingCalls, 18);
+    assert.equal(stats.reservedMicros, 0);
+    assert.equal(stats.remainingBudgetMicros, 900000);
+    assert.equal(stats.personalCalls, 22);
+    assert.equal(stats.promptTokens, 440);
+    assert.equal(stats.personalPromptTokens, 440);
+    assert.equal(stats.sharedPromptTokens, 0);
+    const values = sqlite.prepare('SELECT DISTINCT reserved_micros FROM pilot_requests').all();
+    assert.deepEqual(values.map(row => row.reserved_micros), [0]);
+    await ledger.reserve(reservation('default-1', { sessionId: 'default-session' }));
+    await ledger.finish('default-1', { outcome: 'timeout', usage: { promptTokens: 40, completionTokens: 10, totalTokens: 50 } });
+    stats = await ledger.stats();
+    assert.equal(stats.usedCalls, 1);
+    assert.equal(stats.remainingCalls, 17);
+    assert.equal(stats.reservedMicros, 50000);
+    assert.equal(stats.promptTokens, 480);
+    assert.equal(stats.sharedPromptTokens, 40);
+    assert.equal(stats.personalPromptTokens, 440);
+  } finally { sqlite.close(); }
+});
+
+test('personal source remains eligible after shared count or variable-priced budget is exhausted', async () => {
+  for (const kind of ['count', 'budget']) {
+    const { ledger, sqlite } = fixture();
+    try {
+      const attempts = kind === 'count' ? 18 : 3;
+      const reservedMicros = kind === 'count' ? 50000 : 300000;
+      for (let i = 0; i < attempts; i++) {
+        await ledger.reserve(reservation(`default-${i}`, { sessionId: `default-session-${i}`, ...route, reservedMicros }));
+        await ledger.finish(`default-${i}`, { outcome: 'fallback' });
+      }
+      assert.deepEqual(await ledger.reserve(reservation('over-budget', { sessionId: 'over-budget', ...route })), { ok: false, reason: 'budget_exhausted' });
+      assert.deepEqual(await ledger.reserve(reservation('personal-okay', { sourceMode: 'personal', sessionId: 'personal-session', ...route })), { ok: true });
+      const stats = await ledger.stats({ now: 1000000 });
+      assert.equal(stats.usedCalls, attempts);
+      assert.equal(stats.reservedMicros, 900000);
+      assert.equal(stats.personalCalls, 1);
+      assert.equal(stats.activeCalls, 1);
+    } finally { sqlite.close(); }
+  }
+});
+
+test('personal attempts share per-session and concurrent limits with default attempts', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    const first = reservation('default-first');
+    const second = reservation('personal-second', { sourceMode: 'personal', sessionId: 'other-session', ...route });
+    assert.deepEqual(await ledger.reserve(first), { ok: true });
+    assert.deepEqual(await ledger.reserve(second), { ok: true });
+    assert.deepEqual(await ledger.reserve(reservation('personal-third', { sourceMode: 'personal', sessionId: 'third-session', ...route })), { ok: false, reason: 'concurrency_limit' });
+    assert.deepEqual(await ledger.reserve(reservation('default-third', { sessionId: 'third-session' })), { ok: false, reason: 'concurrency_limit' });
+    await ledger.finish(first.requestId, { outcome: 'candidate' });
+    await ledger.finish(second.requestId, { outcome: 'fallback' });
+    for (let i = 0; i < 4; i++) {
+      const id = `mixed-session-${i}`;
+      await ledger.reserve(reservation(id, { sourceMode: 'personal', ...route }));
+      await ledger.finish(id, { outcome: 'cancelled' });
+    }
+    for (const sourceMode of ['personal', 'default']) assert.deepEqual(await ledger.reserve(reservation(`session-six-${sourceMode}`, { sourceMode, ...route })), { ok: false, reason: 'session_limit' });
+    assert.equal((await ledger.stats()).reservedMicros, 50000);
+  } finally { sqlite.close(); }
+});
+
+test('variable-price reservations atomically enforce the shared monetary cap without refunds', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    await ledger.reserve(reservation('seed', { sessionId: 'seed-session', reservedMicros: 600000, ...route }));
+    await ledger.finish('seed', { outcome: 'timeout' });
+    const amounts = [400000, 300000, 50000];
+    const results = await Promise.all(amounts.map((reservedMicros, i) => ledger.reserve(reservation(`budget-${i}`, { sessionId: `budget-session-${i}`, reservedMicros, ...route }))));
+    assert.deepEqual(results, [{ ok: false, reason: 'budget_exhausted' }, { ok: true }, { ok: false, reason: 'budget_exhausted' }]);
+    await ledger.finish('budget-1', { outcome: 'cancelled' });
+    assert.deepEqual(await ledger.reserve(reservation('after-cancel', { sessionId: 'after-cancel' })), { ok: false, reason: 'budget_exhausted' });
+    const stats = await ledger.stats();
+    assert.equal(stats.reservedMicros, 900000);
+    assert.equal(stats.usedCalls, 2);
+    assert.equal(stats.remainingCalls, 16);
+    assert.equal(stats.remainingBudgetMicros, 0);
+  } finally { sqlite.close(); }
+});
+
+test('same request ID cannot change source, route, price version or reservation', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    const original = reservation('routed-request', { ...route, reservedMicros: 400000 });
+    await ledger.reserve(original);
+    assert.deepEqual(await ledger.reserve(original), { ok: false, reason: 'duplicate_request' });
+    for (const changes of [
+      { providerId: 'deepseek', modelId: 'deepseek-flash' }, { modelId: 'different-model' }, { priceVersion: '2026-11-01-v2' },
+      { reservedMicros: 50000 }, { sourceMode: 'personal', reservedMicros: 0 },
+    ]) assert.deepEqual(await ledger.reserve({ ...original, ...changes }), { ok: false, reason: 'request_conflict' });
+    assert.equal((await ledger.stats()).usedCalls, 1);
+    assert.equal((await ledger.stats()).reservedMicros, 400000);
+  } finally { sqlite.close(); }
+});
+
+test('invalid payer or reservation metadata is rejected before writing', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    for (const changes of [
+      { sourceMode: 'unknown' }, { sourceMode: '' }, { reservedMicros: 0 }, { reservedMicros: 49999 }, { reservedMicros: 900001 }, { reservedMicros: 50000.5 },
+      { sourceMode: 'personal', reservedMicros: 50000 }, { sourceMode: 'personal', reservedMicros: -1 },
+      { providerId: 'kimi' }, { modelId: 'kimi-k3.1-pro' }, { priceVersion: 'unsafe private text' }, { providerId: 'unsafe\nname', modelId: 'model' },
+    ]) await assert.rejects(ledger.reserve(reservation('invalid-request', changes)), /invalid_reservation/);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
+  } finally { sqlite.close(); }
 });

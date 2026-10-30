@@ -1,6 +1,65 @@
 # 留白 AI 接入契约
 
-## 当前版本 3：公开设置与凭据选择
+## 多服务商实现（待发布）
+
+当前源码扩展为 DeepSeek、Kimi、GLM、OpenAI。以下版本3/2内容保留其历史事实；本节为新的接口合同与离线实现记录，最终构建已通过，生产发布尚未发生。设计与验收见 [multi-provider-ai](../openspec/changes/multi-provider-ai/design.md)，官方核验依据见 [provider-sources.md](provider-sources.md)。
+
+### 目录与传输所有权
+
+`providers.mjs` 是服务商、模型、固定端点、参数能力、费率和保守预留的唯一目录。当前模型为 `deepseek-flash`、`kimi-k3.1-pro`、`glm-4.7-flash`、`gpt-6-luna`，每家只提供一款受控试用模型，不接受自定义端点或任意模型输入。
+
+`provider-transport.mjs` 处理各家参数与受控错误。OpenAI使用developer消息、`max_completion_tokens`、关闭推理和`store:false`；DeepSeek及GLM使用各自关闭思考参数；Kimi使用low思考，2000 completion token上限包含思考用量。思考正文不显示、不记录。完整请求与响应受字节上限、超时和manual拒绝重定向限制，不重试或转发认证到其他目标。
+
+每次生成仍由 `buildContext` / `buildModelRequest` 从服务端注入统一平台、模式及阶段规则；用户材料作为独立消息，Key、端点、费用来源不进入模型材料。`runCandidate` 与前端继续检查四字段候选、来源、长度、问题和行动许可。这些检查不能证明语义正确，四家须分别完成真实场景评测。
+
+### 公开协议与会话绑定
+
+状态协议为 `configVersion: multi-v1`、`consentVersion: multi-provider-v1`：
+
+- `providers`：公开白名单，包含服务商id/label/keyHelp/defaultModelId与模型id/label/note。
+- `defaultProfile` / `defaultAvailable`：实际默认服务商/模型及凭据就绪情况；没有默认配置时profile为null。
+- `enabled`：个人路径的全局资格；`defaultEnabled` / `defaultReason`另检查共享预算。不能用共享次数耗尽禁用完整个人配置。
+- `remainingCalls` / `remainingBudgetCny`：专指共享次数和保守预算余量，不是个人账户余额或供应商实际费用。
+
+生成请求必须显式携带 `sourceMode: default|personal`、`providerId`、`modelId`、配置及同意版本，再带原有请求标识、revision、stage、session等字段。`personalApiKey`只在personal来源必填，不属于session。默认来源必须与当前实际默认路由一致；配置变化拒绝旧同意，不向新接收方静默发送。
+
+响应的 `route:{sourceMode,providerId,modelId}` 必须与前端冻结快照一致，并通过会话、请求编号和revision匹配才可显示。route参与幂等摘要，Key及Key摘要不参与；复用编号更换来源或路由返回冲突。
+
+前端设置保存服务商/模型/Key的原子配置，切换服务商清空新输入，取消不改变已应用值；已有Key不回填DOM。开始体验后冻结配置，`pagehide`清除设置和会话Key副本，BFcache返回不恢复或改用默认。错误按当前服务商标注；个人缺Key、认证、模型权限或余额失败均保留原话且不切默认。
+
+### 默认服务、个人自费与账本
+
+用户明确区分两种来源：
+
+| 来源 | 资格与费用边界 |
+| --- | --- |
+| default | 原共享最多18次、保守预留合计不超过900000微元（¥0.90），另留¥0.10；按具体模型预留，失败不释放 |
+| personal | 填写者自行付费，不占共享18次或金额，账本`reserved_micros=0`；不代表真实费用为0 |
+| 两者通用 | 每会话最多5次、全局并发2次、单次材料/completion边界、同源、取消、异常用量持久停用与价格有效窗 |
+
+`LIUBAI_DEFAULT_PROVIDER`指定四家之一，缺省deepseek；`LIUBAI_DEFAULT_MODEL`可省略，须为对应目录模型。默认Key只取相应 `LIUBAI_DEFAULT_<PROVIDER>_KEY`；只有deepseek可兼容旧D1已启用加密配置。其他服务商不会继承旧Key，公开个人入口不提供全局读写权。
+
+`0001_rapid_shocker.sql`为schema-only追加迁移，新增`source_mode/provider_id/model_id/price_version/reserved_micros`。旧两行迁移验证保留`source_mode=default`和每行50000微元原预留；default为兼容旧共享口径的迁移值，不推断旧请求实际凭据来源，也不追溯释放或重置批次。原子reserve同时检查默认来源次数/费用和通用5/2条件，换Key、模型或提供个人Key不绕过通用门禁。
+
+默认按模型保守预留（当前Kimi400000微元，其余至少50000微元）；实际usage按所选模型费率及上限核验，越界记error并持久停用。美元折算是含缓冲的预算假设，非实时汇率或账单；价格有效窗仍截至北京时间2026-11-06 00:00，到期须复核。诊断仅包含受控状态、请求和白名单路由元数据，不含凭据、原文、供应商原错、模型正文或思考。
+
+### 目前证据与待验边界
+
+最新全量命令 **143/143通过**，其后代码未改变；OpenSpec严格校验通过，最终 `build-site` 构建退出码0。旧账本追加迁移测试通过，本地D1按starter文件执行方式成功运行五条ALTER；构建产物Worker在4173的`/api/ai/status`返回200、`multi-v1`、四家目录和`defaultAvailable:false`。
+
+离线浏览器四家均取得模拟候选，GLM401时默认存在仍不切Key并保留原话，OpenAI纠正后可编辑整理并确认；活动会话锁定、切provider清输入、取消不改applied且Key不回填DOM已验。390视口文档宽375，无横向溢出；离页至无默认服务页再后退，Key为空、当前选择未配置。这证明该导航返回检查通过，未采集`event.persisted`，不据此宣称实际BFcache恢复事件已验证。
+
+离线fixture六次模拟调用包括personal5次/default1次，个人预留均为0；共享余量18→17、¥0.90→¥0.85。此为独立测试数据库，不是生产使用量。此次未发真实推理请求，无本轮真实API费用；生产原两次失败不重置，实际账单仍未核验。
+
+另一个独立4181慢响应fixture接收1次personal请求，预留为0。用户先取消转本地整理并改写；20秒后模拟后台记为finished/candidate，页面仍保留用户原编辑文本，未采用迟到候选。该case不并入前述六次fixture计数，也没有真实模型费用。
+
+```powershell
+node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs ai/*.test.mjs server/*.test.mjs
+```
+
+实现、143项自动化、本地迁移、上述浏览器检查和最终构建已完成；生产发布仍待执行，尚无本次发布ID或成功状态。四家真实可用性、输出质量、纠正效果、token用量及账单不得以离线候选或发布代替。
+
+## 历史版本 3：公开设置与凭据选择
 
 2026-10-30，用户已明确选择：访客填写个人 Key 时优先使用个人 Key；留空时使用组织者默认 Key。公开体验无需 ChatGPT 登录或体验码。新契约详见 [public-ai-settings](../openspec/changes/warm-public-ai/specs/public-ai-settings/spec.md)。版本 3 已发布到 https://blank.sakura.observer，最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。部署 ID为 `appgdep_6ae4a83fdebc8191ac2918a151b07cad`，发布源为 `4fd788f45bc2dea025f1b6bfcd1fa4d93a038380`；下方版本 2 只作历史保留。
 
