@@ -1,5 +1,34 @@
 # 验证记录
 
+## 版本9：成品版式与设置操作区（待发布）
+
+日期：2026-10-31（Asia/Shanghai）。本节为当前变更状态，下方版本8及更早章节按当时事实保留。
+
+### 参考与改动范围
+
+- 参考 [Day One 官方功能页](https://dayoneapp.com/features/)，主代理已实际检查其中的编辑器界面图；借鉴单一内容轴和明确的内容层级，不复制其素材。弹窗操作区参考 [Carbon 官方规范](https://www.carbondesignsystem.com/building-blocks/core/components/modal/guidelines)，将字段管理动作与提交、取消分开。
+- 示例统一为四个 `.letter-section`，相同小标题、16px正文及左边线；移除缩进引语竖线、右对齐落款、双层纸张及成品胶带装饰。预览仍明确虚构，不保存、不创建记录或调用模型。
+- AI设置底部仅「取消／确认设置」两个同高按钮。「移除本页 Key」仅在个人来源且已有页面Key时靠近输入字段显示，仍受锁定禁用及原handler guard约束；清除Key、来源重置和关闭弹窗的语义不变。
+- 预览正文、设置 `.ai-settings-content` 分别滚动；标题和底部操作区不随正文滚走。错误区保留原ID及alert，空内容时隐藏。
+- 仅前端排版及动作位置调整；后端API、环境、预算、来源路由、凭据生命周期、同意续接和确认保存规则未修改。PNG仍为既有独立canvas排版，不声称已同步此次网页版式。
+
+### 已取得的验证
+
+- 桌面及390px窄视口：文档宽375≤390，无横向溢出；示例四段左边线实测均为x36；底部操作可见。
+- 空Key提交后错误显示；应用假Key后「移除本页 Key」按钮为1个，移除后按钮消失且Key为空。默认来源不显示移除动作。
+- 全量151/151、语法及diff检查通过。独立只读审查确认新增wrapper不影响来源、provider/model、Key查询及事件委托；设置提交ID、resume gate到同意、锁定guard保持完整；旧预览排版class无悬挂引用。
+- 验收使用虚构输入、假Key和隔离fixture，未调用真实API。4185测试账本最终读取为 `rows:[]`。
+- 390px空Key报错时错误及footer同时可见；初始心事记录从设置应用假GLM后自动续到同意，启用后仍保留故事。首次提交返回后「确认设置」与「移除本页 Key」均禁用。
+- 正文可键盘聚焦，PageDown后scrollTop=18与scrollRange=18一致，已到末尾；焦点为「虚构成品正文」，footer未滚走。手机预览正文scrollWidth=clientWidth=288。
+- 工作区截图 `outputs/liubai-order-preview-local.jpg`、`outputs/liubai-order-preview-mobile.jpg`、`outputs/liubai-order-settings-local.jpg`、`outputs/liubai-order-settings-mobile.jpg`；浏览器已恢复默认视口。
+
+### 尚待完成
+
+- 最终构建、精确源码打包和Sites版本9发布终态、正式域名截图及发布标识。
+- 移动真机、辅助技术完整验收和真人对阅读秩序、温馨感的判断不由本轮自动化替代；不新增真实模型语义或费用结论。
+
+实现与验收 `completed`，最终构建和发布 `in progress`。GitHub同步未作声明；下一步完成发布，再请亲友判断示例是否规整、设置是否易懂。
+
 ## 版本8：简明设置与来信阅读（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本轮只修改前端说明与阅读样式，不修改API、预算、路由、凭据存储、发送门禁或确认保存逻辑。
