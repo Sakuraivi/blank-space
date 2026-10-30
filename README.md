@@ -8,15 +8,21 @@
 
 ## 本轮进度与线上版本
 
-2026-10-30：`warm-public-ai` 的公开个人设置、服务端凭据选择和暖感界面已实现，正在完成验收。最新全量自动化 **93/93 再次通过**；公开设置、mock 默认/个人错误路径和取消/迟到响应均完成浏览器验收。最终源码构建正在执行，前一次构建退出码 0不能替代本次结果。新版本尚未发布；完整进度见 [任务清单](openspec/changes/warm-public-ai/tasks.md) 和 [QA.md](QA.md)。
+2026-10-30：`warm-public-ai` 已作为 **版本 3** 发布到 [blank.sakura.observer](https://blank.sakura.observer)。公开个人设置、个人/默认凭据选择和暖感界面均已上线；最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。完整证据见 [QA.md](QA.md)，剩余真实模型验收见 [任务清单](openspec/changes/warm-public-ai/tasks.md)。
 
-当前已核验的线上历史版本为 **版本 2**：源提交 `4cc2a75db7135d48b8b1d53db53724330d2607a3`，部署 `appgdep_6ae38543a7488191bc82d1c39c4df0e0` 返回 `succeeded`。D1 两张业务表存在，`blank.sakura.observer` 的域名、证书和首页已验；当时 AI 未配置，剩余 18 次。此前 78/78 自动化与构建成功只证明版本 2 的相应行为。
+- 发布源提交：`4fd788f45bc2dea025f1b6bfcd1fa4d93a038380`。
+- Sites 版本：3；部署 `appgdep_6ae4a83fdebc8191ac2918a151b07cad` 返回 `succeeded`，环境 revision 为 1。
+- 正式域名已在浏览器显示新版标题、原创生活插画与公开 AI 设置，旧 `/admin` 入口自动进入公开设置，无 ChatGPT 登录门槛。
+- 生产 `/api/ai/status` 返回 `enabled:true`、`personalKeySupported:true`、`defaultAvailable:false`、`configVersion:public-v1`、`remainingCalls:18`、`inviteRequired:false`。这里的 enabled 表示可以使用个人 Key，不代表组织者已提供默认 Key。
+- 旧 `/api/admin/status` 仍返回应用 JSON `403 admin_required`，公开个人设置不会开放全站配置权限。
 
-真实 DeepSeek Key 尚未填写，没有真实模型质量或账单验证。本轮仍沿用 Sites 托管，并未迁到用户自己的 Cloudflare Workers 账号。
+**真实 DeepSeek Key 尚未提供，没有真实模型调用费用或质量/账单验证。** 现在可由用户在公开设置自行填写个人 Key；若希望朋友留空也能使用，组织者还需在托管秘密项补一次 `LIUBAI_DEFAULT_DEEPSEEK_KEY`。本轮沿用 Sites 托管，并未迁到用户自己的 Cloudflare Workers 账号。
+
+版本 2 的发布和 78 项验证作为历史保留在 QA；不能替代版本 3 的上述证据。本轮精确源码已推送 Sites 原生托管仓库，不据此宣称 GitHub 已同步。
 
 ## 公开 AI 设置契约
 
-本节描述本轮源码已实现的行为；最终构建与生产发布状态见任务清单：
+本节描述版本 3 的公开体验行为：
 
 - 首页提供公开的「AI 设置」；旧 `/admin.html` 地址引导到个人设置，不要求 ChatGPT 登录或体验码。
 - **填写个人 Key 时优先使用个人 Key；留空时使用组织者的默认 Key。** 没有默认 Key 时可填写个人 Key；两者均无时不调用模型。
@@ -91,7 +97,7 @@ python -m http.server 4173 --bind 127.0.0.1 --directory public
 - 浏览器已验桌面首页、390 像素首页与个人设置、本地故事跳过关注点/卡片、提前整理、修改和确认；窄屏实测 `scrollWidth=375 <= 390`，键盘焦点可见并保留减少动画样式。
 - 个人假 Key 的应用、清除、离开旧管理入口再后退均清空；旧 `/admin.html` 已引导到公开设置，无 ChatGPT 登录门槛。
 - mock 默认 Key 路径可显示候选，调用和取消后设置可刷新显示剩余 16/18 次。20 秒慢请求取消后改写总结，等旧结果到达后页面内容保持不变。个人假 Key在模拟上游 401 时明确显示没有改用其他 Key重试，原文保留；默认 Key存在也不会切换。
-- 一次构建通过，最终源码构建与正式域名发布待收尾；这些离线证据不消耗真实 API，也不证明真实输出质量。
+- 最后页面离开/BFcache 清理、状态刷新和提示清理修复后，全量 93/93 再次通过，最终构建退出码 0；版本 3 与正式域名验收已完成。这些离线测试和生产状态检查不消耗真实推理，也不证明真实输出质量。
 
 ## 目录与视觉依据
 
@@ -104,4 +110,4 @@ python -m http.server 4173 --bind 127.0.0.1 --directory public
 
 视觉方向为“傍晚窗边的一封生活来信”：原创生活小景、暖色层次与逐步表达。借鉴 [网易云年度报告案例](https://www.epub360.com/h5anli/templatedetails/69159dbda222ba002d7c4a63/) 的个人叙事、[Finch](https://finchcare.com/about-finch) 的小步陪伴和 [Headspace](https://www.headspace.com/) 的亲和插画，保留留白自身的场景和角色边界，不复制竞品素材。
 
-下一步取得最终构建结果并完成正式域名发布验收，再由用户自行配置真实 Key。真实样例、亲友反馈、移动真机和辅助技术验收分别记录，不能以部署成功代替模型效果验证。
+下一步由用户在公开设置自行填写个人 Key，或由组织者配置默认秘密项，再在同一 18 次批次内完成真实模型与费用核验。真实样例、亲友反馈、移动真机和辅助技术验收分别记录，不能以部署成功代替模型效果验证。

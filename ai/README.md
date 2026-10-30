@@ -1,8 +1,8 @@
 # 留白 AI 接入契约
 
-## 本轮公开设置变更：warm-public-ai（已实现，验收中）
+## 当前版本 3：公开设置与凭据选择
 
-2026-10-30，用户已明确选择：访客填写个人 Key 时优先使用个人 Key；留空时使用组织者默认 Key。公开体验无需 ChatGPT 登录或体验码。新契约详见 [public-ai-settings](../openspec/changes/warm-public-ai/specs/public-ai-settings/spec.md)。本轮源码已实现，最新全量自动化 **93/93 再次通过**；最终源码构建正在执行，前一次构建退出码 0不替代本次结果。新版本尚未发布，须与下方版本 2 生产历史区分。
+2026-10-30，用户已明确选择：访客填写个人 Key 时优先使用个人 Key；留空时使用组织者默认 Key。公开体验无需 ChatGPT 登录或体验码。新契约详见 [public-ai-settings](../openspec/changes/warm-public-ai/specs/public-ai-settings/spec.md)。版本 3 已发布到 https://blank.sakura.observer，最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。部署 ID为 `appgdep_6ae4a83fdebc8191ac2918a151b07cad`，发布源为 `4fd788f45bc2dea025f1b6bfcd1fa4d93a038380`；下方版本 2 只作历史保留。
 
 - 首页公开设置和旧管理地址均进入当前访客的个人设置，不授予全站默认 Key 读写权。
 - 个人 Key只在当前页面和单次后台请求内存使用，不进入存储、URL、日志、数据库、导出记录或系统提示词；刷新或离开页面后不恢复；`pagehide` 同时清除设置与本次会话中的个人凭据副本，BFcache 返回不会恢复它或静默改用默认 Key。设置保留不发起模型请求。
@@ -26,9 +26,13 @@
   → 候选校验、迟到结果丢弃、用户编辑确认
 ```
 
-本轮离线证据：API 31 项、适配器 12 项、账本 10 项共 53 项通过；全量 93 项通过。浏览器验证公开入口、个人假 Key 应用/清除及离开后返回、本地编辑确认和 mock 默认候选。默认路径调用/取消后剩余次数刷新为16/18；模拟个人 401 时前端明确不换 Key重试，保留原文，默认存在仍不切换。模拟20秒慢响应取消后修改总结，等待旧结果到达后内容不变。最终构建与发布仍待收尾，没有真实模型费用。
+本轮离线证据：API 31 项、适配器 12 项、账本 10 项共 53 项通过；全量 93 项通过。浏览器验证公开入口、个人假 Key 应用/清除及离开后返回、本地编辑确认和 mock 默认候选。默认路径调用/取消后剩余次数刷新为16/18；模拟个人 401 时前端明确不换 Key重试，保留原文，默认存在仍不切换。模拟20秒慢响应取消后修改总结，等待旧结果到达后内容不变。最终构建退出码 0、版本 3 发布 succeeded，且正式域名公开设置已验；没有真实模型费用。
 
-本轮任务与当前状态：[warm-public-ai/tasks.md](../openspec/changes/warm-public-ai/tasks.md)。下方保留版本 2 的详细契约和验证历史，其中“必须体验码”“体验者不填 Key”“公开管理页依赖 ChatGPT 登录”等描述由本轮新契约替代；不据此推断新版本已部署。
+生产匿名读取 `/api/ai/status` 已返回 200 JSON：`enabled:true`、`personalKeySupported:true`、`defaultAvailable:false`、`configVersion:public-v1`、`remainingCalls:18`、`inviteRequired:false`。此时用户可以填个人 Key，但尚无组织者默认 Key。旧 `/api/admin/status` 返回 403 JSON `admin_required`；它是应用授权结果，与历史 Node 公网边缘 403 区分。
+
+真实模型验证仍待用户自行填写个人 Key，或组织者通过托管秘密项配置 `LIUBAI_DEFAULT_DEEPSEEK_KEY`。设置保存与公开状态读取不调用模型，首次真实试跑才计入同一批 18 次。
+
+本轮任务与当前状态：[warm-public-ai/tasks.md](../openspec/changes/warm-public-ai/tasks.md)。下方保留版本 2 的详细契约和验证历史，其中“必须体验码”“体验者不填 Key”“公开管理页依赖 ChatGPT 登录”等描述由当前版本 3 的公开契约替代。
 
 ## 历史版本 2（v0.2）
 
