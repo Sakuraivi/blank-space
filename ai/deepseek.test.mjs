@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createDeepseekAdapter, prepareDeepseekRequest, DEEPSEEK_PROFILE, DEEPSEEK_ENDPOINT, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES } from './deepseek.mjs';
 import { buildContext, buildModelRequest } from './contract.mjs';
 import { runCandidate } from './runtime.mjs';
@@ -45,7 +47,7 @@ test('transport uses one fixed HTTPS POST and reports normalized numeric usage o
     calls++;
     assert.equal(url, DEEPSEEK_ENDPOINT);
     assert.equal(options.method, 'POST');
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.equal(options.headers.Authorization, `Bearer ${apiKey}`);
     assert.doesNotMatch(options.body, /test-key/);
     return response(completion({ usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 130, prompt_cache_hit_tokens: 20, prompt_cache_miss_tokens: 80, leaked: apiKey } }));
@@ -69,11 +71,29 @@ test('upstream failures are sanitized without reading body or retrying', async (
   assert.deepEqual(await adapter.generate(request()), { status: 'failed', reason: 'provider_response_failed' });
 });
 
-test('redirected responses are rejected even if an injected transport ignores redirect:error', async () => {
-  const value = response(completion());
-  Object.defineProperty(value, 'url', { value: 'https://untrusted.invalid/completion' });
-  const adapter = createDeepseekAdapter({ apiKey, fetchImpl: async () => value });
-  assert.deepEqual(await adapter.generate(request()), { status: 'failed', reason: 'provider_redirect_rejected' });
+test('manual redirect responses, including every 3xx status, never follow or retry', async () => {
+  for (let status = 300; status < 400; status++) {
+    let calls = 0;
+    const adapter = createDeepseekAdapter({ apiKey, fetchImpl: async (url, options) => {
+      calls++;
+      assert.equal(url, DEEPSEEK_ENDPOINT);
+      assert.equal(options.redirect, 'manual');
+      return new Response(null, { status, headers: { Location: 'https://untrusted.invalid/collect' } });
+    } });
+    assert.deepEqual(await adapter.generate(request()), { status: 'failed', reason: 'provider_redirect_rejected' });
+    assert.equal(calls, 1);
+  }
+});
+
+test('opaque redirects, followed redirects and changed URLs are rejected even with an injected transport', async () => {
+  for (const [property, value] of [['type', 'opaqueredirect'], ['redirected', true], ['url', 'https://untrusted.invalid/completion']]) {
+    const supplied = response(completion());
+    Object.defineProperty(supplied, property, { value });
+    let calls = 0;
+    const adapter = createDeepseekAdapter({ apiKey, fetchImpl: async () => { calls++; return supplied; } });
+    assert.deepEqual(await adapter.generate(request()), { status: 'failed', reason: 'provider_redirect_rejected' });
+    assert.equal(calls, 1);
+  }
 });
 
 test('truncated, empty, malformed, tool and reasoning results never become completed outputs', async () => {
@@ -159,4 +179,45 @@ test('invalid key options are rejected without reflecting secret values', () => 
   for (const invalid of ['', 'short', 'unsafe\r\nAuthorization: secret', '空白密钥']) {
     assert.throws(() => createDeepseekAdapter({ apiKey: invalid }), error => error.message === 'invalid_api_key');
   }
+});
+
+test('Workerd rejects the former redirect mode; native manual fetch succeeds and never follows a 302', { timeout: 30000 }, async t => {
+  const { Miniflare, Response: WorkerResponse } = await import('miniflare');
+  const source = readFileSync(new URL('./deepseek.mjs', import.meta.url), 'utf8');
+  let mode = 'success';
+  const calls = [];
+  const worker = new Miniflare({
+    modulesRoot: fileURLToPath(new URL('./', import.meta.url)),
+    compatibilityDate: '2026-05-01',
+    cf: false,
+    modules: [{ type: 'ESModule', path: fileURLToPath(new URL('./workerd-test-entry.mjs', import.meta.url)), contents: `
+    import { createDeepseekAdapter, DEEPSEEK_ENDPOINT } from './deepseek.mjs';
+    export default { async fetch(incoming) {
+      if (new URL(incoming.url).pathname === '/old-mode') {
+        try { new Request(DEEPSEEK_ENDPOINT, { redirect: 'error' }); return Response.json({ accepted: true }); }
+        catch (error) { return Response.json({ name: error.name }); }
+      }
+      const adapter = createDeepseekAdapter({ apiKey: ${JSON.stringify(apiKey)} });
+      return Response.json(await adapter.generate(${JSON.stringify(request())}));
+    } };` }, { type: 'ESModule', path: fileURLToPath(new URL('./deepseek.mjs', import.meta.url)), contents: source }],
+    // Every outbound request is intercepted in-process. No real provider access.
+    outboundService: async outgoing => {
+      calls.push({ url: outgoing.url, authorization: outgoing.headers.get('Authorization') });
+      if (outgoing.url !== DEEPSEEK_ENDPOINT) return new WorkerResponse(null, { status: 418 });
+      if (mode === 'redirect') return new WorkerResponse(null, { status: 302, headers: { Location: 'https://untrusted.invalid/collect' } });
+      return new WorkerResponse(JSON.stringify(completion()), { headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  t.after(() => worker.dispose());
+  const old = await worker.dispatchFetch('https://worker.test/old-mode');
+  assert.deepEqual(await old.json(), { name: 'TypeError' });
+  assert.equal(calls.length, 0);
+  const success = await worker.dispatchFetch('https://worker.test/generate');
+  assert.deepEqual(await success.json(), { status: 'completed', output: candidate });
+  assert.deepEqual(calls, [{ url: DEEPSEEK_ENDPOINT, authorization: `Bearer ${apiKey}` }]);
+  calls.length = 0;
+  mode = 'redirect';
+  const rejected = await worker.dispatchFetch('https://worker.test/generate');
+  assert.deepEqual(await rejected.json(), { status: 'failed', reason: 'provider_redirect_rejected' });
+  assert.deepEqual(calls, [{ url: DEEPSEEK_ENDPOINT, authorization: `Bearer ${apiKey}` }]);
 });

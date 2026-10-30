@@ -99,11 +99,13 @@ export function createDeepseekAdapter({ apiKey, fetchImpl = globalThis.fetch, on
       catch (error) { return { status: 'failed', reason: error?.message === 'input_too_large' ? 'input_too_large' : 'invalid_request' }; }
       try {
         const response = await fetchImpl(DEEPSEEK_ENDPOINT, {
-          method: 'POST', redirect: 'error', signal,
+          // Workers supports manual/follow, not redirect:error. Manual keeps the
+          // authorization header on this endpoint; reject redirects below.
+          method: 'POST', redirect: 'manual', signal,
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: prepared.body,
         });
-        if (response.redirected || (response.url && response.url !== DEEPSEEK_ENDPOINT)) {
+        if ((response.status >= 300 && response.status < 400) || response.type === 'opaqueredirect' || response.redirected || (response.url && response.url !== DEEPSEEK_ENDPOINT)) {
           await response.body?.cancel().catch(() => {});
           return { status: 'failed', reason: 'provider_redirect_rejected' };
         }

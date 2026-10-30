@@ -305,7 +305,7 @@ test('environment default works anonymously without legacy config, encryption se
       calls++;
       assert.equal(url, 'https://api.deepseek.com/chat/completions');
       assert.equal(request.headers.Authorization, `Bearer ${ENV_KEY}`);
-      assert.equal(request.redirect, 'error');
+      assert.equal(request.redirect, 'manual');
       const body = JSON.parse(request.body);
       assert.equal(body.model, 'deepseek-flash');
       assert.equal(body.messages[0].role, 'system');

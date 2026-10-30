@@ -3,6 +3,7 @@ import { runCandidate } from '../ai/runtime.mjs';
 import { createDeepseekAdapter, prepareDeepseekRequest, DEEPSEEK_PROFILE } from '../ai/deepseek.mjs';
 import { createLedger } from '../ai/ledger.mjs';
 import { encryptKey, decryptKey, digest } from './secrets.mjs';
+import { recordAiResult } from './diagnostics.mjs';
 
 export const CONSENT_VERSION = 'deepseek-v1';
 // Version the public routing/consent contract, never a credential or its hash.
@@ -157,8 +158,15 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
     // Already dispatched inference may be billed even after cancellation.
     await ledger.finish(body.requestId, { outcome: unsafeUsage(usage) ? 'error' : result.status, usage, now: now() });
-    if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
-    if (!personalApiKey && !sameSource(source, defaultSource(await configRow(env.DB), env))) return fallback('config_changed', 409);
+    if (await safetyStopped(env.DB)) {
+      recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'usage_out_of_bounds' });
+      return fallback('usage_out_of_bounds', 503);
+    }
+    if (!personalApiKey && !sameSource(source, defaultSource(await configRow(env.DB), env))) {
+      recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'config_changed' });
+      return fallback('config_changed', 409);
+    }
+    recordAiResult({ requestId: body.requestId, stage: body.stage, status: result.status, reason: result.reason });
     return response({ ...result, requestId: body.requestId, revision: body.revision });
   } catch (error) {
     if (['input_too_large', 'invalid_content_type', 'invalid_body'].includes(error?.message) || error instanceof SyntaxError) return fallback('invalid_body', 400);
