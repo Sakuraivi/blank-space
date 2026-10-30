@@ -6,13 +6,15 @@
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
 - [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
-## 成品版式与设置操作区：版本9待发布
+## 成品版式与设置操作区：版本9已发布
 
 2026-10-31：参考 [Day One 官方功能页](https://dayoneapp.com/features/) 中实际编辑器界面的内容层次，以及 [Carbon 弹窗规范](https://www.carbondesignsystem.com/building-blocks/core/components/modal/guidelines) 的操作区组织，整理成品示例和AI设置。以下版本8及更早章节保留发布当时的事实。
 
 成品示例改为单层阅读区，四段内容统一小标题、16px正文及左边线，移除引语竖线、右侧落款、双层纸张和胶带装饰。设置底部只保留同高的「取消／确认设置」；「移除本页 Key」仅在个人模式已有Key时显示在输入字段旁，继续执行原有清除与关闭逻辑。两类弹窗均让正文独立滚动，标题和操作区保持可见。
 
-151项自动化、语法、diff检查和独立只读代码审查通过。桌面及390px浏览器已验无横向溢出、四段同左轴、底部操作可见，以及空Key错误提示、假Key应用和移除。初始故事同意续接保留原文，提交后设置仍锁定；正文键盘PageDown可滚到末尾。4185隔离模型账本为空。实现与验收 `completed`，最终构建和发布 `in progress`，详见 [QA.md](QA.md)。
+151项自动化、语法、diff检查、独立只读代码审查和最终构建通过。桌面及390px浏览器已验无横向溢出、四段同左轴、底部操作可见，以及空Key错误提示、假Key应用和移除。初始故事同意续接保留原文，提交后设置仍锁定；正文键盘PageDown可滚到末尾。4185隔离模型账本为空。实现、验收、发布均 `completed`；正式域名已核对两处新布局，详见 [QA.md](QA.md)。
+
+发布源 `39cfd1a8010502c3e355202e20abeb33fbd39f47`；保存版本 `appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_950b23508d548191884508de624aa8e8`；部署 `appgdep_6ae4dd28fcf48191b851f8c67ad18598`，`succeeded`，环境revision1。
 
 本轮未调用真实API，后端、环境、预算、凭据及同意规则不变；PNG继续使用原有独立排版。不据本地改动或后续Sites发布声称GitHub已同步。
 

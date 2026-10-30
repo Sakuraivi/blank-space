@@ -1,6 +1,6 @@
 # 验证记录
 
-## 版本9：成品版式与设置操作区（待发布）
+## 版本9：成品版式与设置操作区（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本节为当前变更状态，下方版本8及更早章节按当时事实保留。
 
@@ -22,12 +22,14 @@
 - 正文可键盘聚焦，PageDown后scrollTop=18与scrollRange=18一致，已到末尾；焦点为「虚构成品正文」，footer未滚走。手机预览正文scrollWidth=clientWidth=288。
 - 工作区截图 `outputs/liubai-order-preview-local.jpg`、`outputs/liubai-order-preview-mobile.jpg`、`outputs/liubai-order-settings-local.jpg`、`outputs/liubai-order-settings-mobile.jpg`；浏览器已恢复默认视口。
 
-### 尚待完成
+### 发布与证据边界
 
-- 最终构建、精确源码打包和Sites版本9发布终态、正式域名截图及发布标识。
+- 最终构建退出码0，发布精确源 `39cfd1a8010502c3e355202e20abeb33fbd39f47` 已推送Sites原生仓库；保存版本 `appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_950b23508d548191884508de624aa8e8`（版本9）；部署 `appgdep_6ae4dd28fcf48191b851f8c67ad18598`，`succeeded`，环境revision1，公开范围未变。
+- 正式域名浏览器已显示设置页只有「取消／确认设置」及新示例布局。工作区截图 `outputs/liubai-order-settings-live.jpg`、`outputs/liubai-order-preview-live.jpg`；已保留新版预览页，视口为默认尺寸。
+- 生产状态核对默认未配置、共享剩余16次与保守预算¥0.80，与本轮之前一致；本次没有真实推理调用、没有改环境或数据库。Sites推送不等于GitHub同步。
 - 移动真机、辅助技术完整验收和真人对阅读秩序、温馨感的判断不由本轮自动化替代；不新增真实模型语义或费用结论。
 
-实现与验收 `completed`，最终构建和发布 `in progress`。GitHub同步未作声明；下一步完成发布，再请亲友判断示例是否规整、设置是否易懂。
+调研、实现、验收、发布均 `completed`。下一步请亲友判断示例是否规整、设置是否易懂；主观视觉反馈不由自动化替代。
 
 ## 版本8：简明设置与来信阅读（已发布）
 
