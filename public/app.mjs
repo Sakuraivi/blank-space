@@ -62,7 +62,7 @@ function sharedBudgetNote(){return `${typeof aiStatus.remainingCalls==='number'?
 function aiHomeMarkup(){
   const selection=personalKey.selection();const profile=selectedAiProfile();const available=canUseAiSelection(selection,aiStatus,personalKey.hasKey());
   const note=aiStatus.loading?'正在查看 AI 是否可用…':!aiStatus.enabled?'本轮 AI 暂不可用，仍可按原话慢慢整理。':selection.sourceMode==='personal'&&profile?`已选择 ${profile.providerLabel} · ${profile.modelLabel}。个人账户付费，不占组织者共享额度。`:aiStatus.defaultEnabled&&profile?`可以使用组织者提供的 ${profile.providerLabel} 服务。共享剩余 ${aiStatus.remainingCalls??'—'} 次，另受费用上限限制。`:aiStatus.defaultAvailable?'组织者的共享体验暂不可用，也可以选择个人服务。':'选择 DeepSeek、Kimi、GLM 或 OpenAI，填入自己的 API Key，试试智能追问。';
-  return `<div class="ai-entry"><div><span class="aside-label">也可以，让 AI 陪你一起想</span><p>${e(note)}</p></div><div class="actions"><button class="secondary" data-action="ai-start" ${aiStatus.loading?'disabled':''}>${available?'试试 AI 陪我整理':'设置 Key，开始 AI'}</button><button class="text-button" data-action="ai-settings">AI 设置</button></div></div>`;
+  return `<div class="ai-entry"><div><span class="aside-label">也可以，让 AI 陪你一起想</span><p>${e(note)}</p></div><div class="actions"><button class="secondary" data-action="${available?'ai-start':'ai-settings'}" ${aiStatus.loading?'disabled':''}>${available?'开始 AI 体验':'设置 AI 服务'}</button>${available?'<button class="text-button" data-action="ai-settings">更换服务</button>':''}</div></div>`;
 }
 function aiSettingsFields(){
   const draft=aiSettingsDraft;const locked=Boolean(state.session);const disabled=locked?'disabled':'';
@@ -193,7 +193,7 @@ function submitStep(event) {
 function openModal(title,body) {focusBeforeModal=document.activeElement;modalContent.innerHTML=`<div class="modal-header"><h2 id="modal-title">${e(title)}</h2><button class="close-button" data-action="close-modal" aria-label="关闭">×</button></div>${body}`;if(!modal.open)modal.showModal();modalContent.querySelector('button')?.focus();}
 function clearSensitiveInputs(){modalContent.querySelectorAll('[data-sensitive-key]').forEach(input=>{input.value='';});}
 function closeModal(){pendingAction=null;aiSettingsDraft=null;pendingAiConsent=null;clearSensitiveInputs();modal.close();focusBeforeModal?.isConnected&&focusBeforeModal.focus();}
-function ask(title,body,label,callback){pendingAction=callback;openModal(title,`<p>${e(body)}</p><div class="modal-actions"><button class="secondary" data-action="close-modal">再待一会儿</button><button class="primary" data-action="confirm-action">${e(label)}</button></div>`);}
+function ask(title,body,label,callback,cancelLabel='再待一会儿'){pendingAction=callback;openModal(title,`<p>${e(body)}</p><div class="modal-actions"><button class="secondary" data-action="close-modal">${e(cancelLabel)}</button><button class="primary" data-action="confirm-action">${e(label)}</button></div>`);}
 function exitSession(){if(!state.session){home();return;}capture();ask('这次先到这里？','尚未保存的输入会从当前页面清除。已经保存到这台设备或导出的记录会保留。','清除本次并结束',()=>{home();notify('本次输入已清除。');});}
 function readRecords(){try{const raw=localStorage.getItem(STORE);if(!raw)return [];if(raw.length>5000000)throw Error('large');const data=JSON.parse(raw);if(!Array.isArray(data))return [];return data.slice(0,30).map(validateSavedRecord).filter(Boolean);}catch{return [];}}
 function saveRecord(){const record=confirmedRecord(state.session);if(!record){notify('记录内容不完整或过长，请修改后重试。');return;}try{const items=readRecords().filter(x=>x.id!==record.id);if(items.length>=30){notify('这台设备已有 30 份记录。请先删除一些，或导出当前记录。');return;}localStorage.setItem(STORE,JSON.stringify([record,...items]));notify('已保存在这台设备。可在“我的记录”中查看或删除。');}catch{notify('浏览器没有允许保存，或存储空间不足。可以下载文字。');}}
@@ -272,7 +272,14 @@ document.addEventListener('click',async event=>{
  else if(action==='example')example();
  else if(action==='close-modal')closeModal();
  else if(action==='confirm-action'){const callback=pendingAction;closeModal();callback?.();}
- else if(action==='hint'){const input=document.querySelector('#entry');if(!input.value.trim()){input.value=button.dataset.text;input.dispatchEvent(new Event('input',{bubbles:true}));}input.focus();}
+ else if(action==='hint'){
+   const input=document.querySelector('#entry');if(!input)return;
+   const next=button.dataset.text;const current=input.value.trim();
+   const starters=[...document.querySelectorAll('[data-action="hint"]')].map(item=>item.dataset.text);
+   const replace=()=>{if(!input.isConnected)return;input.value=next;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();input.setSelectionRange(next.length,next.length);};
+   if(!current||starters.includes(current))replace();
+   else ask('替换这个开头？',`将输入框内容替换为“${next}”。你已补写的文字会被清除。`,'替换为这个开头',replace,'保留现有内容');
+ }
  else if(action==='skip-focus'){capture();go('card');}
  else if(action==='draw')drawCard();
  else if(action==='redraw'){capture();if(state.session.cardReflection.trim())ask('换一个角度？','换卡会清除这张卡的联想文字，之前讲述的事情和焦点会保留。','清除联想并换卡',()=>{state.session.cardReflection='';drawCard();});else drawCard();}
