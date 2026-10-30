@@ -1,8 +1,10 @@
 # 留白 AI 接入契约
 
-## 多服务商实现（待发布）
+## 多服务商：版本5已发布
 
-当前源码扩展为 DeepSeek、Kimi、GLM、OpenAI。以下版本3/2内容保留其历史事实；本节为新的接口合同与离线实现记录，最终构建已通过，生产发布尚未发生。设计与验收见 [multi-provider-ai](../openspec/changes/multi-provider-ai/design.md)，官方核验依据见 [provider-sources.md](provider-sources.md)。
+DeepSeek、Kimi、GLM、OpenAI已作为版本5发布，[正式AI设置](https://blank.sakura.observer/?settings=ai)已在浏览器显示四家选项和通用「API Key」，无需登录。以下版本3/2内容保留历史事实；当前设计与验收见 [multi-provider-ai](../openspec/changes/multi-provider-ai/design.md)，官方核验依据见 [provider-sources.md](provider-sources.md)。
+
+发布源为`7f32ef7f178d169558b29ded3218833e9ef97ffa`；保存版本`appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_31656823cd508191835840cf80e599da`，部署`appgdep_6ae4b89599ac8191b327fb5cd1372393`返回`succeeded`，环境revision1。本次只已推送Sites原生托管仓库，不据此声称GitHub同步，也未迁至用户自管Cloudflare。
 
 ### 目录与传输所有权
 
@@ -39,7 +41,7 @@
 
 `LIUBAI_DEFAULT_PROVIDER`指定四家之一，缺省deepseek；`LIUBAI_DEFAULT_MODEL`可省略，须为对应目录模型。默认Key只取相应 `LIUBAI_DEFAULT_<PROVIDER>_KEY`；只有deepseek可兼容旧D1已启用加密配置。其他服务商不会继承旧Key，公开个人入口不提供全局读写权。
 
-`0001_rapid_shocker.sql`为schema-only追加迁移，新增`source_mode/provider_id/model_id/price_version/reserved_micros`。旧两行迁移验证保留`source_mode=default`和每行50000微元原预留；default为兼容旧共享口径的迁移值，不推断旧请求实际凭据来源，也不追溯释放或重置批次。原子reserve同时检查默认来源次数/费用和通用5/2条件，换Key、模型或提供个人Key不绕过通用门禁。
+`0001_rapid_shocker.sql`为schema-only追加迁移，新增`source_mode/provider_id/model_id/price_version/reserved_micros`。生产Sites数据库overview和rows已核对五列存在，旧两条fallback行保留`source_mode=default`和每行50000微元原预留，provider/model为null；default为兼容旧共享口径的迁移值，不推断旧请求实际凭据来源，也不追溯释放或重置批次。原子reserve同时检查默认来源次数/费用和通用5/2条件，换Key、模型或提供个人Key不绕过通用门禁。
 
 默认按模型保守预留（当前Kimi400000微元，其余至少50000微元）；实际usage按所选模型费率及上限核验，越界记error并持久停用。美元折算是含缓冲的预算假设，非实时汇率或账单；价格有效窗仍截至北京时间2026-11-06 00:00，到期须复核。诊断仅包含受控状态、请求和白名单路由元数据，不含凭据、原文、供应商原错、模型正文或思考。
 
@@ -57,7 +59,9 @@
 node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs ai/*.test.mjs server/*.test.mjs
 ```
 
-实现、143项自动化、本地迁移、上述浏览器检查和最终构建已完成；生产发布仍待执行，尚无本次发布ID或成功状态。四家真实可用性、输出质量、纠正效果、token用量及账单不得以离线候选或发布代替。
+生产状态接口已返回200、`configVersion:multi-v1`、`consentVersion:multi-provider-v1`、`enabled:true`、四家目录；`defaultAvailable/defaultEnabled`均false、profile为null，共享剩余16次、保守预算¥0.80。此轮没有新增真实调用，生产账本仍为原两条失败记录。正式设置截图位于工作区`outputs/liubai-multi-live.jpg`。
+
+实现、143项自动化、本地及生产迁移、上述浏览器检查、最终构建和版本5发布均已完成。四家真实可用性、输出质量、纠正效果、token用量及账单仍未验，不能以离线候选或发布代替；下一步使用可用官方账户由用户在页面自行输入Key，再做受控真实样例验证。
 
 ## 历史版本 3：公开设置与凭据选择
 

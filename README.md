@@ -6,9 +6,16 @@
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
 - [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
-## 多服务商实现（待发布）
+## 多服务商：版本5已发布
 
-当前源码已实现 DeepSeek、Kimi、GLM 和 OpenAI。下方版本3/4按发布时事实保留；本节描述尚待发布的新实现，不能据此认定正式站点已更新。变更契约见 [multi-provider-ai](openspec/changes/multi-provider-ai/design.md)。
+DeepSeek、Kimi、GLM 和 OpenAI已作为版本5发布到[正式AI设置](https://blank.sakura.observer/?settings=ai)。浏览器已显示四家选项和通用「API Key」输入，无登录门槛。下方版本3/4按发布时事实保留；当前变更契约见 [multi-provider-ai](openspec/changes/multi-provider-ai/design.md)。
+
+- 发布源：`7f32ef7f178d169558b29ded3218833e9ef97ffa`。
+- 保存版本：`appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_31656823cd508191835840cf80e599da`。
+- 部署：`appgdep_6ae4b89599ac8191b327fb5cd1372393`，`succeeded`，环境revision1。
+- 生产状态接口返回200、`multi-v1` / `multi-provider-v1`、`enabled:true`；默认未配置（`defaultAvailable:false`、`defaultEnabled:false`、`defaultProfile:null`），共享剩余16次、保守预算¥0.80。个人入口可用不代表已有真实模型成功结果。
+
+本次精确源码已推送Sites原生托管仓库，不据此宣称GitHub已同步；继续使用Sites托管，未迁至用户自管Cloudflare账号。线上截图位于工作区`outputs/liubai-multi-live.jpg`。
 
 | 服务商 | 当前受控试用模型 | Key 产品与费用提示 |
 | --- | --- | --- |
@@ -35,7 +42,7 @@
 
 仅 DeepSeek 保留旧已启用 D1 加密配置兼容；其他家不会借用它。保留 `LIUBAI_SECRET_KEY` 与 `LIUBAI_BOOTSTRAP_EMAIL` 的旧管理用途，不扩大匿名配置权限。
 
-追加迁移 `drizzle/0001_rapid_shocker.sql` 保存来源、模型、价格版本与预留。旧行按 `default`、每行50000微元保留；这里的default是兼容旧共享额度的迁移值，不代表旧请求实际使用默认Key。生产既有两次失败尝试不能因多服务商改版重置或追溯释放。
+追加迁移 `drizzle/0001_rapid_shocker.sql` 保存来源、模型、价格版本与预留。生产D1已核对五个新增列和两条原fallback记录，每行50000微元、provider/model仍为null，没有新增真实调用。旧行的`default`是兼容旧共享额度的迁移值，不代表旧请求实际使用默认Key；生产既有两次失败尝试没有重置或追溯释放。
 
 验证：最新全量 **143/143通过**，OpenSpec严格校验通过，最终 `build-site` 构建退出码0。构建产物Worker在本地4173的状态接口返回200、`multi-v1`、四家目录及`defaultAvailable:false`；追加迁移通过本地D1文件执行完成五条ALTER。
 
@@ -45,9 +52,9 @@
 node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs ai/*.test.mjs server/*.test.mjs
 ```
 
-当前进度：实现、自动化、本地迁移、移动/离页/迟到验证及最终构建 `completed`；既有站点生产发布 `in progress`；四家真实账户可用性、内容质量与账单核验 `not started`。尚未记录本次发布成功，最终发布证据和待办见 [QA.md](QA.md)。
+当前进度：实现、自动化、本地及生产迁移、移动/离页/迟到验证、最终构建、版本5发布与正式设置验收 `completed`；四家真实账户可用性、内容质量与账单核验 `not started`。下一步需使用可用的对应官方账户完成真实小样本验证，Key由用户自行在页面输入；实际BFcache恢复事件未单独取得证据。完整证据和待办见 [QA.md](QA.md)。
 
-## 版本3发布记录（最新v4见文末）
+## 版本3发布记录（历史）
 
 2026-10-30：`warm-public-ai` 已作为 **版本 3** 发布到 [blank.sakura.observer](https://blank.sakura.observer)。公开个人设置、个人/默认凭据选择和暖感界面均已上线；最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。完整证据见 [QA.md](QA.md)，剩余真实模型验收见 [任务清单](openspec/changes/warm-public-ai/tasks.md)。
 
@@ -154,7 +161,7 @@ python -m http.server 4173 --bind 127.0.0.1 --directory public
 下一步由用户在公开设置自行填写个人 Key，或由组织者配置默认秘密项，再在同一 18 次批次内完成真实模型与费用核验。真实样例、亲友反馈、移动真机和辅助技术验收分别记录，不能以部署成功代替模型效果验证。
 
 
-## 最新发布说明：版本4
+## 版本4发布说明（历史）
 
 2026-10-30，Workers重定向兼容修复已发布。源提交 `ca13d407dcff5cf54d31556f4a600157c0755c66`，部署 `appgdep_6ae4af4722e48191a3aeb0427c7781d4` 为 `succeeded`，环境revision1，精确打包构建退出码0；修复后全量97/97和真实Workerd运行时的拦截出站验证通过。
 

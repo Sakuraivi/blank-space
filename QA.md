@@ -200,9 +200,9 @@
 
 v4收尾状态：主代理匿名读取生产 `/api/ai/status`，确认 `remainingCalls:16`、`defaultAvailable:false`、`enabled:true`。错误界面截图已保存为工作区 `outputs/liubai-ai-smoke.jpg`，不含Key字段。没有第三次调用；生成语义、纠正、真实usage及实际费用仍未验证。
 
-## 多服务商实现（待发布）
+## 多服务商：版本5已发布
 
-更新：2026-10-30（Asia/Shanghai）。本节记录新源码和离线验收，保留前述v3/v4生产事实。最终构建已通过，生产发布尚未发生，不将本节视为已上线；既有生产两次失败记录不重置。
+更新：2026-10-30（Asia/Shanghai）。多服务商实现已作为版本5发布，本节记录其代码、离线和生产验收，保留前述v3/v4历史事实；既有生产两次失败记录不重置。本次没有新增真实模型调用。
 
 ### 实现与自动化
 
@@ -241,6 +241,24 @@ v4收尾状态：主代理匿名读取生产 `/api/ai/status`，确认 `remainin
 
 ### 当前剩余步骤
 
-- `completed`：四家协议适配、来源和费用门禁、旧账本迁移测试与本地执行、143项自动化、严格校验、上述桌面/390像素/离页返回/迟到响应离线检查及最终构建。
-- `in progress`：既有站点生产迁移与部署；未预写发布ID或成功状态。实际BFcache恢复事件未单独取得证据。
+- `completed`：四家协议适配、来源和费用门禁、旧账本迁移测试与本地及生产执行、143项自动化、严格校验、上述桌面/390像素/离页返回/迟到响应离线检查、最终构建、版本5发布及正式设置验收。
+- 实际BFcache恢复事件未单独取得证据，前述离页返回检查不扩大为该事件已验证。
 - `not started`：四家真实账户可用性、真实语义及纠正质量、真实token用量和账单。需使用可用的对应官方账户，Key仍由用户在页面自行输入，不在聊天提供。
+
+### 版本5发布与生产验收
+
+| 发布证据 | 结果 |
+| --- | --- |
+| 精确发布源 | `7f32ef7f178d169558b29ded3218833e9ef97ffa` |
+| 保存版本 | `appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_31656823cd508191835840cf80e599da` |
+| 部署 | `appgdep_6ae4b89599ac8191b327fb5cd1372393`，`succeeded` |
+| 环境revision | 1 |
+| 正式设置 | `https://blank.sakura.observer/?settings=ai`浏览器显示四家服务商和通用「API Key」，无登录门槛 |
+| 正式截图 | 工作区`outputs/liubai-multi-live.jpg`，不含真实Key |
+| 生产状态 | HTTP200，`configVersion:multi-v1`、`consentVersion:multi-provider-v1`、`enabled:true` |
+| 默认服务 | `defaultAvailable:false`、`defaultEnabled:false`、`defaultProfile:null`，尚无组织者默认配置 |
+| 共享余量 | 16次、保守预算¥0.80；不代表供应商账户余额或实际费用 |
+
+通过Sites数据库overview和rows验证`source_mode/provider_id/model_id/price_version/reserved_micros`五个新增列存在；旧两条记录仍为fallback，每行预留50000微元，provider/model为null。`source_mode=default`仅为旧共享口径的兼容迁移值，不能据此推断旧请求实际使用默认Key。原两行没有删除、重置或重新释放，也没有新增真实调用。
+
+本次精确源码已推送Sites原生托管仓库，不据此声称GitHub已同步；继续使用Sites托管，没有迁移至用户自管Cloudflare账号。143项、构建、迁移及离线mock证据保持成立；真实四家质量、纠正效果、用量与账单仍未验。
