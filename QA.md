@@ -1,6 +1,6 @@
 # 验证记录
 
-## 版本7：主题直接入口与同记录方式选择（待发布）
+## 版本7：主题直接入口与同记录方式选择（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本节为最新状态；后续旧节按当时的版本和证据保留，不作为版本7已发布或真实模型质量通过的证明。变更契约：[direct-theme-entry](openspec/changes/direct-theme-entry/design.md)。
 
@@ -25,16 +25,19 @@
 node --test core.test.mjs public-flow.test.mjs personal-key.test.mjs ai-settings.test.mjs story-method.test.mjs ai/*.test.mjs server/*.test.mjs
 ```
 
-### 尚待根代理登记
+### 最终发布与正式域名
 
-- 最终构建、OpenSpec严格校验、既有站点版本7保存与部署终态、正式域名三入口截图及发布标识。
-- 发布后更新本节的完成状态，不能以本地151项通过替代正式站点验收。
+- 最终精确打包构建退出码0，OpenSpec严格校验和diff检查通过；发布源 `cb57a923fde972c07e61d2cd15e19f633738af05`。
+- 保存版本 `appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_c4dac15782dc81919a57ff7c3ce61e19`（版本7）；部署 `appgdep_6ae4ccd0e58881918d971129d10b2e37` 终态 `succeeded`，环境revision1。
+- 正式 `https://blank.sakura.observer/` 浏览器显示三张直接入口与「看看整理后的样子」，旧通用开始/AI开始入口消失，模块均成功加载；截图工作区 `outputs/liubai-entry-live.jpg`。已恢复浏览器默认视口并保留交付页。
+- 匿名生产状态HTTP200：`multi-v1` / `multi-provider-v1`、enabled true、defaultAvailable/defaultEnabled false、共享剩余16次与保守预算¥0.80，与本轮前既有余量一致。本次未新增真实模型调用。
+- Sites原生仓库已推送精确源码。GitHub同步、迁移Cloudflare、配置默认秘密项不在本次变更内；公开范围未变。
 
 ### 证据边界与下一步
 
-入口、示例、配置和同意验收均使用虚构文字、假Key和拦截的模型响应，没有真实API调用。未修改服务端、环境变量、数据库或预算。此前生产默认Key未配置的结论属于上次核验，本轮没有验证真实账户余额或权限，也没有新增真实语义、用量和账单证据。
+入口、示例、配置和同意验收均使用虚构文字、假Key和拦截的模型响应，没有真实API调用。未修改服务端、环境变量、数据库或预算。发布后再次确认生产默认Key未配置；没有验证真实账户余额或权限，也没有新增真实语义、用量和账单证据。初始story的BFcache过期分支未取得真实事件证据，该限制保留。
 
-当前：实现 `completed`，验证 `in progress`，发布 `not started`。技术验收与发布完成后，建议邀请朋友做可用性测试：能否直接发现入口、是否理解轻引导与AI的区别、是否愿意留下整理成品。
+当前：实现、验证、发布均 `completed`。建议邀请朋友做可用性测试：能否直接发现入口、是否理解轻引导与AI的区别、是否愿意留下整理成品。测试本地路径不需要Key；验证真实AI需体验者自行在页面填写可用Key，或组织者另配默认秘密项。
 
 ## 以下为早期与既有发布的历史验证
 
