@@ -21,7 +21,7 @@
 7. **沿用托管和访问受众。** 本轮不迁出 Sites、不更改域名/受众。构建完成后按现有项目 ID 发布，服务端秘密通过托管控制面配置；默认秘密缺失不是发布阻塞，页面须如实提示并保留个人 Key和本地路径。
 
 8. **使用 Workers 支持的重定向策略。** 供应商请求使用 `redirect: 'manual'`，显式拒绝 3xx，并继续拒绝非固定端点、已重定向或响应 URL不匹配的结果，不跟随 Location。不能使用 `redirect: 'error'`：Cloudflare Workers在构造 Request时即抛出 TypeError，不会发送请求。采用 manual兼容运行时，同时保留防止认证头被带往其他目标的边界。[Cloudflare Request 文档](https://developers.cloudflare.com/workers/runtime-apis/request/)
-9. **诊断记录采用显式白名单。** 仅输出必要的受控事件/阶段、请求 ID、状态与原因码、耗时、数值 token用量等元数据；不记录 Request对象、原始异常、认证头、Key、用户材料、完整响应或提示词。API HTTP 200与业务成功分开；fallback不能被当作上游完成。记录时机位于最终 safety/config守卫之后，记录向前端实际返回的受控结果，避免配置变更已丢弃的候选仍记为成功；实际日志项需通过本地测试检查无凭据/无原文。
+9. **诊断记录采用显式白名单。** 应用诊断模块仅记录 `event`、`requestId`（UUID）、`stage`、`status`、`reason`；不含耗时或usage，后两者分别从Worker trace及持久账本核验。不记录 Request对象、原始异常、认证头、Key、用户材料、完整响应或提示词。API HTTP 200与业务成功分开，fallback不能当作上游完成。记录时机位于最终safety/config守卫之后，记录实际返回的受控结果，避免已被撤销的候选仍记为成功；日志白名单测试须验证无凭据/无原文。
 
 ## Risks / Trade-offs
 
@@ -58,4 +58,9 @@
 - 使用真实Workerd运行时，并以 `outboundService` 拦截出站而不访问真实DeepSeek：`redirect: error` 在构造时TypeError，出站次数0；`manual` 能完成模拟成功响应；302响应只访问一次固定官方端点且不跟随。
 - 日志在最终safety/config守卫后输出实际受控原因，不记录原文、凭据或原始异常。
 
-这些结果验证运行时参数与边界，不等于真实供应商连接或真实模型质量。修复后的最终构建将随精确打包执行，部署与真实冒烟结果仍待补录；版本3的93项/部署证据保留为历史。
+这些结果验证运行时参数与边界，不等于真实推理或内容质量。修复后的精确打包构建退出码0，版本4已部署succeeded。第二次真实凭据路径取得供应商受控错误 `provider_balance_low`，模型成功、内容、纠正、usage和实际账单仍待用户账户具备可用余额后验证；版本3的93项/失败请求保留为历史。
+
+
+## Release 4 Verification
+
+版本4发布源 `ca13d407dcff5cf54d31556f4a600157c0755c66`，部署 `appgdep_6ae4af4722e48191a3aeb0427c7781d4` 返回succeeded，环境revision1，精确打包构建退出码0。第二次使用页面内存中个人 Key的虚构样例没有重填或复制凭据；返回 `provider_balance_low`，前端提示账户余额不足。该证据证明取得了供应商受控拒绝响应，不能替代模型成功或内容质量验证。没有第三次调用。

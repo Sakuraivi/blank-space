@@ -6,7 +6,7 @@
 - [源码仓库](https://github.com/Sakuraivi/blank-space)
 - [Sites 备用地址](https://liubai-little-moments-sakura.zhengjuzhong3.chatgpt.site)
 
-## 本轮进度与线上版本
+## 版本3发布记录（最新v4见文末）
 
 2026-10-30：`warm-public-ai` 已作为 **版本 3** 发布到 [blank.sakura.observer](https://blank.sakura.observer)。公开个人设置、个人/默认凭据选择和暖感界面均已上线；最终 **93/93 自动化通过**、最终构建退出码 0、OpenSpec 严格校验通过。完整证据见 [QA.md](QA.md)，剩余真实模型验收见 [任务清单](openspec/changes/warm-public-ai/tasks.md)。
 
@@ -16,7 +16,7 @@
 - 生产 `/api/ai/status` 返回 `enabled:true`、`personalKeySupported:true`、`defaultAvailable:false`、`configVersion:public-v1`、`remainingCalls:18`、`inviteRequired:false`。这里的 enabled 表示可以使用个人 Key，不代表组织者已提供默认 Key。
 - 旧 `/api/admin/status` 仍返回应用 JSON `403 admin_required`，公开个人设置不会开放全站配置权限。
 
-**真实 DeepSeek Key 尚未提供，没有真实模型调用费用或质量/账单验证。** 现在可由用户在公开设置自行填写个人 Key；若希望朋友留空也能使用，组织者还需在托管秘密项补一次 `LIUBAI_DEFAULT_DEEPSEEK_KEY`。本轮沿用 Sites 托管，并未迁到用户自己的 Cloudflare Workers 账号。
+版本3发布时真实 DeepSeek Key尚未提供，尚无真实模型质量/账单验证；随后发生的真实凭据尝试见文末v4记录。 现在可由用户在公开设置自行填写个人 Key；若希望朋友留空也能使用，组织者还需在托管秘密项补一次 `LIUBAI_DEFAULT_DEEPSEEK_KEY`。本轮沿用 Sites 托管，并未迁到用户自己的 Cloudflare Workers 账号。
 
 版本 2 的发布和 78 项验证作为历史保留在 QA；不能替代版本 3 的上述证据。本轮精确源码已推送 Sites 原生托管仓库，不据此宣称 GitHub 已同步。
 
@@ -111,3 +111,12 @@ python -m http.server 4173 --bind 127.0.0.1 --directory public
 视觉方向为“傍晚窗边的一封生活来信”：原创生活小景、暖色层次与逐步表达。借鉴 [网易云年度报告案例](https://www.epub360.com/h5anli/templatedetails/69159dbda222ba002d7c4a63/) 的个人叙事、[Finch](https://finchcare.com/about-finch) 的小步陪伴和 [Headspace](https://www.headspace.com/) 的亲和插画，保留留白自身的场景和角色边界，不复制竞品素材。
 
 下一步由用户在公开设置自行填写个人 Key，或由组织者配置默认秘密项，再在同一 18 次批次内完成真实模型与费用核验。真实样例、亲友反馈、移动真机和辅助技术验收分别记录，不能以部署成功代替模型效果验证。
+
+
+## 最新发布说明：版本4
+
+2026-10-30，Workers重定向兼容修复已发布。源提交 `ca13d407dcff5cf54d31556f4a600157c0755c66`，部署 `appgdep_6ae4af4722e48191a3aeb0427c7781d4` 为 `succeeded`，环境revision1，精确打包构建退出码0；修复后全量97/97和真实Workerd运行时的拦截出站验证通过。
+
+用户已自行在公开入口填写个人 Key。首次真实凭据路径因运行时参数缺陷fallback；v4第二次请求已取得 `provider_balance_low`，页面明确提示DeepSeek账户余额不足。没有第三次调用，也未取得真实模型内容、纠正、token用量或实际账单证据。两次请求消耗应用调用资格，保守预留不等于实际扣费；主代理匿名读取生产状态已确认剩余16次、默认Key未配置、个人Key路径可用。
+
+下一步由用户确保所选DeepSeek账户具备可用余额后，再在同一剩余批次内验证模型成功和内容。默认 Key仍未提供；如需朋友留空使用，组织者另在托管秘密配置补 `LIUBAI_DEFAULT_DEEPSEEK_KEY`。本轮没有读取、记录或向聊天发送任何Key，具体证据与待办见 [QA.md](QA.md)。
