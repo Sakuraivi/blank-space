@@ -1,6 +1,6 @@
 # 验证记录
 
-## 版本8：简明设置与来信阅读（待发布）
+## 版本8：简明设置与来信阅读（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本轮只修改前端说明与阅读样式，不修改API、预算、路由、凭据存储、发送门禁或确认保存逻辑。
 
@@ -13,7 +13,11 @@
 - 截图位于工作区 `outputs/liubai-warm-letter-local.jpg`、`outputs/liubai-warm-letter-mobile.jpg`、`outputs/liubai-settings-simple-mobile.jpg`、`outputs/liubai-warm-done-mobile.jpg`。
 - 真实模型语义、手机真机、辅助技术和PNG导出新样式均未纳入本轮；PNG仍为既有独立canvas排版，不宣称已同步网页视觉。
 
-实现与验收 `completed`；最终构建和正式发布 `in progress`，发布标识和正式截图待补。下一步请亲友判断阅读是否轻松及设置是否易懂，不以151项技术通过代替真人体验结论。
+最终构建退出码0，精确源 `7f870a0f4a6b31e75f9f1b5e0194e3c98a9c59ce` 已推送Sites原生仓库；保存版本 `appgprj_6ae36b991cbc8191b1da8189a33a0d1c~appgver_4584c98010fc8191a9f69a035c1e680a`（版本8）；部署 `appgdep_6ae4d8cda6c88191ab3e8244f6a48876` 为 `succeeded`，环境revision1，公开访问范围未变。
+
+正式 `https://blank.sakura.observer/` 点预览显示「一封生活来信」与新的自然段版式；DOM实测标题27px、正文16px。正式截图工作区 `outputs/liubai-warm-letter-live.jpg`。生产状态仍为默认未配置、共享剩余16次与保守预算¥0.80；该数字仅作验证记录，访客设置与同意页面不再显示。未触发真实生成、未迁移数据库或修改环境秘密，GitHub同步未作声明。浏览器视口已恢复默认。
+
+实现、验收及发布均 `completed`。下一步请亲友判断阅读是否轻松及设置是否易懂，不以151项技术通过代替真人体验结论。
 
 ## 版本7：主题直接入口与同记录方式选择（已发布）
 
