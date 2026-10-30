@@ -5,6 +5,8 @@ import { createLedger } from '../ai/ledger.mjs';
 import { encryptKey, decryptKey, digest } from './secrets.mjs';
 
 export const CONSENT_VERSION = 'deepseek-v1';
+// Version the public routing/consent contract, never a credential or its hash.
+export const PUBLIC_CONFIG_VERSION = 'public-v1';
 export const PRICE_VALID_UNTIL = Date.parse('2026-11-06T00:00:00+08:00');
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -13,6 +15,31 @@ const validId = x => typeof x === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test(x);
 const configVersion = c => `deepseek-${c?.revision ?? 0}`;
 const configRow = db => db.prepare("SELECT * FROM pilot_config WHERE id = 'main'").first();
 const isConfigured = (c, env) => !!(c?.encrypted_key && c?.iv && c?.invite_hash && env.LIUBAI_SECRET_KEY);
+const validKey = value => typeof value === 'string' && /^[\x21-\x7E]{16,256}$/.test(value);
+const unsafeUsage = usage => !!usage && (usage.promptTokens > 13000 || usage.completionTokens > 1000 || usage.promptTokens * 2 + usage.completionTokens * 8 > 50000);
+const SAFE_PROVIDER_REASONS = new Set(['provider_auth_failed', 'provider_balance_low', 'provider_rate_limited', 'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected', 'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds']);
+
+function defaultSource(config, env) {
+  const key = typeof env.LIUBAI_DEFAULT_DEEPSEEK_KEY === 'string' ? env.LIUBAI_DEFAULT_DEEPSEEK_KEY.trim() : '';
+  // A configured but malformed environment key must not silently select a different payer.
+  if (key) return validKey(key) ? { type: 'environment', key } : null;
+  if (config?.enabled && config.encrypted_key && config.iv && env.LIUBAI_SECRET_KEY) {
+    return { type: 'legacy', encrypted_key: config.encrypted_key, iv: config.iv };
+  }
+  return null;
+}
+
+function sameSource(a, b) {
+  return !!a && !!b && a.type === b.type && (a.type === 'environment' ? a.key === b.key : a.encrypted_key === b.encrypted_key && a.iv === b.iv);
+}
+
+async function safetyStopped(db) {
+  // outcome=error persists an unsafe usage report even when its numbers exceed
+  // the ledger's storage bounds. Environment keys and BYOK cannot reset it.
+  return !!await db.prepare(`SELECT 1 AS stopped FROM pilot_requests
+    WHERE outcome = 'error' OR prompt_tokens > 13000 OR completion_tokens > 1000
+      OR prompt_tokens * 2 + completion_tokens * 8 > 50000 LIMIT 1`).first();
+}
 
 async function readJson(request, maxBytes = 24000) {
   if (!/^application\/json(?:;|$)/i.test(request.headers.get('content-type') ?? '')) throw new Error('invalid_content_type');
@@ -85,17 +112,22 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     }
     if (path === '/api/ai/status' && request.method === 'GET') {
       const config = await configRow(env.DB), stats = await createLedger(env.DB).stats();
-      const enabled = !!config?.enabled && isConfigured(config, env) && stats.remainingCalls > 0 && now() < PRICE_VALID_UNTIL;
-      return response({ enabled, provider: 'DeepSeek', model: 'deepseek-flash', configVersion: configVersion(config), consentVersion: CONSENT_VERSION,
-        remainingCalls: stats.remainingCalls, inviteRequired: true, reason: enabled ? null : now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : stats.remainingCalls <= 0 ? 'budget_exhausted' : 'not_configured' });
+      const defaultAvailable = !!defaultSource(config, env);
+      const reason = now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : await safetyStopped(env.DB) ? 'usage_out_of_bounds' : stats.remainingCalls <= 0 ? 'budget_exhausted' : null;
+      return response({ enabled: reason === null, provider: 'DeepSeek', model: 'deepseek-flash', configVersion: PUBLIC_CONFIG_VERSION, consentVersion: CONSENT_VERSION,
+        personalKeySupported: true, defaultAvailable, sourceMode: defaultAvailable ? 'personal_or_default' : 'personal_only',
+        remainingCalls: stats.remainingCalls, inviteRequired: false, reason });
     }
     if (path !== '/api/ai/generate' || request.method !== 'POST') return fallback('not_found', 404);
     const body = await readJson(request);
-    const config = await configRow(env.DB);
-    if (!config?.enabled || !isConfigured(config, env)) return fallback('not_configured', 503);
     if (now() >= PRICE_VALID_UNTIL) return fallback('pricing_expired', 503);
-    if (body.configVersion !== configVersion(config) || body.consentVersion !== CONSENT_VERSION) return fallback('consent_changed', 409);
-    if (typeof body.inviteCode !== 'string' || body.inviteCode.length > 64 || await digest(`liubai-invite:${body.inviteCode.trim()}`) !== config.invite_hash) return fallback('invite_required', 403);
+    if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
+    if (body.configVersion !== PUBLIC_CONFIG_VERSION || body.consentVersion !== CONSENT_VERSION) return fallback('consent_changed', 409);
+    if (body.personalApiKey !== undefined && typeof body.personalApiKey !== 'string') return fallback('invalid_personal_key');
+    const personalApiKey = body.personalApiKey?.trim() ?? '';
+    if (personalApiKey && !validKey(personalApiKey)) return fallback('invalid_personal_key');
+    const source = personalApiKey ? null : defaultSource(await configRow(env.DB), env);
+    if (!personalApiKey && !source) return fallback('default_unavailable', 503);
     if (!validId(body.requestId) || !validId(body.session?.id) || !['reflect', 'review'].includes(body.stage) || !Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.allowNextStep !== 'boolean') return fallback('invalid_request');
     let context, requestData;
     try {
@@ -104,24 +136,29 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       prepareDeepseekRequest(requestData);
     } catch { return fallback('input_too_large_or_invalid'); }
     if (request.signal.aborted) return fallback('inactive', 409);
-    const apiKey = await decryptKey(config, env.LIUBAI_SECRET_KEY);
+    const apiKey = personalApiKey || (source.type === 'environment' ? source.key : await decryptKey(source, env.LIUBAI_SECRET_KEY));
+    if (!validKey(apiKey)) return fallback('default_unavailable', 503);
     const ledger = createLedger(env.DB);
     const reservation = await ledger.reserve({ requestId: body.requestId, sessionId: body.session.id,
       digest: await digest(JSON.stringify({ context, version: body.configVersion })), configVersion: body.configVersion, now: now() });
     if (!reservation.ok) return fallback(reservation.reason, 429);
-    let usage = null, result;
+    let usage = null, result, providerReason = null;
     try {
+      const transport = createDeepseekAdapter({ apiKey, fetchImpl, onUsage: value => { usage = value; } });
+      const adapter = { profile: transport.profile, async generate(...args) {
+        const response = await transport.generate(...args);
+        if (response.status === 'failed' && SAFE_PROVIDER_REASONS.has(response.reason)) providerReason = response.reason;
+        return response;
+      } };
       result = await runCandidate({ context,
-        adapter: createDeepseekAdapter({ apiKey, fetchImpl, onUsage: value => { usage = value; } }),
+        adapter,
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
+      if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
     // Already dispatched inference may be billed even after cancellation.
-    await ledger.finish(body.requestId, { outcome: result.status, usage, now: now() });
-    if (usage && (usage.promptTokens > 13000 || usage.completionTokens > 1000 || usage.promptTokens * 2 + usage.completionTokens * 8 > 50000)) {
-      await env.DB.prepare("UPDATE pilot_config SET enabled = 0, revision = revision + 1 WHERE id = 'main'").run();
-    }
-    const latest = await configRow(env.DB);
-    if (!latest?.enabled || configVersion(latest) !== body.configVersion) return fallback('config_changed', 409);
+    await ledger.finish(body.requestId, { outcome: unsafeUsage(usage) ? 'error' : result.status, usage, now: now() });
+    if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
+    if (!personalApiKey && !sameSource(source, defaultSource(await configRow(env.DB), env))) return fallback('config_changed', 409);
     return response({ ...result, requestId: body.requestId, revision: body.revision });
   } catch (error) {
     if (['input_too_large', 'invalid_content_type', 'invalid_body'].includes(error?.message) || error instanceof SyntaxError) return fallback('invalid_body', 400);

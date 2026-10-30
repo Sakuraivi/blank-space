@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="560" viewBox="0 0 720 560" fill="none">
+  <title>窗边的一封生活来信</title>
+  <desc>落日透过窗帘，照着莓紫色沙发、暖黄台灯、热茶和摊开的笔记本。</desc>
+  <defs>
+    <clipPath id="window"><path d="M298 291V142a112 112 0 0 1 224 0v149Z"/></clipPath>
+    <pattern id="weave" width="15" height="15" patternUnits="userSpaceOnUse"><path d="M0 2h15M2 0v15" stroke="#FFF1D6" stroke-opacity=".38" stroke-width="2"/></pattern>
+    <pattern id="paper" width="21" height="23" patternUnits="userSpaceOnUse"><circle cx="3" cy="4" r=".8" fill="#AB6A65" opacity=".13"/><circle cx="16" cy="18" r=".6" fill="#AB6A65" opacity=".1"/></pattern>
+  </defs>
+  <!-- A quiet room, drawn for 留白. -->
+  <path d="M94 397C42 306 74 207 161 163c40-20 49-76 101-102 106-54 295-31 341 75 29 67-4 95 28 154 41 75 28 173-64 204-164 55-391 32-473-97Z" fill="#F4D7C3"/>
+  <path d="M94 397C42 306 74 207 161 163c40-20 49-76 101-102 106-54 295-31 341 75 29 67-4 95 28 154 41 75 28 173-64 204-164 55-391 32-473-97Z" fill="url(#paper)"/>
+  <ellipse cx="370" cy="465" rx="287" ry="59" fill="#E6BAA8"/>
+  <path d="m287 309 189 4 128 176-277 14Z" fill="#F9E6BA" opacity=".72"/>
+  <path d="m335 312 25 1 77 184-36 1Z" fill="#E1B9A8" opacity=".52"/>
+  <!-- The arched window and the last light outside. -->
+  <path d="M284 303V142a126 126 0 0 1 252 0v161Z" fill="#74455F"/>
+  <path d="M292 297V142a118 118 0 0 1 236 0v155Z" fill="#FFF0D7"/>
+  <g clip-path="url(#window)">
+    <path d="M298 25h224v266H298Z" fill="#C89AA8"/>
+    <path d="M298 160h224v131H298Z" fill="#E7AEA2"/>
+    <circle cx="455" cy="160" r="47" fill="#FFD58A"/>
+    <path d="M270 244c55-29 89-10 124-27 58-28 83-10 148 7v87H270Z" fill="#AC8193"/>
+    <path d="M280 277c47-25 70-3 111-16 67-22 92-8 152 12v41H280Z" fill="#856A82"/>
+    <path d="M311 129h36m-21-9h24m128 100h21" stroke="#F6D8C7" stroke-width="4" stroke-linecap="round"/>
+    <path d="M484 265v-26m0 15-9-9m9-4 7-8m-163 37v-21m0 7-6-6" stroke="#68516D" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <path d="M410 28v268M297 185h226" stroke="#FFF0D7" stroke-width="8"/>
+  <path d="M410 29v267M299 185h224" stroke="#986877" stroke-width="1.5"/>
+  <rect x="272" y="296" width="279" height="15" rx="5" fill="#986377"/>
+  <rect x="266" y="292" width="291" height="10" rx="5" fill="#FFF0D7"/>
+  <!-- Curtains. -->
+  <path d="M276 73c-13 66-21 141-15 217l24 7 19-7 16 3c-13-54-11-126 8-198Z" fill="#F7E9D8"/>
+  <path d="M287 90c-12 61-17 132-11 191m25-181c-10 59-13 116-9 179" stroke="#DDBBAC" stroke-width="3" stroke-linecap="round"/>
+  <path d="M535 73c14 66 22 141 16 217l-24 7-19-7-16 3c13-54 11-126-8-198Z" fill="#F7E9D8"/>
+  <path d="M526 90c12 61 17 132 11 191m-25-181c10 59 13 116 9 179" stroke="#DDBBAC" stroke-width="3" stroke-linecap="round"/>
+  <path d="m248 74 51 15m211 0 51-15" stroke="#855969" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="247" cy="74" r="7" fill="#A47777"/>
+  <circle cx="562" cy="74" r="7" fill="#A47777"/>
+  <!-- A small framed flower and a stem in the corner. -->
+  <g transform="rotate(-6 181 188)"><rect x="148" y="146" width="65" height="81" rx="4" fill="#BB8B77"/><rect x="154" y="152" width="53" height="69" rx="1" fill="#FFF0D7"/><path d="M180 208v-31m0 22c-12-1-13-9-13-9 10-2 13 7 13 7m0-8c12-1 13-9 13-9-10-2-13 7-13 7" stroke="#7D8C78" stroke-width="3"/><path d="M175 171c-11-12 3-16 6-7 6-12 18-1 7 6 11 5 1 15-6 7-5 11-17 2-7-6Z" fill="#D4938F"/><circle cx="181" cy="171" r="4" fill="#F5CB78"/></g>
+  <path d="M86 354c-2-25 2-43 14-65m-14 52c-22-2-24-20-24-20 16-4 23 8 24 20m5-25c21-4 27-23 27-23-19-1-25 10-27 23m-1 10c-19-13-19-29-19-29 18 4 21 17 19 29" fill="#8E9B7E"/>
+  <path d="m68 350 35 1-5 40H74Z" fill="#D68B71"/><ellipse cx="85" cy="350" rx="18" ry="5" fill="#B47365"/><path d="M76 365h19m-17 8h15" stroke="#EFB59A" stroke-width="2"/>
+  <!-- An upholstered reading chair and a checked throw. -->
+  <path d="m151 443-7 39m173-39 10 39" stroke="#65465C" stroke-width="13" stroke-linecap="round"/>
+  <path d="M127 330c0-24 18-44 43-44h108c28 0 48 18 48 46v96H127Z" fill="#84536F"/>
+  <path d="M149 330c0-14 11-25 25-25h100c16 0 27 10 27 25v69H149Z" fill="#996981"/>
+  <path d="M122 386c0-17 12-28 26-28s26 11 26 28v22h110v-22c0-17 12-28 26-28s26 11 26 28v49c0 16-12 26-28 26H148c-17 0-26-10-26-26Z" fill="#70455F"/>
+  <rect x="164" y="394" width="129" height="44" rx="15" fill="#A27289"/>
+  <path d="M181 397h92" stroke="#C192A3" stroke-width="2" stroke-linecap="round"/>
+  <g transform="rotate(-13 219 355)"><rect x="178" y="325" width="79" height="58" rx="15" fill="#F3BB84"/><path d="M195 341c8 5 15 6 23 1s14-5 23-1m-46 14c8 5 15 6 23 1s14-5 23-1m-45 12c8 4 15 5 23 0s14-4 22-1" stroke="#D59471" stroke-width="2" stroke-linecap="round"/></g>
+  <path d="M283 366c19-4 34-2 39 7l5 72-45 4c8-28 7-54 1-83Z" fill="#DFA397"/>
+  <path d="M283 366c19-4 34-2 39 7l5 72-45 4c8-28 7-54 1-83Z" fill="url(#weave)"/>
+  <path d="m285 450 1 6m8-6 1 6m8-7 1 6m8-7 1 6m8-7 1 6" stroke="#DFA397" stroke-width="2"/>
+  <!-- Lamplight. -->
+  <ellipse cx="591" cy="464" rx="40" ry="9" fill="#C39C94"/>
+  <path d="M589 243v210" stroke="#85576A" stroke-width="7"/>
+  <ellipse cx="589" cy="453" rx="32" ry="7" fill="#805368"/>
+  <path d="m557 206-21 62c32 15 76 15 108 0l-22-62Z" fill="#F6CA7D"/>
+  <ellipse cx="589" cy="268" rx="54" ry="10" fill="#FBE1A8"/>
+  <ellipse cx="589" cy="206" rx="32" ry="7" fill="#E9B56D"/>
+  <path d="m565 220-8 33m24-34-2 35m25-34 7 34" stroke="#FFDF9D" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="589" cy="270" r="6" fill="#FFF2CE"/>
+  <!-- The oval rug, and the table where a letter begins. -->
+  <ellipse cx="432" cy="492" rx="176" ry="32" fill="#CA8F82"/>
+  <ellipse cx="432" cy="492" rx="150" ry="23" stroke="#E4B19A" stroke-width="2"/>
+  <path d="m351 436-13 58m165-58 13 58m-87-48 2 60" stroke="#93646D" stroke-width="9" stroke-linecap="round"/>
+  <path d="M323 420h205v15c-4 20-48 32-103 32s-99-12-102-32Z" fill="#B27B78"/>
+  <ellipse cx="426" cy="419" rx="103" ry="32" fill="#E4AD8B"/>
+  <ellipse cx="426" cy="416" rx="103" ry="29" fill="#F3C89F"/>
+  <!-- A real notebook: unfilled lines, a loose bookmark, a pen. -->
+  <path d="m365 408 47-13 52 15-38 27-61-16Z" fill="#B8887C"/>
+  <path d="m365 403 47-13 52 15-38 27-61-16Z" fill="#FFF3DC"/>
+  <path d="m412 390 14 42" stroke="#DCBCA7" stroke-width="2"/>
+  <path d="m374 403 28-8m-24 15 27-8m24-3 20 6m-18 0 12 4" stroke="#BEA195" stroke-width="2" stroke-linecap="round"/>
+  <path d="m415 399 9 29 9 8-9 2-11-38Z" fill="#BC7C8E"/>
+  <path d="m449 428 25-17" stroke="#684961" stroke-width="4" stroke-linecap="round"/>
+  <path d="m474 411 4-3" stroke="#F7E7C9" stroke-width="3" stroke-linecap="round"/>
+  <!-- Tea and its rising steam. -->
+  <ellipse cx="483" cy="400" rx="26" ry="9" fill="#D9A78C"/>
+  <ellipse cx="482" cy="397" rx="24" ry="7" fill="#F9E4C1"/>
+  <path d="M494 375h6c13 0 13 16 0 16h-6" stroke="#FFF1D6" stroke-width="5"/>
+  <path d="M465 372h30v16c0 9-30 9-30 0Z" fill="#FFF1D6"/>
+  <ellipse cx="480" cy="372" rx="15" ry="5" fill="#D6A78C"/>
+  <ellipse cx="480" cy="372" rx="11" ry="3" fill="#986B5E"/>
+  <path d="M476 359c-9-10 9-12 0-23m10 23c-6-7 7-11 1-18" stroke="#FFF1D6" stroke-width="3" stroke-linecap="round"/>
+  <!-- Books waiting at the edge of the rug. -->
+  <g transform="rotate(-9 612 409)"><rect x="574" y="411" width="64" height="12" rx="3" fill="#9B6D81"/><path d="M581 415h52" stroke="#F4D8BA" stroke-width="3"/><rect x="582" y="400" width="57" height="10" rx="2" fill="#8B967F"/><path d="M588 404h47" stroke="#F4D8BA" stroke-width="3"/></g>
+  <path d="M160 503h55m336-18h25M119 421h-13" stroke="#C49A90" stroke-width="2" stroke-linecap="round"/>
+</svg>

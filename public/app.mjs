@@ -1,4 +1,5 @@
 import { MODES, CARDS, createSession, makeReview, validateSavedRecord, shouldWarnBeforeUnload, aiEvidence, validateUiCandidate, makeAiReview, confirmedRecord, aiRequestSession, acceptsAiReply } from './core.mjs';
+import { createPersonalKeyPreference } from './personal-key.mjs';
 
 const main = document.querySelector('#main');
 const modal = document.querySelector('#modal');
@@ -14,13 +15,14 @@ let focusBeforeModal = null;
 let feedbackDraft = {};
 let aiStatus = { enabled: false, loading: true };
 let activeAiController = null;
+const personalKey = createPersonalKeyPreference();
 const aiState = options => ({ enabled: Boolean(options), revision: 0, requestId: null, status: 'idle', candidate: null, answer: '', verdict: '', correction: '', allowNextStep: false, reviewKind: 'local', reviewSources: {}, ...options });
 const hasAI = () => Boolean(state.ai?.enabled);
 const getMode = () => MODES.find(m => m.id === (state.session?.modeId || state.modeId));
 const getCard = () => CARDS.find(c => c.id === state.session?.cardId);
 const dateLabel = value => new Intl.DateTimeFormat('zh-CN', { year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Shanghai' }).format(new Date(value));
 const fileDate = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
-function notify(message) { clearTimeout(noticeTimer); const n=document.querySelector('#notice'); n.textContent=message; n.classList.add('show'); noticeTimer=setTimeout(()=>n.classList.remove('show'),4200); }
+function notify(message) { clearTimeout(noticeTimer); const n=document.querySelector('#notice'); n.textContent=message; n.classList.add('show'); noticeTimer=setTimeout(()=>{n.classList.remove('show');n.textContent='';},4200); }
 function invalidateAI() { activeAiController?.abort(); activeAiController=null;if(state.ai){state.ai.revision++;state.ai.requestId=null;if(state.ai.status==='loading')state.ai.status='idle';} }
 function go(screen) { invalidateAI();state.screen=screen; render(); window.scrollTo({top:0,behavior:'instant'}); main.focus({preventScroll:true}); }
 function capture() {
@@ -46,14 +48,26 @@ async function loadAiStatus() {
     const response=await fetch('/api/ai/status',{cache:'no-store',credentials:'same-origin'});
     if(!response.ok)throw Error();
     const value=await response.json();
-    aiStatus={enabled:value.enabled===true && value.provider==='DeepSeek' && value.consentVersion==='deepseek-v1' && typeof value.configVersion==='string',provider:'DeepSeek',model:value.model,configVersion:value.configVersion,consentVersion:value.consentVersion,remainingCalls:value.remainingCalls,loading:false};
+    aiStatus={enabled:value.enabled===true && value.provider==='DeepSeek' && value.consentVersion==='deepseek-v1' && typeof value.configVersion==='string',defaultAvailable:value.defaultAvailable===true,personalKeySupported:value.personalKeySupported===true,provider:'DeepSeek',model:value.model,configVersion:value.configVersion,consentVersion:value.consentVersion,remainingCalls:value.remainingCalls,reason:value.reason,loading:false};
   }catch{aiStatus={enabled:false,loading:false};}
   if(state.screen==='home')render();
 }
-function aiHomeMarkup(){return `<div class="ai-entry"><div><span class="aside-label">可选 · AI 体验</span><p>${aiStatus.loading?'正在查看 AI 体验是否开放…':aiStatus.enabled?'由 DeepSeek 帮你追问和整理，需要测试组织者提供的体验码。':'AI 小额体验暂未开放。你仍可使用完整的本地记录流程。'}</p></div><button class="secondary" data-action="ai-start" ${aiStatus.enabled?'':'disabled'}>试试 AI 陪我整理</button></div>`;}
+function aiSourceLabel(){return personalKey.hasKey()?'本页个人 Key':aiStatus.defaultAvailable?'组织者的默认 Key':'尚未配置 Key';}
+function aiHomeMarkup(){
+  const available=aiStatus.enabled&&(personalKey.hasKey()||aiStatus.defaultAvailable);
+  const note=aiStatus.loading?'正在查看 AI 是否可用…':!aiStatus.enabled?'本轮 AI 暂不可用，仍可按原话慢慢整理。':personalKey.hasKey()?'已选择个人 Key，费用由你的 DeepSeek 账户承担。':aiStatus.defaultAvailable?'不用填写 Key，也可以使用组织者提供的小额体验。':'填入自己的 DeepSeek Key，就可以试试智能追问。';
+  return `<div class="ai-entry"><div><span class="aside-label">也可以，让 AI 陪你一起想</span><p>${note}</p></div><div class="actions"><button class="secondary" data-action="ai-start" ${aiStatus.loading?'disabled':''}>${available?'试试 AI 陪我整理':'设置 Key，开始 AI'}</button><button class="text-button" data-action="ai-settings">AI 设置</button></div></div>`;
+}
+async function aiSettings(){
+  capture();
+  await loadAiStatus();
+  const locked=Boolean(state.session);
+  openModal('让 AI 陪你整理',`<p>默认使用组织者提供的 Key。你也可以填写自己的 DeepSeek Key，本页会优先使用它。</p><p class="gentle-note">当前选择：${e(aiSourceLabel())}。${typeof aiStatus.remainingCalls==='number'?`本批还可调用 ${aiStatus.remainingCalls} 次。`:''}</p>${locked?'<p class="gentle-note">本次记录进行中。请先完成或结束本次，再更换 Key。</p>':''}<form id="ai-settings-form"><label class="field-label" for="personal-key">个人 DeepSeek API Key（可选）</label><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="personal-key-help" placeholder="${personalKey.hasKey()?'本页已填写；留空则切回默认 Key':'留空使用组织者默认 Key'}" ${locked?'disabled':''}><p id="personal-key-help" class="gentle-note">个人 Key 只留在当前页面内存中，刷新或关闭页面即清除。调用时经留白后台发送给 DeepSeek，不写入记录或浏览器存储。保存设置不会调用模型。</p><p class="gentle-note">${aiStatus.defaultAvailable?'默认 Key 已就绪。':'组织者的默认 Key 尚未配置，请填写个人 Key 或先使用本地记录。'}</p><p class="gentle-note">本轮共用 18 次小额测试上限，个人 Key 也计入次数；失败和超时可能已计费，不自动重试。</p><p id="key-settings-error" class="error-text" role="alert"></p><div class="modal-actions"><button type="button" class="secondary" data-action="clear-personal-key" ${locked?'disabled':''}>清除个人 Key</button><button type="submit" class="primary" ${locked?'disabled':''}>应用到本页</button></div></form>`);
+}
 function aiConsent(){
-  if(!aiStatus.enabled){notify('AI 体验暂未开放，可以先做本地记录。');return;}
-  openModal('开始前，由你选择',`<p>AI 模式会把本次故事、关注点、卡片联想、实际问答和纠正，经留白后台发送给 <strong>DeepSeek</strong>，用于追问和整理。不会自动发送已保存的旧记录。</p><p>模型理解可能不准确；你可以纠正、跳过或结束。卡片仅提供联想，不作诊断或预测。服务商的数据处理规则适用于已发送内容。</p><form id="ai-consent-form"><label class="field-label" for="ai-invite">体验码</label><input id="ai-invite" class="title-input invite-input" type="password" maxlength="64" pattern="[a-zA-Z0-9-]{8,64}" autocomplete="off" spellcheck="false" required aria-describedby="invite-help"><p id="invite-help">由测试组织者提供，不是 API Key；仅保留在本次页面内存中。</p><label class="check-row"><input id="ai-consent" type="checkbox" required><span>我了解并同意将本次表达发送给 DeepSeek。</span></label><div id="ai-consent-error" class="error-text" role="alert"></div><div class="modal-actions"><button class="secondary" type="button" data-action="local-from-consent">只做本地记录</button><button class="primary" type="submit">同意并开始 AI 体验</button></div></form>`);
+  if(!aiStatus.enabled){aiSettings();return;}
+  if(!personalKey.hasKey()&&!aiStatus.defaultAvailable){aiSettings();return;}
+  openModal('开始前，由你选择',`<p>这次使用<strong>${e(aiSourceLabel())}</strong>。${personalKey.hasKey()?'费用由你的 DeepSeek 账户承担。':'费用由组织者承担。'}本次故事、关注点、卡片联想、实际问答和纠正将经留白后台发送给 DeepSeek，用于追问和整理。旧记录不会自动上传。</p><p>AI 的理解可能不准确，你可以纠正、跳过或结束。卡片只提供联想，不作诊断或预测。</p><form id="ai-consent-form"><label class="check-row"><input id="ai-consent" type="checkbox" required><span>我了解并同意将本次表达发送给 DeepSeek。</span></label><div id="ai-consent-error" class="error-text" role="alert"></div><div class="modal-actions"><button class="secondary" type="button" data-action="local-from-consent">只做本地记录</button><button class="primary" type="submit">同意并开始 AI 体验</button></div></form>`);
 }
 function hypothesisMarkup(){
   const claim=state.ai.candidate?.hypothesis;if(!claim)return '';
@@ -81,11 +95,16 @@ function commitAiTurn(skip=false){
   if(question && state.session.turns.length<3)state.session.turns.push({id:`t${state.session.turns.length+1}`,question,answer:skip?'':state.ai.answer});
   state.ai.answer='';state.ai.verdict='';state.ai.correction='';state.ai.candidate=null;
 }
-function rawDraft(){capture();if(hasAI())commitAiTurn(false);invalidateAI();state.ai.enabled=false;state.ai.inviteCode='';state.ai.reviewKind='local';state.session.review=makeReview(state.session);state.session.confirmed=false;go('review');}
-function localQuestions(){capture();if(hasAI())commitAiTurn(false);if(state.session.turns.length>=3){rawDraft();return;}invalidateAI();state.ai.enabled=false;state.ai.inviteCode='';state.question=state.session.turns.length;go('reflect');}
+function rawDraft(){capture();if(hasAI())commitAiTurn(false);invalidateAI();state.ai.enabled=false;state.ai.personalApiKey='';state.ai.reviewKind='local';state.session.review=makeReview(state.session);state.session.confirmed=false;go('review');}
+function localQuestions(){capture();if(hasAI())commitAiTurn(false);if(state.session.turns.length>=3){rawDraft();return;}invalidateAI();state.ai.enabled=false;state.ai.personalApiKey='';state.question=state.session.turns.length;go('reflect');}
 function enterReflection(){if(hasAI())requestAi(state.session.turns.length>=3?'review':'reflect');else{state.question=0;go('reflect');}}
 function aiErrorMessage(reason){
-  if(['invalid_invite','invite_required','unauthorized'].includes(reason))return '体验码未通过验证。你的文字已保留，可以先按原话整理，或重新开始并填写体验码。';
+  if(reason==='invalid_personal_key')return '个人 Key 格式不正确。请先保留原话，再结束本次并在 AI 设置中更换。';
+  if(reason==='provider_auth_failed')return '这次使用的 Key 未通过 DeepSeek 验证。没有改用其他 Key 重试，你的输入仍在本页。';
+  if(reason==='default_unavailable')return '默认 Key 还未就绪。请先保留原话，结束本次后填写个人 Key。';
+  if(reason==='usage_out_of_bounds')return '本轮用量需要组织者检查，AI 已暂停。你的输入仍在本页。';
+  if(reason==='provider_rate_limited')return 'DeepSeek 暂时繁忙，没有自动重试。你的输入仍在本页，可以按原话整理。';
+  if(reason==='provider_balance_low')return '这次使用的 DeepSeek 账户余额不足。你的输入仍在本页，可以按原话整理。';
   if(['config_changed','consent_changed','consent_required','consent_mismatch'].includes(reason))return 'AI 配置已变化，本次没有继续发送。请先保存原话，再回首页重新选择。';
   if(['budget_exhausted','call_limit','rate_limited','quota_exceeded','disabled','not_configured','pricing_expired','session_limit','concurrency_limit'].includes(reason))return '本轮 AI 体验额度暂时不可用。你的输入仍在本页，可以继续本地记录。';
   if(['input_too_large_or_invalid','context_too_large'].includes(reason))return '这次的表达有些长，AI 暂时没有继续。你可以先按原话保存，或返回把本次想聊的部分写得简短些。';
@@ -93,6 +112,7 @@ function aiErrorMessage(reason){
 }
 async function requestAi(stage){
   if(!hasAI()||state.ai.status==='loading')return;
+  if(state.ai.credentialExpired){state.ai.status='error';state.ai.errorMessage='离开页面后，个人 Key 已清除。请先按原话整理，结束本次后重新设置。';render();return;}
   invalidateAI();
   const ai=state.ai;const requestId=crypto.randomUUID();ai.requestId=requestId;ai.status='loading';ai.pendingStage=stage;
   const expected={requestId,revision:ai.revision,sessionId:state.session.id};
@@ -101,7 +121,7 @@ async function requestAi(stage){
   state.screen='reflect';render();main.focus({preventScroll:true});window.scrollTo(0,0);
   const timeout=setTimeout(()=>controller.abort(),50000);
   try{
-    const response=await fetch('/api/ai/generate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({requestId,revision:expected.revision,configVersion:ai.configVersion,consentVersion:'deepseek-v1',inviteCode:ai.inviteCode,stage,allowNextStep:ai.allowNextStep,session})});
+    const response=await fetch('/api/ai/generate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({requestId,revision:expected.revision,configVersion:ai.configVersion,consentVersion:'deepseek-v1',personalApiKey:ai.personalApiKey,stage,allowNextStep:ai.allowNextStep,session})});
     const data=await response.json();
     if(!stillCurrent())return;
     if(!response.ok||data.status!=='candidate'){ai.status='error';ai.errorMessage=aiErrorMessage(data.reason||data.error);ai.requestId=null;render();return;}
@@ -118,16 +138,17 @@ async function requestAi(stage){
     }else{render();main.focus({preventScroll:true});}
   }catch{
     if(stillCurrent()){ai.status='error';ai.errorMessage=aiErrorMessage();ai.requestId=null;render();}
-  }finally{clearTimeout(timeout);if(activeAiController===controller)activeAiController=null;}
+  }finally{clearTimeout(timeout);if(activeAiController===controller)activeAiController=null;await loadAiStatus();}
 }
 function inputMarkup(value,placeholder,{max=4000,rows=6,cls='answer-input'}={}) {return `<textarea id="entry" class="${cls}" maxlength="${max}" rows="${rows}" aria-labelledby="question-title" placeholder="${e(placeholder)}">${e(value)}</textarea><div class="input-meta"><span>可以使用手机键盘的语音输入。页面不录音。</span><span id="char-count">${String(value??'').length} / ${max}</span></div>`;}
 function sourceSnippet() {return state.session?.story ? `<details class="source-snippet"><summary>看看最开始写下的事</summary>${e(state.session.story)}</details>` : '';}
 function layout(body,{title='慢慢来，\n不用一次想清楚。',note='你可以跳过问题，也可以随时结束。',art=null}={}) {
  const positions={story:0,focus:1,card:2,reflect:3,review:4};const current=positions[state.screen]??0;
- return `<section class="workspace"><div class="workspace-top"><ol class="step-list" aria-label="体验进度">${['讲一件事','选焦点','换个角度','慢慢想','整理'].map((label,i)=>`<li ${i===current?'aria-current="step"':''} class="${i<current?'complete':''}"><span class="step-dot" aria-hidden="true"></span>${label}</li>`).join('')}</ol><button class="end-button text-button" data-action="exit">结束本次</button></div><div class="workspace-body"><aside class="aside"><div class="aside-label">${e(getMode().label)}</div><h2>${e(title).replace(/\n/g,'<br>')}</h2><p>${e(note)}</p>${art?`<img class="aside-illustration" src="./assets/${e(art)}.svg" alt="生活场景插画">`:sourceSnippet()}</aside><div class="panel">${body}</div></div></section>`;
+ return `<section class="workspace"><div class="workspace-top"><ol class="step-list" aria-label="体验进度">${['讲一件事','选焦点','换个角度','慢慢想','整理'].map((label,i)=>`<li ${i===current?'aria-current="step"':''} class="${i<current?'complete':''}"><span class="step-dot" aria-hidden="true">${i<current?'✓':i+1}</span><span>${label}</span></li>`).join('')}</ol><button class="end-button text-button" data-action="exit">结束本次</button></div><div class="workspace-body"><aside class="aside"><span class="aside-label">${e(getMode().label)}</span><h2>${e(title).replace(/\n/g,'<br>')}</h2><p>${e(note)}</p><img class="aside-illustration" src="./assets/cozy-room.svg" alt="" aria-hidden="true">${art?'':sourceSnippet()}</aside><div class="panel">${body}</div></div></section>`;
 }
 function renderHome() {
- return `<section class="home"><div class="hero"><div class="hero-copy"><svg class="tiny-flower" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 34V20m0 7c-10 0-12-6-9-9 5 0 9 5 9 9m0-4c8 0 13-6 10-9-5 0-10 4-10 9"/><circle cx="20" cy="10" r="4"/><path d="M20 3v3m0 8v3M13 10h3m8 0h3m-12-5 2 2m6 6 2 2m0-10-2 2m-6 6-2 2"/></svg><h1>给今天<br>留一点空白。</h1><p class="hero-intro">一个开心的瞬间，一点说不清的烦，<br>或一个还没想好的选择。<br>从一件小事开始，慢慢整理成自己的答案。</p><button class="primary" data-action="start">从一件小事开始 ${icon}</button><p class="hero-meta"><span>约 5–8 分钟</span><span>随时可以结束</span></p></div><div class="hero-art" aria-label="留白、微光与连接主题的生活插画卡"><div class="art-card art-left"><img src="./assets/glow.svg" alt="桌灯、书与花"></div><div class="art-card art-right"><img src="./assets/connect.svg" alt="圆桌上的两只杯子"></div><div class="art-card art-front"><img src="./assets/pause.svg" alt="窗边有一把椅子，阳光静静落下"></div><p class="art-note">一张卡，一个看生活的新角度。</p></div></div><div class="topic-strip"><p class="topic-heading">今天，想从哪里开始？</p><div class="topics">${MODES.map((m,i)=>`<button class="topic" data-action="mode" data-mode="${m.id}" aria-pressed="${state.modeId===m.id}"><span class="topic-icon" aria-hidden="true">${['☼','〰','⌁'][i]}</span><span><strong>${['想留住的片刻','挂在心上的事','还没想好的选择'][i]}</strong><small>${e(m.description)}</small></span></button>`).join('')}</div></div>${aiHomeMarkup()}<p class="prototype-note">默认使用本地记录，文字只在当前浏览器中处理。AI 模式需单独选择并同意发送；选择保存后，确认的记录才会留在这台设备。<button class="text-button" data-action="example">先看一个例子</button></p></section>`;
+ const motifs=[`<circle cx="20" cy="20" r="7"/><path d="M20 3v5m0 24v5M3 20h5m24 0h5M8 8l4 4m16 16 4 4M8 32l4-4M28 12l4-4"/>`,`<path d="M5 15c7-10 13 10 20 0s12 1 10 6M5 25c7-10 13 10 20 0s12 1 10 6"/>`,`<path d="M20 35V7m0 1h13l4 5-4 5H20M20 21H7l-4 5 4 5h13"/>`];
+ return `<section class="home"><div class="hero"><div class="hero-copy"><p class="hero-welcome"><span aria-hidden="true">☀</span> 给自己留一小会儿</p><h1>今天的小事，<br>值得慢慢说。</h1><p class="hero-intro">一点开心，一点心事，或一个还没想好的选择。把零散的念头，写成给自己的生活来信。</p><div class="hero-actions"><button class="primary" data-action="start">从一件小事开始 ${icon}</button><button class="text-button" data-action="example">看看一封来信</button></div><p class="hero-meta"><span>约 5–8 分钟</span><span>随时可以停下</span></p></div><figure class="hero-art"><img src="./assets/cozy-room.svg" width="720" height="560" fetchpriority="high" alt="傍晚的窗边亮着一盏灯，沙发旁的小桌上放着打开的本子和一杯热茶。"><figcaption>这里，为你留着一盏灯。</figcaption></figure></div><section class="topic-strip" aria-labelledby="topic-title"><div class="topic-heading"><h2 id="topic-title">今天，想从哪里说起？</h2><p>选一个适合此刻的入口。</p></div><div class="topics">${MODES.map((m,i)=>`<button class="topic topic-${m.id}" data-action="mode" data-mode="${m.id}" aria-pressed="${state.modeId===m.id}"><span class="topic-icon" aria-hidden="true"><svg viewBox="0 0 40 40">${motifs[i]}</svg></span><span class="topic-copy"><strong>${['想留住的片刻','挂在心上的事','还没想好的选择'][i]}</strong><small>${e(m.description)}</small></span><span class="topic-check" aria-hidden="true">${state.modeId===m.id?'✓':'+'}</span></button>`).join('')}</div></section>${aiHomeMarkup()}<div class="home-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg><p class="prototype-note">默认先做本地记录。只有选择 AI 并同意后，本次表达才会发送给模型；确认后，你可以把来信保存在这台设备。</p></div></section>`;
 }
 function renderStory() {const m=getMode();return layout(`<h1 id="question-title">${e(m.opening)}</h1><p class="intro">不用先想好怎么说。零散的一两句，也可以。</p><form id="step-form">${inputMarkup(state.session.story,'可以从“今天有一幕……”开始。',{cls:'story-input'})}<div id="input-error" class="error-text" role="alert"></div><div class="actions"><button type="button" class="back-button" data-action="exit">先不聊了</button><button class="primary" type="submit">我写好了 ${icon}</button></div></form><details class="help-options"><summary>还不知道从哪里开始？</summary><div class="hint-chips"><button class="chip" data-action="hint" data-text="今天让我停了一下的瞬间是……">一个让我停下来的瞬间</button><button class="chip" data-action="hint" data-text="最近我反复想到的一件事是……">最近反复想到的事</button><button class="chip" data-action="hint" data-text="我还没决定的是……">一个还没决定的小事</button></div></details>`,{title:'先给这件小事，\n一点说出来的空间。',note:'这里没有标准答案。先写下你愿意表达的部分。',art:'pause'});}
 function renderFocus() {return layout(`<h1 id="question-title">${e(getMode().focusPrompt)}</h1><p class="intro">可以选一个细节、一种感受，或者只是把这件事放在这里。</p><form id="step-form">${inputMarkup(state.session.focus,'这一次，我比较想聊……',{max:1500,rows:4})}<div class="actions"><button type="button" class="back-button" data-action="back">返回修改</button><button type="button" class="quiet-button" data-action="skip-focus">先继续看看</button><button class="primary" type="submit">从这里继续 ${icon}</button></div></form>`,{title:'这一次，\n先聊你在意的部分。',note:hasAI()?'你已选择 AI 模式，稍后会将本次表达发送给 DeepSeek，帮助追问和整理。':'本地模式会按主题给出固定问题，整理时保留你的原话。'});}
@@ -153,13 +174,14 @@ function submitStep(event) {
  }
 }
 function openModal(title,body) {focusBeforeModal=document.activeElement;modalContent.innerHTML=`<div class="modal-header"><h2 id="modal-title">${e(title)}</h2><button class="close-button" data-action="close-modal" aria-label="关闭">×</button></div>${body}`;if(!modal.open)modal.showModal();modalContent.querySelector('button')?.focus();}
-function closeModal(){pendingAction=null;modal.close();focusBeforeModal?.isConnected&&focusBeforeModal.focus();}
+function clearSensitiveInputs(){modalContent.querySelectorAll('[data-sensitive-key]').forEach(input=>{input.value='';});}
+function closeModal(){pendingAction=null;clearSensitiveInputs();modal.close();focusBeforeModal?.isConnected&&focusBeforeModal.focus();}
 function ask(title,body,label,callback){pendingAction=callback;openModal(title,`<p>${e(body)}</p><div class="modal-actions"><button class="secondary" data-action="close-modal">再待一会儿</button><button class="primary" data-action="confirm-action">${e(label)}</button></div>`);}
 function exitSession(){if(!state.session){home();return;}capture();ask('这次先到这里？','尚未保存的输入会从当前页面清除。已经保存到这台设备或导出的记录会保留。','清除本次并结束',()=>{home();notify('本次输入已清除。');});}
 function readRecords(){try{const raw=localStorage.getItem(STORE);if(!raw)return [];if(raw.length>5000000)throw Error('large');const data=JSON.parse(raw);if(!Array.isArray(data))return [];return data.slice(0,30).map(validateSavedRecord).filter(Boolean);}catch{return [];}}
 function saveRecord(){const record=confirmedRecord(state.session);if(!record){notify('记录内容不完整或过长，请修改后重试。');return;}try{const items=readRecords().filter(x=>x.id!==record.id);if(items.length>=30){notify('这台设备已有 30 份记录。请先删除一些，或导出当前记录。');return;}localStorage.setItem(STORE,JSON.stringify([record,...items]));notify('已保存在这台设备。可在“我的记录”中查看或删除。');}catch{notify('浏览器没有允许保存，或存储空间不足。可以下载文字。');}}
 function showSaved(){const items=readRecords();openModal('我的记录',`<p>仅保存在这个浏览器中，不跨设备同步。</p>${items.length?`<ul class="record-list">${items.map(r=>`<li class="record-row"><button class="record-open" data-action="open-record" data-id="${e(r.id)}"><strong>${e(r.review.title)}</strong><small>${e(dateLabel(r.createdAt))}</small></button><button class="text-button danger" data-action="delete-record" data-id="${e(r.id)}">删除</button></li>`).join('')}</ul>`:'<div class="empty-state">还没有保存的记录。<br>完成一次整理后，可以选择留在这里。</div>'}`);}
-function about(){openModal('关于这次体验',`<p>留白用生活问题、可选图像卡和可修改的整理，陪你回看自己的表达。</p><h3>两种体验方式</h3><ul><li>默认本地模式：固定问题引导，原话整理，不向模型发送正文。</li><li>可选 AI 模式：输入体验码并明确同意后，将本次故事、焦点、卡片联想、实际问答及纠正经留白后台发送给 DeepSeek；旧记录不会自动上传。</li><li>AI 只是提供候选理解，可能不准确。你可以纠正、跳过或结束；卡片不作心理诊断或占卜。</li></ul><h3>你的内容如何处理</h3><p>进行中的内容保留在页面内存中，刷新或结束会清除本页输入和体验码。AI 模式中已经发送的文字无法通过清除本页撤回，服务商的数据处理规则适用。</p><p>点击“保存在这台设备”才会写入浏览器存储，只保存确认后的记录，不另存原始问答和 AI 过程。你可以在“我的记录”逐条删除；共用设备上的其他使用者可能看到这些记录。</p><p>页面不请求麦克风权限；键盘语音输入的音频由输入法和设备处理。站点及模型请求会产生必要的访问、用量和错误记录。</p><p>体验反馈不会自动附带复盘正文，不自动上传。你下载后自行决定是否提供给测试组织者。</p>`);}
+function about(){openModal('关于这次体验',`<p>留白用生活问题、可选图像卡和可修改的整理，陪你回看自己的表达。</p><h3>两种体验方式</h3><ul><li>默认本地模式：固定问题引导，原话整理，不向模型发送正文。</li><li>可选 AI 模式：选择默认或个人 Key 并明确同意后，将本次故事、焦点、卡片联想、实际问答及纠正经留白后台发送给 DeepSeek；旧记录不会自动上传。</li><li>AI 只是提供候选理解，可能不准确。你可以纠正、跳过或结束；卡片不作心理诊断或占卜。</li></ul><h3>你的内容如何处理</h3><p>进行中的内容保留在页面内存中，刷新会清除本页输入和个人 Key，结束会清除本次输入。AI 模式中已经发送的文字无法通过清除本页撤回，服务商的数据处理规则适用。</p><p>点击“保存在这台设备”才会写入浏览器存储，只保存确认后的记录，不另存原始问答和 AI 过程。你可以在“我的记录”逐条删除；共用设备上的其他使用者可能看到这些记录。</p><p>页面不请求麦克风权限；键盘语音输入的音频由输入法和设备处理。站点及模型请求会产生必要的访问、用量和错误记录。</p><p>体验反馈不会自动附带复盘正文，不自动上传。你下载后自行决定是否提供给测试组织者。</p>`);}
 function example(){openModal('一份记录可以很简单',`<p>这是虚构示例，不会写入你的记录。</p><div class="example-note"><p>周末和朋友散步，没有提前安排全部行程。走到哪儿，想坐就坐。</p><p>我注意到，自己喜欢一点临时决定的余地。</p><p>想试试：周三晚上留一个小时，不提前安排。</p></div><p>也可以只留下一句：“今天路边的桂花很香，我想记住。”</p><div class="modal-actions"><button class="primary" data-action="start-from-modal">聊聊我的小事</button></div>`);}
 function drawCard(){invalidateAI();const options=CARDS.filter(c=>c.id!==state.session.cardId);const n=new Uint32Array(1);crypto.getRandomValues(n);state.session.cardId=options[n[0]%options.length].id;render();main.focus({preventScroll:true});}
 function download(blob,name){const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
@@ -171,22 +193,24 @@ async function pngExport(button){button.disabled=true;try{
  const titles=wrap(r.title,42);const sections=r.sections.map(s=>({...s,lines:wrap(s.text,26),labelLines:wrap(s.label,22)}));
  const height=240+titles.length*61+sections.reduce((n,s)=>n+60+s.labelLines.length*34+s.lines.length*44,0)+110;
  if(height>24000){notify('这份记录较长，请使用“下载文字”完整保存。');return;}
- c.width=width;c.height=height;ctx.fillStyle='#f8f7f3';ctx.fillRect(0,0,width,height);ctx.strokeStyle='#bdc9b4';ctx.lineWidth=2;ctx.strokeRect(30,30,width-60,height-60);
- ctx.fillStyle='#667168';ctx.font=`20px ${font}`;ctx.fillText('留白 · 我的生活片刻',pad,95);ctx.textAlign='right';ctx.fillText(dateLabel(state.session.createdAt),width-pad,95);ctx.textAlign='left';ctx.beginPath();ctx.moveTo(pad,124);ctx.lineTo(width-pad,124);ctx.stroke();let y=190;
- ctx.fillStyle='#293a31';ctx.font=`42px ${font}`;for(const line of titles){ctx.fillText(line,pad,y);y+=61;}y+=18;
- for(const s of sections){ctx.fillStyle='#667168';ctx.font=`22px ${font}`;for(const line of s.labelLines){ctx.fillText(line,pad,y);y+=34;}y+=12;ctx.fillStyle='#293a31';ctx.font=`26px ${font}`;for(const line of s.lines){ctx.fillText(line,pad,y);y+=44;}y+=48;}
- ctx.fillStyle='#667168';ctx.font=`20px ${font}`;ctx.fillText('给生活留一点自己的余地。',pad,height-80);
+ c.width=width;c.height=height;ctx.fillStyle='#fffaf3';ctx.fillRect(0,0,width,height);ctx.strokeStyle='#ddc9c9';ctx.lineWidth=2;ctx.strokeRect(30,30,width-60,height-60);
+ ctx.fillStyle='#776371';ctx.font=`20px ${font}`;ctx.fillText('留白 · 我的生活片刻',pad,95);ctx.textAlign='right';ctx.fillText(dateLabel(state.session.createdAt),width-pad,95);ctx.textAlign='left';ctx.beginPath();ctx.moveTo(pad,124);ctx.lineTo(width-pad,124);ctx.stroke();let y=190;
+ ctx.fillStyle='#3e2f3d';ctx.font=`42px ${font}`;for(const line of titles){ctx.fillText(line,pad,y);y+=61;}y+=18;
+ for(const s of sections){ctx.fillStyle='#776371';ctx.font=`22px ${font}`;for(const line of s.labelLines){ctx.fillText(line,pad,y);y+=34;}y+=12;ctx.fillStyle='#3e2f3d';ctx.font=`26px ${font}`;for(const line of s.lines){ctx.fillText(line,pad,y);y+=44;}y+=48;}
+ ctx.fillStyle='#776371';ctx.font=`20px ${font}`;ctx.fillText('给生活留一点自己的余地。',pad,height-80);
  const blob=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(Error()),'image/png'));download(blob,`留白-${fileDate()}.png`);notify('图片下载已发起。分享前请检查私密内容。');
  }catch{notify('图片未能导出。请使用“下载文字”，或换一个浏览器重试。');}finally{button.disabled=false;}}
 const feedbackQuestions=[['purpose','你觉得这个工具刚才主要在帮你做什么？'],['friction','哪一步你最想跳过、修改或退出？'],['accuracy','整理里有什么与你想表达的不一样？'],['card','卡片出现后，你想说的内容有什么变化？']];
 function feedback(){openModal('留下体验反馈',`<p>反馈不会自动附带你的复盘内容。文件仅下载到设备，是否交给测试组织者由你决定。</p><form id="feedback-form">${feedbackQuestions.map(([id,label])=>`<div class="feedback-field"><label for="fb-${id}">${label}</label><textarea id="fb-${id}" name="${id}" maxlength="1500" placeholder="可以留空">${e(feedbackDraft[id]||'')}</textarea></div>`).join('')}<div class="feedback-field"><label for="fb-clarity">现在你对那件事的理解是？</label><select id="fb-clarity" name="clarity"><option value="">暂不评价</option value="clearer">更清楚了</option><option value="same">差不多</option><option value="less-clear">更乱了</option></select></div><div class="modal-actions"><button class="primary" type="submit">下载反馈文件</button></div></form>`);document.querySelector('#fb-clarity').value=feedbackDraft.clarity||'';}
 
-document.addEventListener('submit',event=>{if(event.target.id==='ai-consent-form'){event.preventDefault();const inviteCode=document.querySelector('#ai-invite').value.trim();if(!inviteCode||!document.querySelector('#ai-consent').checked||!aiStatus.enabled){document.querySelector('#ai-consent-error').textContent='请填写体验码并确认发送说明。';return;}const options={inviteCode,configVersion:aiStatus.configVersion,consentVersion:'deepseek-v1'};closeModal();start(state.modeId,options);return;}if(event.target.id==='step-form')submitStep(event);if(event.target.id==='feedback-form'){event.preventDefault();feedbackDraft=Object.fromEntries(new FormData(event.target));const data={version:'0.1',createdAt:new Date().toISOString(),theme:state.session?.modeId||null,usedCard:!!state.session?.cardId,feedback:feedbackDraft};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}),`留白-体验反馈-${fileDate()}.json`);notify('反馈文件已下载。没有上传。');}});
+document.addEventListener('submit',event=>{if(event.target.id==='ai-settings-form'){event.preventDefault();if(state.session)return;if(!personalKey.set(document.querySelector('#personal-key').value)){document.querySelector('#key-settings-error').textContent='Key 需为 16–256 位英文可打印字符，不能包含空格。';return;}closeModal();if(state.screen==='home')render();notify(personalKey.hasKey()?'个人 Key 已应用到本页；尚未调用模型。':'已选择默认 Key；尚未调用模型。');return;}if(event.target.id==='ai-consent-form'){event.preventDefault();if(!document.querySelector('#ai-consent').checked||!aiStatus.enabled||(!personalKey.hasKey()&&!aiStatus.defaultAvailable)){document.querySelector('#ai-consent-error').textContent='请先配置可用的 Key，并确认发送说明。';return;}const options={personalApiKey:personalKey.forRequest(),configVersion:aiStatus.configVersion,consentVersion:'deepseek-v1'};closeModal();start(state.modeId,options);return;}if(event.target.id==='step-form')submitStep(event);if(event.target.id==='feedback-form'){event.preventDefault();feedbackDraft=Object.fromEntries(new FormData(event.target));const data={version:'0.1',createdAt:new Date().toISOString(),theme:state.session?.modeId||null,usedCard:!!state.session?.cardId,feedback:feedbackDraft};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}),`留白-体验反馈-${fileDate()}.json`);notify('反馈文件已下载。没有上传。');}});
 document.addEventListener('input',event=>{if(state.session && (['entry','ai-correction','ai-allow-step','review-title'].includes(event.target.id)||event.target.hasAttribute('data-review-index')))invalidateAI();if(event.target.id==='entry'){document.querySelector('#char-count').textContent=`${event.target.value.length} / ${event.target.maxLength}`;document.querySelector('#input-error')?.replaceChildren();}if(event.target.closest('#feedback-form'))feedbackDraft=Object.fromEntries(new FormData(document.querySelector('#feedback-form')));});
 document.addEventListener('click',async event=>{
  const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
  if(action==='start')start();
  else if(action==='ai-start')aiConsent();
+ else if(action==='ai-settings')aiSettings();
+ else if(action==='clear-personal-key'){if(state.session)return;personalKey.clear();clearSensitiveInputs();closeModal();if(state.screen==='home')render();notify('个人 Key 已从本页清除。');}
  else if(action==='local-from-consent'){closeModal();start();}
  else if(action==='ai-verdict'){capture();state.ai.verdict=button.dataset.verdict;if(state.ai.verdict==='accepted')state.ai.correction='';render();document.querySelector(`[data-verdict="${state.ai.verdict}"]`)?.focus();}
  else if(action==='ai-edit-story'){capture();if(hasAI())commitAiTurn(false);invalidateAI();state.ai.candidate=null;state.ai.answer='';state.ai.verdict='';state.ai.correction='';go('story');}
@@ -220,8 +244,13 @@ document.addEventListener('click',async event=>{
  else if(action==='export-png')await pngExport(button);
  else if(action==='feedback')feedback();
 });
-modal.addEventListener('cancel',()=>{pendingAction=null;});
+modal.addEventListener('cancel',()=>{pendingAction=null;clearSensitiveInputs();});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeModal();}});
+window.addEventListener('pagehide',()=>{
+  capture();invalidateAI();personalKey.clear();clearSensitiveInputs();
+  if(state.ai?.personalApiKey){state.ai.personalApiKey='';state.ai.credentialExpired=true;state.ai.status='error';state.ai.errorMessage='离开页面后，个人 Key 已清除。请先按原话整理，结束本次后重新设置。';}
+});
+window.addEventListener('pageshow',event=>{if(event.persisted){loadAiStatus();render();}});
 window.addEventListener('beforeunload',event=>{capture();if(shouldWarnBeforeUnload(state.session)){event.preventDefault();event.returnValue='';}});
 render();
-loadAiStatus();
+loadAiStatus().then(()=>{if(new URL(location.href).searchParams.get('settings')==='ai')aiSettings();});
