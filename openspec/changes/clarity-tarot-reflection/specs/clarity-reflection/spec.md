@@ -274,6 +274,24 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 用户只否定极端说法，或仍在弄清是否如此、哪个选项、程度或原因
 - **THEN** 模型分析不得把非禁止加强为肯定意愿/许可，也不得把未决对象偷换为原因；原话保留或引用合法不能抵消title/reply/analysis的语义偏移，旧版本真实失败保持可追溯
 
+### Requirement: Faithful dialogue scope and open inquiry
+
+隔离承接策略 SHALL 保留用户所述的范围、程度、对象和条件，不从愿意参与推出不介意额外负担，不从介意一项推出排除另一项。已有材料不足以形成区分时 SHALL 允许准确并列，不能要求每轮补出洞察。标题 SHALL 用具体事项定位，不能因压缩而将时间影响加强为另一个事件结果。
+
+问题 SHALL 补充真实未知，沿用已明确的目标及标准；比较信息的答案可以支持、反驳或与当前猜测无关。未由本人提出待检验关系时，不定向索取支持某选项好处的正例，也不重复确认已说清的兴趣目的。既有Host停止、问题来源、公开schema与Runtime校验边界保持；这些提示词 SHALL 不被宣称为语义验证器。
+
+#### Scenario: Participation and burden remain simultaneous
+- **WHEN** 本人愿意共同参与，又表达额外安排的实际影响
+- **THEN** 系统保留两者，不替本人排除对额外负担的介意；原话和引用完整也不能抵消承接中排他结论的语义偏移
+
+#### Scenario: Comparison question permits disconfirmation
+- **WHEN** 本人比较两个选项，尚不知道某项因素对自己的影响
+- **THEN** 下一问补充比较所缺的信息，不将该因素有益作为前提只找正例；不靠句式词或模型自评分证明问题开放
+
+#### Scenario: Known interest and title scope persist
+- **WHEN** 本人已明确兴趣方向或表达某件事的时间被挤占
+- **THEN** 系统不重复询问已知方向，不将时间受影响简写为该事情没有发生；逐句内容验收与格式校验分别记录
+
 ### Requirement: Host-scoped duration surface provenance
 
 隔离个人复盘实验 SHALL 由Host固定purpose，不能让模型通过modeId自行豁免。可识别的小时/分钟原形 SHALL 在原生候选所有文字字段和规范化后候选分别检查，保留完整源span及限定，不换算、加总、删句或改数值。源unsupported在模型和计费前退出，新增/unsupported输出不得进入状态或触发自动重试。
