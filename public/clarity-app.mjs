@@ -164,7 +164,7 @@ async function exportImage(details) {
   const blob = await new Promise((resolve, reject) => canvas.toBlob(v => v ? resolve(v) : reject(Error()), 'image/png')); download(blob, '留白.png');
 }
 function showRecords() {
-  try { const entries = readRecordEntries(localStorage).filter(x => x.record); openModal('我的记录', `<p class="small">保存在这个浏览器中，不跨设备同步。</p>${entries.length ? entries.map(({ record: r }) => `<div class="record-row">${button(e(r.review.title), `open:${r.id}`)}<small>${e(new Date(r.createdAt).toLocaleDateString('zh-CN'))}</small>${button('删除', `delete:${r.id}`)}</div>`).join('') : '<p>还没有保存的记录。</p>'}`); }
+  try { const entries = readRecordEntries(localStorage).filter(x => x.record); openModal('我的记录', `<p class="small">保存在这个浏览器中；内测版与旧版分开保存。</p>${entries.length ? entries.map(({ record: r }) => `<div class="record-row">${button(e(r.review.title), `open:${r.id}`)}<small>${e(new Date(r.createdAt).toLocaleDateString('zh-CN'))}</small>${button('删除', `delete:${r.id}`)}</div>`).join('') : '<p>还没有保存的记录。</p>'}`); }
   catch { notice('暂时无法读取本机记录。原有数据没有被覆盖。'); }
 }
 function reset() { abortRequest(); session = createClaritySession(); route = null; draft = ''; view = 'main'; editDraft = null; localError = ''; closeModal(); render(); }
@@ -226,7 +226,7 @@ document.addEventListener('click', async event => {
     else if (action === 'save') { if (session.stale && document.querySelector('#review-rechecked')?.checked) acknowledgeClarityReview(session); const result = saveClarityRecord(session, localStorage); localError = result.ok ? '' : ({ review_stale: '请先核对或修改这份整理，再勾选已重新核对。', empty_review: '至少保留一段内容，可以修改并恢复之前的段落。', records_full: '本机已有30份记录，请先删除部分记录。' }[result.reason] ?? '这次没有保存成功。内容仍在本页，可以重试。'); render(); }
     else if (action === 'records') showRecords();
     else if (action === 'open') { const load = () => { const record = readRecordEntries(localStorage).find(x => x.record?.id === id)?.record; if (!record) return; abortRequest(); session = { ...createClaritySession(), ...record, stage: 'kept', complete: true }; route = null; draft = ''; view = 'main'; closeModal(); render(); }; if (session.dirty || draft.trim()) ask('打开另一份记录？', '本次尚未保存的内容会被清除。', load, { cancelLabel: '留在这里', confirmLabel: '打开记录' }); else load(); }
-    else if (action === 'delete') ask('删除这份记录？', '仅删除本浏览器中的这一份记录。已导出的文件会保留。', () => { const entries = readRecordEntries(localStorage); localStorage.setItem(RECORD_STORE, JSON.stringify(entries.filter(x => x.raw?.id !== id).map(x => x.raw))); showRecords(); }, { cancelLabel: '保留记录', confirmLabel: '删除记录' });
+    else if (action === 'delete') ask('删除这份记录？', '仅从内测版移除；旧版已有记录和导出文件会保留。', () => { const entries = readRecordEntries(localStorage); localStorage.setItem(RECORD_STORE, JSON.stringify(entries.filter(x => x.raw?.id !== id).map(x => x.raw))); showRecords(); }, { cancelLabel: '保留记录', confirmLabel: '删除记录' });
     else if (action === 'export-text') { download(new Blob([recordText(savedRecord(), { details: document.querySelector('#export-details')?.checked })], { type: 'text/plain;charset=utf-8' }), '留白.txt'); }
     else if (action === 'export-image') { target.disabled = true; try { await exportImage(document.querySelector('#export-details')?.checked); } finally { target.disabled = false; } }
     else if (action === 'request-action') { if (!route) { notice('这份记录来自本机。开始一次新的对话后可以请 AI 帮忙。'); return; } addExpression(session, '请根据刚才的期待，帮我想一句可以怎么说。', { kind: 'request' }); session.stage = 'reviewing'; await sendToAi({ action: true }); }

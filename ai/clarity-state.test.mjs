@@ -70,6 +70,41 @@ test('V1 is readable and retained verbatim; exporting excludes details and trans
   assert.doesNotMatch(state.recordText(record), /仅在详情/); assert.match(state.recordText(record, { details: true }), /仅在详情/);
   const long = structuredClone(record); long.review.blocks[0].text = '长'.repeat(20000); assert.ok(state.readClarityRecord(long));
 });
+
+test('new saves stay independent when the legacy app rewrites its own records', () => {
+  const old = createSession('moment'); old.story = '旧版散步记录。'; old.review = makeReview(old); old.confirmed = true;
+  const oldPayload = JSON.stringify([confirmedRecord(old)]), values = new Map([['liubai.records.v1', oldPayload]]);
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  assert.equal(state.readRecordEntries(storage)[0].record.id, old.id);
+  const s = complete(); assert.equal(state.saveClarityRecord(s, storage).ok, true);
+  assert.equal(values.get('liubai.records.v1'), oldPayload);
+  assert.notEqual(state.RECORD_STORE, 'liubai.records.v1');
+  storage.setItem('liubai.records.v1', '[]'); // The already-open legacy UI saves/deletes later.
+  assert.deepEqual(state.readRecordEntries(storage).map(x => x.record.id), [s.id, old.id]);
+  const legacyOnly = JSON.parse(storage.getItem('liubai.records.v1'));
+  assert.equal(legacyOnly.length, 0);
+});
+
+test('an explicitly emptied new store never resurrects the legacy snapshot', () => {
+  const old = createSession('moment'); old.story = '还在旧版的记录。'; old.review = makeReview(old); old.confirmed = true;
+  const oldPayload = JSON.stringify([confirmedRecord(old)]), values = new Map([['liubai.records.v1', oldPayload]]);
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  assert.equal(state.readRecordEntries(storage).length, 1);
+  storage.setItem(state.RECORD_STORE, '[]');
+  assert.deepEqual(state.readRecordEntries(storage), []);
+  assert.equal(values.get('liubai.records.v1'), oldPayload);
+});
+
+test('new-store corruption or a failed write never overwrites legacy records', () => {
+  const legacy = '[]', values = new Map([['liubai.records.v1', legacy], [state.RECORD_STORE, '{broken']]);
+  const storage = { getItem: key => values.get(key) ?? null, setItem: () => { throw Error('quota'); } };
+  assert.equal(state.saveClarityRecord(complete(), storage).reason, 'storage_failed');
+  assert.equal(values.get(state.RECORD_STORE), '{broken');
+  values.delete(state.RECORD_STORE);
+  assert.equal(state.saveClarityRecord(complete(), storage).reason, 'storage_failed');
+  assert.equal(values.get('liubai.records.v1'), legacy);
+  assert.equal(values.has(state.RECORD_STORE), false);
+});
 test('new text after preview requires reconsideration; local review never invents later answers', () => {
   const s = state.createClaritySession(); state.addExpression(s, '只想把今天这一句话留住。'); state.openClarityReview(s);
   assert.equal(s.review.blocks[0].text, '只想把今天这一句话留住。'); assert.equal(s.callCount, 0);

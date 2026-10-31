@@ -20,14 +20,49 @@ test('standalone rejects all legacy admin paths before any API dispatch, even wi
   assert.equal(calls, 0);
 });
 
-test('standalone has no Sites OAuth endpoints and legacy UI routes only redirect to public settings', async () => {
+test('standalone has no Sites OAuth endpoints', async () => {
   const worker = createStandaloneWorker();
   for (const path of ['/signin-with-chatgpt', '/signout-with-chatgpt/', '/callback']) {
     assert.equal((await worker.fetch(request(path), {})).status, 404);
   }
-  const redirect = await worker.fetch(request('/admin'), {});
-  assert.equal(redirect.status, 303);
-  assert.equal(redirect.headers.get('Location'), 'https://draft.example.test/?settings=ai');
+});
+
+test('organizer page serves the canonical asset for GET and HEAD with protective headers', async () => {
+  const worker = createStandaloneWorker();
+  const observed = [];
+  const configuration = { ASSETS: { fetch: async r => {
+    observed.push(r);
+    return new Response('<main>Organizer sign-in</main>', { headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=86400' } });
+  } } };
+  for (const path of ['/admin', '/admin/', '/admin.html']) {
+    for (const method of ['GET', 'HEAD']) {
+      const response = await worker.fetch(request(path, { method, headers: identity }), configuration);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('Content-Type'), 'text/html');
+      assert.equal(response.headers.get('Cache-Control'), 'no-store');
+      assert.equal(response.headers.get('Content-Security-Policy'), "frame-ancestors 'none'");
+      assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
+      assert.equal(response.headers.get('Referrer-Policy'), 'no-referrer');
+      assert.equal(await response.text(), method === 'HEAD' ? '' : '<main>Organizer sign-in</main>');
+      const forwarded = observed.at(-1);
+      assert.equal(new URL(forwarded.url).pathname, '/admin');
+      assert.equal(forwarded.method, method);
+      for (const name of Object.keys(identity)) assert.equal(forwarded.headers.get(name), null);
+    }
+  }
+  assert.equal(observed.length, 6);
+});
+
+test('organizer page fails clearly without assets and rejects non-read methods', async () => {
+  const worker = createStandaloneWorker();
+  const missing = await worker.fetch(request('/admin'), {});
+  assert.equal(missing.status, 503);
+  assert.equal((await missing.json()).reason, 'assets_unconfigured');
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const rejected = await worker.fetch(request('/admin', { method }), {});
+    assert.equal(rejected.status, 405);
+    assert.equal((await rejected.json()).reason, 'method_not_allowed');
+  }
 });
 
 test('pending migration or missing D1 fails closed before any inference path', async () => {

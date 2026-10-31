@@ -1,6 +1,7 @@
 import { buildClarityContext, validateClarityCandidate } from './clarity-contract.mjs';
 import { validateSavedRecord } from './core.mjs';
-export const RECORD_STORE = 'liubai.records.v1';
+export const RECORD_STORE = 'liubai.clarity.records.v2';
+const LEGACY_RECORD_STORE = 'liubai.records.v1';
 const copy = x => structuredClone(x);
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const text = (x, max) => typeof x === 'string' && x.trim() && x.length <= max;
@@ -205,7 +206,10 @@ export function readClarityRecord(raw) {
 }
 
 export function readRecordEntries(storage) {
-  const raw = storage.getItem(RECORD_STORE);
+  // The first new save/delete creates a separate snapshot. Never write v2 into
+  // the legacy slot: an already-open old app filters unknown records on save.
+  let raw = storage.getItem(RECORD_STORE);
+  if (raw === null) raw = storage.getItem(LEGACY_RECORD_STORE);
   if (raw === null) return [];
   if (raw.length > 5000000) throw new Error('records_unavailable');
   const items = JSON.parse(raw);

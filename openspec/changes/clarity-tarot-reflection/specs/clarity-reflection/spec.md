@@ -179,3 +179,19 @@
 #### Scenario: Synthetic preview
 - **WHEN** 固定脚本用于展示流程
 - **THEN** 预览清楚标注为虚构设计示例，不能宣称线上模型已经实现同等质量
+
+### Requirement: Independent beta records and entry
+
+小范围内测 SHALL 通过独立`/clarity`入口提供，标明内测身份，沿用既有默认服务与管理认证。新版记录 SHALL 使用独立存储位置，旧页面的保存/删除不能覆盖新版记录；新页面不得改写旧版原始记录。正式首页切换仍需完整内容与用户验收。
+
+#### Scenario: Alternating old and new pages
+- **WHEN** 同一浏览器保存新版记录后，仍已打开的旧页面再次保存或删除
+- **THEN** 新版记录保持完整，旧版原始存储只受旧页面自己的操作影响
+
+#### Scenario: First new record snapshot
+- **WHEN** 新版存储尚不存在但旧版有记录
+- **THEN** 新版可读取旧版记录，在首次新版保存或删除时形成独立副本；之后两边不自动同步
+
+#### Scenario: Empty or corrupt new storage
+- **WHEN** 新版存储已经是空数组，或包含损坏数据
+- **THEN** 系统不得回退旧存储而复活删除记录或掩盖错误；写入失败不修改旧存储、不报告成功
