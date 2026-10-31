@@ -262,6 +262,10 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 实际state拒绝固定event替换、已有context被用户主动移除，或手改使旧响应过期
 - **THEN** 用户文本和移除决定保留，覆盖检查返回needs_review/user_removed/stale而非成功，不强制恢复原话；原有保存权限与stale保护继续生效
 
+#### Scenario: Native v3 evaluation uses a signed continuation
+- **WHEN** 在隔离环境用固定合成材料验证真实v3输出
+- **THEN** 使用独立版本label、签名域及请求/会话ID，不能接受v2续步或与其幂等身份冲突；原生JSON直接编译并与API候选对照，围栏或旧协议不映射救活；Worker与客户端分别apply并检查可见正文及内存保存，语义与首次用户体验单独判定，实验入口不进入生产
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。

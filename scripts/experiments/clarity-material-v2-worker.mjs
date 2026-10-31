@@ -4,6 +4,7 @@
 import {handleApi,PUBLIC_CONFIG_VERSION,CONSENT_VERSION} from '../../server/api.mjs';
 import {buildClarityModelRequest,clarityContract} from '../../ai/clarity.mjs';
 import {prepareConcernMaterialSetRun} from '../../ai/experiments/clarity-material-set.mjs';
+import {prepareRetainedConcernRun} from '../../ai/experiments/clarity-retained-concern.mjs';
 import {runCandidate} from '../../ai/runtime.mjs';
 import {getPersonalRoute} from '../../ai/providers.mjs';
 import {prepareProviderRequest,MAX_RESPONSE_BYTES} from '../../ai/provider-transport.mjs';
@@ -14,7 +15,11 @@ const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Contr
 const failure=(reason,status)=>json({synthetic:true,status:'rejected',reason},status);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const route=getPersonalRoute(V2_ROUTE.providerId,V2_ROUTE.modelId);
-const TOKEN_VERSION='liubai-material-v2-continuation-1',MAX_BODY_BYTES=64*1024;
+const MAX_BODY_BYTES=64*1024;
+const EXPERIMENTS=Object.freeze({
+  2:Object.freeze({label:V2_LABEL,tokenVersion:'liubai-material-v2-continuation-1',salt:'liubai-material-v2-preview',prepare:prepareConcernMaterialSetRun}),
+  3:Object.freeze({label:'liubai-material-retention-preview-3',tokenVersion:'liubai-material-v3-continuation-1',salt:'liubai-material-retention-v3-preview',prepare:prepareRetainedConcernRun}),
+});
 const EMPTY_BODY=Symbol('empty_proxy_body');
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const b64=bytes=>btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replace(/=+$/u,'');
@@ -37,22 +42,22 @@ async function boundedBody(request){
     return await Promise.race([reading,interrupted]);
   }finally{clearTimeout(timer);request.signal.removeEventListener('abort',abort);reader.cancel().catch(()=>{});reader.releaseLock();}
 }
-async function signingKey(env){
+async function signingKey(env,experiment){
   // A separate HKDF domain avoids reusing the AES-GCM key as a MAC key.
   const secret=env.LIUBAI_SECRET_KEY;
   if(typeof secret!=='string')throw Error('signing_unconfigured');
   const bytes=Uint8Array.from(atob(secret),c=>c.charCodeAt(0));if(bytes.length!==32)throw Error('signing_unconfigured');
   const root=await crypto.subtle.importKey('raw',bytes,'HKDF',false,['deriveKey']);
-  return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:encoder.encode('liubai-material-v2-preview'),info:encoder.encode(TOKEN_VERSION)},root,{name:'HMAC',hash:'SHA-256',length:256},false,['sign','verify']);
+  return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:encoder.encode(experiment.salt),info:encoder.encode(experiment.tokenVersion)},root,{name:'HMAC',hash:'SHA-256',length:256},false,['sign','verify']);
 }
 async function seal(payload,key){const bytes=encoder.encode(JSON.stringify(payload));return `${b64(bytes)}.${b64(new Uint8Array(await crypto.subtle.sign('HMAC',key,bytes)))}`;}
-async function open(token,key,active,id,step){
+async function open(token,key,active,id,step,experiment,experimentVersion){
   if(typeof token!=='string'||token.length>MAX_BODY_BYTES||token.split('.').length!==2)throw Error('invalid_continuation');
   const [data,mac]=token.split('.'),bytes=unb64(data),signature=unb64(mac);
   if(signature.length!==32||!await crypto.subtle.verify('HMAC',key,signature,bytes))throw Error('invalid_continuation');
   const value=JSON.parse(decoder.decode(bytes));
-  if(!exact(value,['version','runId','caseId','nextStep','expiresAt','session'])||value.version!==TOKEN_VERSION||value.runId!==active.runId||value.caseId!==id||
-    value.nextStep!==step||value.expiresAt!==active.expiresAt||!checkContinuationSession(value.session,id,active.runId,step))throw Error('invalid_continuation');
+  if(!exact(value,['version','runId','caseId','nextStep','expiresAt','session'])||value.version!==experiment.tokenVersion||value.runId!==active.runId||value.caseId!==id||
+    value.nextStep!==step||value.expiresAt!==active.expiresAt||!checkContinuationSession(value.session,id,active.runId,step,experimentVersion))throw Error('invalid_continuation');
   return value.session;
 }
 async function capturedResponse(response){
@@ -65,14 +70,20 @@ async function capturedResponse(response){
   }catch{return null;}finally{reader.cancel().catch(()=>{});reader.releaseLock();}
 }
 
-export function createMaterialV2Worker({handleApiImpl=handleApi,prepareRun=prepareConcernMaterialSetRun,fetchImpl=globalThis.fetch,now=()=>Date.now()}={}){
+export function createMaterialV2Worker({handleApiImpl=handleApi,prepareRun,fetchImpl=globalThis.fetch,now=()=>Date.now(),experimentVersion=2}={}){
+  // Internal factory selection only; neither request data nor bindings can
+  // switch the protocol, label or continuation authentication domain.
+  if(experimentVersion!==2&&experimentVersion!==3)throw new TypeError('invalid_material_experiment_version');
+  const experiment=EXPERIMENTS[experimentVersion];
+  prepareRun??=experiment.prepare;
+  if(typeof prepareRun!=='function')throw new TypeError('invalid_material_preparation');
   return Object.freeze({async fetch(request,env){
     const url=new URL(request.url);
     if(url.search||url.hash||['authorization','cookie','api-key','x-api-key'].some(k=>request.headers.has(k)))return failure('invalid_preview_request',400);
     const active=windowFor(env,now());if(!active)return failure('preview_expired_or_unconfigured',410);
     if(url.pathname==='/health'&&request.method==='GET'){
       try{if(await boundedBody(request)!==EMPTY_BODY)return failure('invalid_preview_request',400);}catch{return failure('invalid_preview_request',400);}
-      return json({label:V2_LABEL,...active});
+      return json({label:experiment.label,...active});
     }
     const match=/^\/evaluate\/([a-zA-Z0-9_]+)\/([1-4])$/u.exec(url.pathname),caseId=match?.[1],step=Number(match?.[2]);
     if(request.method!=='POST'||!V2_CASE_IDS.includes(caseId)||(!isFullCase(caseId)&&step!==1))return failure('not_found',404);
@@ -82,9 +93,9 @@ export function createMaterialV2Worker({handleApiImpl=handleApi,prepareRun=prepa
     try{
       body=await boundedBody(request);
       if(step===1&&body!==EMPTY_BODY||step>1&&(!exact(body,['continuationToken'])||!/^application\/json(?:;|$)/iu.test(request.headers.get('content-type')??'')))throw Error('invalid_body');
-      if(isFullCase(caseId)){key=await signingKey(env);if(step>1)prior=await open(body.continuationToken,key,active,caseId,step);}
+      if(isFullCase(caseId)){key=await signingKey(env,experiment);if(step>1)prior=await open(body.continuationToken,key,active,caseId,step,experiment,experimentVersion);}
     }catch{return failure('invalid_preview_continuation',400);}
-    let preparedStep;try{preparedStep=prepareV2Step(caseId,active.runId,active.startedAt,step,prior);}catch{return failure('fixture_or_question_boundary',409);}
+    let preparedStep;try{preparedStep=prepareV2Step(caseId,active.runId,active.startedAt,step,prior,experimentVersion);}catch{return failure('fixture_or_question_boundary',409);}
     const {session,ticket,context}=preparedStep,full=isFullCase(caseId),final=!full||step===4;
     const current=()=>{const latest=windowFor(env,now());return !request.signal.aborted&&latest?.runId===active.runId&&latest.startedAt===active.startedAt&&latest.expiresAt===active.expiresAt;};
     const internal=(path,options={})=>new Request(new URL(path,url.origin),{...options,signal:request.signal});
@@ -117,14 +128,15 @@ export function createMaterialV2Worker({handleApiImpl=handleApi,prepareRun=prepa
           else if(!matchesExpectedConcernQuestion(session,fixtureFor(caseId),step-1))progress.stopReason=session.modeId!=='concern'?'scene_mismatch':
             session.question?.target!==target?'question_target_mismatch':'question_text_mismatch';
           else if(current()){
-            continuationToken=await seal({version:TOKEN_VERSION,runId:active.runId,caseId,nextStep:step+1,expiresAt:active.expiresAt,session},key);progress.mayContinue=true;
+            continuationToken=await seal({version:experiment.tokenVersion,runId:active.runId,caseId,nextStep:step+1,expiresAt:active.expiresAt,session},key);progress.mayContinue=true;
           }
         }else if(applied.ok&&final&&!result.candidate.finish)progress.stopReason='final_not_finished';
       }
-      return json({synthetic:true,label:V2_LABEL,kind:full?'fixed_dialogue_step':'controlled_review_only',runId:active.runId,caseId,step,requestId:ticket.requestId,revision:ticket.revision,route:V2_ROUTE,context,
+      if(experimentVersion===3&&final&&typeof prepared.checkVisibleMaterial==='function')progress.retentionVisibility=prepared.checkVisibleMaterial(session);
+      return json({synthetic:true,label:experiment.label,kind:full?'fixed_dialogue_step':'controlled_review_only',runId:active.runId,caseId,step,requestId:ticket.requestId,revision:ticket.revision,route:V2_ROUTE,context,
         hostRequest:{policyVersion:prepared.requestData.policyVersion,schemaVersion:prepared.requestData.schemaVersion,binding:prepared.binding??null},
         transport,api:{httpStatus:response.status,elapsedMs:Math.max(0,now()-started),result},progress,semanticReview:'pending_manual_review',continuationToken});
-    }catch{return json({synthetic:true,label:V2_LABEL,runId:active.runId,caseId,step,requestId:ticket.requestId,revision:ticket.revision,route:V2_ROUTE,context,transport,
+    }catch{return json({synthetic:true,label:experiment.label,runId:active.runId,caseId,step,requestId:ticket.requestId,revision:ticket.revision,route:V2_ROUTE,context,transport,
       api:{httpStatus:null,result:{status:'fallback',reason:'evaluation_failed'}},progress:{applied:false,mayContinue:false,stopReason:null},semanticReview:'not_evaluated',continuationToken:null});}
   }});
 }
