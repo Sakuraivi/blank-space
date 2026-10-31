@@ -1,6 +1,6 @@
 # 两侧原话进入理解段的生成切片
 
-状态：新私有生成契约和10项定向检查 completed，独立审阅通过，隔离harness in progress，真实生成 not started；生产与UI/字体不变。沿用`clarity-tarot-reflection`，整体4/10，1.1/4.1 in progress、4.2 not started。
+状态：新私有生成契约和10项定向检查 completed，独立审阅通过，隔离harness及16项新定向检查 completed，真实生成 not started；生产与UI/字体不变。沿用`clarity-tarot-reflection`，整体4/10，1.1/4.1 in progress、4.2 not started。
 
 ## Responsibility and scope
 
@@ -25,3 +25,9 @@
 ## Pre-run evidence
 
 10项新定向通过，包含同一句两侧、raw/compiled同时保留、null不认证完整、来源重叠/歧义、退休材料不复活、故意裁否定/只拼引用的语义失败对照、时长/容量/保护/异步与取消。known4严格准备及可信容量检查通过（最终含问答来源与时长指引版本最大6127B），新4正文未读，真实新模型调用0。独立源码审阅和严格规范通过。审阅后保留每个active材料的实际questionLinks和既有durationSourcePolicy，防“是的/后者”等省略回答丢失问题语境；两者均不认证语义。binding明确区分新私有schema、旧material schema与公开clarity schema。harness/真实API离线集成、构建及真实8例生成待记录，尚未读取新4例。
+
+策略先冻结`6fbcdc2a8112fb0a50b623ffd13b696f1d921c78`，root之后才读新4并原样序列化到最终fixture；原独立文件SHA256 `a4d684343812b7757efe7b1d8dd6a4d034946b38d273832591b7d497d43ca4ed`。新4全部严格准备通过，最大4441B，未按新内容调词。
+
+core10+harness6共16项通过；相关faithful/source-checked 16项、原retention42项、严格规范和独立源码/harness审阅通过。真实handleApi+内存DB/stub provider的8例全部candidate/原话可见/保存读回，只证明工程；null stub未计语义成功。生产Worker dry-run 142.08KiB/gzip36.27KiB，实验Worker dry-run 320.82KiB/gzip76.82KiB通过，未跑旧版全量回归。执行关键依赖摘要扩为25份，含实际继承compiler/双guard及bounded capture。
+
+真实前只读status200，默认仍百炼DeepSeek0813/revision3。待最终源码提交后运行固定8次，保留原生四字段raw、focus检查/完整原话、实际公开candidate及保存证据，再独立逐句评审；没有结果后补发或自动审校步骤。
