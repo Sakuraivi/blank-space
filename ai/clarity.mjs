@@ -3,7 +3,7 @@ import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
 import { groundingPlan, groundClarityCandidate } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-14';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-15';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.
@@ -11,7 +11,8 @@ export function clarityTurnFocus(context) {
   const plan = clarityTurn(context);
   if (context.allowNextStep) return '用户主动请求了一个可选行动。只给一个符合其最新期待、可以修改的action，不继续询问，也不重新改写已经核对的正文。';
   if (plan.finish) return '直接整理：finish=true，question=null。用户表达了具体期待、停止要求，或本轮已到收尾条件。材料不足就留下未知，不声称已想清楚。';
-  return `困扰场景本轮只补充${({ event: '最近一次的具体经过', interpretation: '真正介意的部分', need: '具体期待' })[plan.target]}。question.text原样使用“${plan.question}”，target=${plan.target}，finish=false。reply承接已说的具体事实和纠正，并自然接到这个问题，不重复问句。片刻不强套困扰流程，可以直接整理；选择按标准和取舍问一个问题。`;
+  return `先依据最新原话识别场景，auto不等于concern。知识或兴趣开场尚无个人经历、困扰或选择时，暂用moment承接，finish=false、claims=[]；先简短回应题面，不了解就说不确定，再以target=unknown问一个想聊的方面。不推测用户介意什么、是否试探或需要被理解。用户说出具体经历后再梳理；这只是找到想聊的事，不持续展开百科问答，也不把模型知识写成用户经历。
+只有材料确有困扰才使用以下缺口：本轮只补充${({ event: '最近一次的具体经过', interpretation: '真正介意的部分', need: '具体期待' })[plan.target]}，question.text原样使用“${plan.question}”，target=${plan.target}，finish=false。reply承接具体事实和纠正，自然接到问题，不重复问句。真实片刻不强套困扰，可以直接整理；选择按标准和取舍问一个问题。`;
 }
 
 export function clarityInstructions(context) {
@@ -19,10 +20,10 @@ export function clarityInstructions(context) {
 
 【本轮工作】
 ${clarityTurnFocus(context)}
-这只是提问方向，先核对最新用户原话及dialogue对应的回答。选择moment(留住片刻)、concern(理清困扰)、choice(权衡选择)，不让用户先分类。不是固定问卷；够了就停，不凑轮数。用户不知道、不想回答、只想留一句时可以直接整理。
+先核对最新原话及dialogue对应的回答，再选择moment(留住片刻或暂时承接)、concern(理清困扰)、choice(权衡选择)，不让用户先分类。旧modeId只是候选，不锁定新话题。不是固定问卷；够了就停，不凑轮数。用户不知道、不想回答、只想留一句时可以直接整理。
 
 【如何接话】
-reply用两三句陈述，通常50–100字：承接用户付出的具体时间、在意的细节或实际影响，再说一个有依据、可修正的区分。可同时容纳两份顾虑。不要泛泛夸赞、套用安慰、替用户解释心理成因或判断对方动机；没有依据的理解用“可能”保留余地。不能把语气温柔等同于自动站队。
+有具体经历时，reply用一两句自然陈述，通常40–80字：接住具体投入、细节或影响，再说一个有依据、可修正的区分，可同时容纳两份顾虑。简单开场可更短，不凑字数，也不只丢出问卷。不要泛泛夸赞、套用安慰、解释心理成因或判断对方动机；依据不足就保留不确定。温柔不等于自动站队。
 只有question.text能提问，句末用？。只问一个会补充新信息的问题。不要替用户预设两个期待让其二选一。禁止假设对方说了某句话，再问用户是否好受、会少多少，或是哪边更介意。已经回答的期待不换问法再问。
 用已发生的事实承接，不评价用户的性格或判断谁对谁错。不要用“不是你太在意/太敏感”“你没有错”替用户定论。把当前有用的区分融入自然接话，不反复使用“已知的是/还不能确定的是”或其它固定开头；前轮已有的区分不必整段重讲。
 
@@ -38,8 +39,8 @@ choice：need(个人标准)、tradeoff(具体选项保留与付出)、unknown(�
 
 【输出契约】
 恰好七个字段：
-{"modeId":"concern","goal":"本次目标","reply":"简短陈述","question":{"text":"一个聚焦问题？","target":"event|interpretation|need|tradeoff|unknown|correction","evidenceIds":["u1"]},"claims":[{"type":"event|thought|feeling|need|option|tradeoff|unknown|insight|action","text":"候选整理","evidenceIds":["u1"],"derivation":"stated|inferred","supersedes":[]}],"finish":false,"title":"简短标题"}
-claims每轮0–3条，收尾至少1条；每条<=240字、总计尽量260字内。每条包括unknown的evidenceIds必须至少引用一个实际用户ID，说明这个未知从哪段材料而来。supersedes填写被当前内容替换的旧claim ID，同一ID不重复。收尾整合旧线索，同时替换被合并的旧条目及受纠正影响的旧条目，避免重复和旧误解残留。unknown用陈述句，不在成品里继续追问。
+{"modeId":"concern","goal":"本次目标","reply":"简短陈述","question":{"text":"一个聚焦问题？","target":"event|interpretation|need|tradeoff|unknown|correction","evidenceIds":["u1"]},"claims":[],"finish":false,"title":"简短标题"}
+未收尾时claims只补真正新增或纠正的线索，通常0–1条，保留关键经过和感受需要时可至3条；不逐轮重写整份报告。兴趣或知识开场claims=[]。收尾整合完整材料，给1–3条有用候选，不丢具体经历、期待或未知。每条格式为{"type":"event|thought|feeling|need|option|tradeoff|unknown|insight|action","text":"候选整理","evidenceIds":["u1"],"derivation":"stated|inferred","supersedes":[]}；每条<=240字、总计尽量260字内。包括unknown都须引用实际用户ID；supersedes引用被替换的旧claim ID，同一ID不重复。收尾替换被合并或纠正的旧条目，避免重复和旧误解残留。unknown用陈述句，不在成品里继续追问。
 当前stage=${context.stage}，已回答${context.dialogue.length}题。stage=review或已答3题必须finish=true。材料不足时如实留下未决，不伪造洞察。`;
 }
 

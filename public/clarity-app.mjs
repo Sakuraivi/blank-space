@@ -1,16 +1,19 @@
 import { createPersonalKeyPreference } from './personal-key.mjs';
 import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage } from './ai-settings.mjs';
 import { CLARITY_FLOW } from './clarity-contract.mjs';
+import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
 import { createClaritySession, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE } from './clarity-state.mjs';
 
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'), modalBody = document.querySelector('#modal-body');
 const preference = createPersonalKeyPreference();
 let session = createClaritySession(), status = { ...emptyAiStatus(), loading: true }, route = null, controller = null;
-let draft = '', view = 'main', settings = null, editDraft = null, previousFocus = null, modalAction = null, localError = '', settingsGeneration = 0;
+let draft = '', view = 'main', settings = null, editDraft = null, previousFocus = null, modalAction = null, localError = '', settingsGeneration = 0, statusGeneration = 0, waitingSlow = false;
 const e = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const button = (text, action, primary = false, extra = '') => `<button type="button" data-action="${action}" class="${primary ? 'primary' : ''}" ${extra}>${text}</button>`;
 const field = (value, label = '写下你想说的', id = 'expression', max = 4000) => `<label class="small" for="${id}">${label}</label><textarea id="${id}" rows="3" maxlength="${max}" ${session.pending && id === 'expression' ? 'readonly' : ''}>${e(value)}</textarea>`;
 const usable = () => canUseAiSelection(preference.selection(), status, preference.hasKey());
+const clarityError = reason => reason === 'timeout' ? '这次等待有些久，已停止等待，文字仍在本页。可以重新发送，也可以先整理；已发出的请求仍可能计费。' : aiErrorMessage(reason);
+const waitMessage = () => waitingSlow ? '这次回复有些慢，你可以继续等，也可以先整理。' : '正在等待回复…';
 const locked = () => session.statements.length > 0;
 const notice = text => { document.querySelector('#notice').textContent = text; };
 function focusMain() { main.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
@@ -19,7 +22,7 @@ function clearKeyFields() { document.querySelectorAll('[data-key]').forEach(el =
 function openModal(title, body, variant = '') { previousFocus = document.activeElement; clearKeyFields(); modal.dataset.variant = variant; document.querySelector('#modal-title').textContent = title; modalBody.innerHTML = body; if (!modal.open) modal.showModal(); resizeFields(); }
 function closeModal() { settingsGeneration++; settings = null; modalAction = null; clearKeyFields(); modal.close(); previousFocus?.isConnected && previousFocus.focus(); }
 function ask(title, text, action, { cancelLabel = '取消', confirmLabel = '确认' } = {}) { openModal(title, `<p>${e(text)}</p><div class="dialog-actions">${button(e(cancelLabel), 'close')}${button(e(confirmLabel), 'confirm', true)}</div>`, 'confirm'); modalAction = action; }
-function abortRequest() { controller?.abort(); controller = null; if (session.pending) invalidateClarity(session); }
+function abortRequest() { controller?.abort(); controller = null; waitingSlow = false; if (session.pending) invalidateClarity(session); }
 function cancelRequest() { abortRequest(); session.failure = 'inactive'; localError = '已停止等待，文字还在。已发出的请求仍可能计费。'; render(); }
 
 function renderBlock(b) {
@@ -36,7 +39,7 @@ function render() {
   } else if (session.stage === 'exploring') {
     const last = session.statements.at(-1), reply = session.messages.findLast(m => m.role === 'assistant');
     const quote = last.text.length <= 160 ? `<p>${e(last.text)}</p>` : `<p>${e(last.text.slice(0, 100))}…</p><details><summary>展开原话</summary><p>${e(last.text)}</p></details>`;
-    main.innerHTML = `<article class="paper"><div class="actions">${button('查看前文', 'history')}${button('结束本次', 'end')}</div><blockquote class="last-word"><p class="small">你刚刚说</p>${quote}</blockquote>${session.pending ? `<p class="status" role="status">正在听你说，也在整理其中的线索…</p>${button('取消等待', 'cancel')}` : session.failure ? `<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">${e(aiErrorMessage(session.failure))}</p>${button('重新发送', 'retry', true)}` : `${reply ? `<p class="companion-reply">${e(reply.text)}</p>` : ''}${session.question ? `<h1 class="question">${e(session.question.text)}</h1>` : '<h1 class="question">还有什么想补充或纠正的？</h1>'}<form id="expression-form">${field(draft)}<button class="primary">发送</button></form>`}<div class="actions">${button('先整理', 'review')}</div>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
+    main.innerHTML = `<article class="paper"><div class="actions">${button('查看前文', 'history')}${button('结束本次', 'end')}</div><blockquote class="last-word"><p class="small">你刚刚说</p>${quote}</blockquote>${session.pending ? `<p class="status" role="status" data-wait-status>${waitMessage()}</p>${button('取消等待', 'cancel')}` : session.failure ? `<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">${e(clarityError(session.failure))}</p>${button('重新发送', 'retry', true)}` : `${reply ? `<p class="companion-reply">${e(reply.text)}</p>` : ''}${session.question ? `<h1 class="question">${e(session.question.text)}</h1>` : '<h1 class="question">还有什么想补充或纠正的？</h1>'}<form id="expression-form">${field(draft)}<button class="primary">发送</button></form>`}<div class="actions">${button('先整理', 'review')}</div>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
   } else {
     const r = session.review;
     main.innerHTML = `<article class="paper">
@@ -47,8 +50,8 @@ function render() {
       ${r.blocks.filter(b => b.group === 'details').map(renderBlock).join('')}
       ${!r.blocks.length ? '<p class="error">还没有保留内容。可以修改并恢复段落，或自己写一段。</p>' : ''}
       ${session.actionProposal ? `<section class="help-note action-proposal"><h3>如果你愿意，可以这样说</h3><p>${e(session.actionProposal.text)}</p><div class="actions">${button('放进这次记录', 'adopt-action')}${button('先不用', 'dismiss-action')}</div></section>` : ''}
-      ${session.pending ? `<p role="status">正在整理你的补充…</p>${button('取消等待', 'cancel')}` : session.stage === 'kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : button('确认并保存', 'save', true)}
-      ${session.failure ? `<p class="error">${e(aiErrorMessage(session.failure))}</p>${button('重新发送补充', 'retry')}` : ''}
+      ${session.pending ? `<p class="status" role="status" data-wait-status>${waitMessage()}</p>${button('取消等待', 'cancel')}` : session.stage === 'kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : button('确认并保存', 'save', true)}
+      ${session.failure ? `<p class="error">${e(clarityError(session.failure))}</p>${button('重新发送补充', 'retry')}` : ''}
       ${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}
       <div class="actions">${button('修改', 'edit')}${session.statements.length && route ? button('再聊一句', 'continue') : ''}</div>
       ${session.stale ? `${route ? button('让 AI 重新理解', 'reanalyze') : ''}<label class="small"><input id="review-rechecked" type="checkbox">我已重新核对这份整理</label>` : ''}
@@ -59,8 +62,17 @@ function render() {
 }
 
 async function loadStatus() {
-  try { const res = await fetch('/api/ai/status', { cache: 'no-store' }); status = normalizeAiStatus(await res.json()); }
-  catch { status = emptyAiStatus(); }
+  const generation = ++statusGeneration;
+  let nextStatus;
+  try {
+    const body = await waitForClarityRequest(async signal => {
+      const res = await fetch('/api/ai/status', { cache: 'no-store', signal });
+      return res.json();
+    }, { timeoutMs: 10000 });
+    nextStatus = normalizeAiStatus(body);
+  } catch { nextStatus = emptyAiStatus(); }
+  if (generation !== statusGeneration) return;
+  status = nextStatus;
   if (session.stage === 'express' && view === 'main') render();
 }
 function routeNow() {
@@ -78,19 +90,32 @@ async function sendToAi({ action = false } = {}) {
   catch { localError = '这次表达暂时无法发送，请先保留原话。'; render(); return; }
   const active = session, requestRoute = { ...route };
   controller = new AbortController(); const requestController = controller;
-  localError = ''; render();
+  localError = ''; waitingSlow = false; render();
   try {
-    const response = await fetch('/api/ai/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: requestController.signal,
-      body: JSON.stringify({ flow: CLARITY_FLOW, ...requestRoute, requestId: ticket.requestId, revision: ticket.revision,
-        stage: ticket.context.stage, allowNextStep: action, session: wireSession(active),
-        ...(requestRoute.sourceMode === 'personal' ? { personalApiKey: preference.forRequest().personalApiKey } : {}) }) });
-    const body = await response.json();
+    const body = await waitForClarityRequest(async signal => {
+      const response = await fetch('/api/ai/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+        body: JSON.stringify({ flow: CLARITY_FLOW, ...requestRoute, requestId: ticket.requestId, revision: ticket.revision,
+          stage: ticket.context.stage, allowNextStep: action, session: wireSession(active),
+          ...(requestRoute.sourceMode === 'personal' ? { personalApiKey: preference.forRequest().personalApiKey } : {}) }) });
+      return response.json();
+    }, { controller: requestController, onSlow() {
+      if (active !== session || controller !== requestController || active.pending?.requestId !== ticket.requestId) return;
+      waitingSlow = true;
+      const message = document.querySelector('[data-wait-status]');
+      if (message) message.textContent = waitMessage();
+    } });
     if (active !== session || requestController.signal.aborted) return;
     if (body.status !== 'candidate') failClarityRequest(active, ticket, body.reason ?? 'generation_failed');
     else if (!sameAiRoute(body.route, requestRoute)) failClarityRequest(active, ticket, 'config_changed');
     else applyClarityReply(active, ticket, body);
-  } catch { if (active === session && !requestController.signal.aborted) failClarityRequest(active, ticket, 'network_error'); }
-  finally { if (controller === requestController) controller = null; if (active === session) { render(); focusMain(); } }
+  } catch (error) {
+    if (active === session && controller === requestController) {
+      if (error instanceof ClarityWaitError && error.reason === 'timeout') failClarityRequest(active, ticket, 'timeout');
+      else if (!requestController.signal.aborted) failClarityRequest(active, ticket, 'network_error');
+    }
+  } finally {
+    if (controller === requestController) { controller = null; if (active === session) { render(); focusMain(); } }
+  }
 }
 
 async function submitExpression(event) {
@@ -110,6 +135,7 @@ function settingsFields() {
 }
 const customField = () => settings.modelMode === 'custom' ? `<label for="custom-model">模型 ID</label><input id="custom-model" maxlength="100" value="${e(settings.modelId)}" placeholder="填写服务商提供的模型 ID">` : '';
 async function showSettings() {
+  if (locked()) { openModal('AI 设置', '<p>这次对话的服务已经固定。完成或结束本次后，可以更换服务。</p>'); return; }
   const generation = ++settingsGeneration;
   await loadStatus(); if (generation !== settingsGeneration) return;
   if (locked()) { openModal('AI 设置', '<p>这次对话的服务已经固定。完成或结束本次后，可以更换服务。</p>'); return; }

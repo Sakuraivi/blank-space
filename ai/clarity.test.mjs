@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildClarityModelRequest, clarityContract, validateClarityResponse } from './clarity.mjs';
+import { CLARITY_POLICY_VERSION, buildClarityModelRequest, clarityContract, validateClarityResponse } from './clarity.mjs';
 import { declarativeReply, validateClarityCandidate } from '../public/clarity-contract.mjs';
 import { createClaritySession, addExpression, beginClarityRequest, applyClarityReply } from '../public/clarity-state.mjs';
 import { runCandidate } from './runtime.mjs';
@@ -24,7 +24,7 @@ test('each C01 request stays within all five trusted transport input budgets; ou
       const route = getPersonalRoute(p.id, p.defaultModelId);
       const request = buildClarityModelRequest(ticket.context, route.profile);
       const prepared = prepareProviderRequest(request, route); largest = Math.max(largest, prepared.byteLength);
-      assert.ok(prepared.byteLength <= route.maxRequestBytes);
+      assert.ok(prepared.byteLength <= route.maxRequestBytes - 1000, 'The core sample should retain 1KB for additional user material');
       assert.equal(JSON.parse(prepared.body).messages[1].role, 'user');
       assert.equal(request.schemaVersion, 'liubai-clarity-1');
     }
@@ -82,12 +82,51 @@ test('strict decoding never bypasses the application validator or silently retri
 });
 test('runtime injects v2 contract, preserves source evidence, and discards stale results', async () => {
   const context = first(), route = getPersonalRoute('deepseek', 'deepseek-flash'); let active = true;
-  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, 'clarity-warm-14'); return { status: 'completed', output: c01Candidate(context) }; } };
+  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, CLARITY_POLICY_VERSION); return { status: 'completed', output: c01Candidate(context) }; } };
   const result = await runCandidate({ context, adapter, contract: clarityContract, isCurrent: () => active });
   assert.equal(result.status, 'candidate'); assert.equal(result.candidate.claims[0].evidenceIds[0], 'u1');
   const late = await runCandidate({ context, adapter: { ...adapter, generate: async () => { active = false; return { status: 'completed', output: c01Candidate(context) }; } }, contract: clarityContract, isCurrent: () => active });
   assert.equal(late.status, 'discarded');
 });
+test('an interest-opening candidate reaches the conversation in one call without creating a review', async () => {
+  const s = createClaritySession(); addExpression(s, '你知道这位作曲家吗？');
+  const ticket = beginClarityRequest(s), route = getPersonalRoute('bailian', 'qwen3.8-max');
+  let calls = 0;
+  const output = { modeId: 'moment', goal: '找到想聊的事', title: '慢慢聊', reply: '可以先聊聊你想了解的部分。',
+    question: { text: '你想从哪一方面聊起？', target: 'unknown', evidenceIds: ['u1'] }, claims: [], finish: false };
+  const adapter = { profile: route.profile, generate: async request => {
+    calls++; assert.equal(request.policyVersion, CLARITY_POLICY_VERSION);
+    assert.equal(request.schemaVersion, 'liubai-clarity-1');
+    assert.equal(JSON.parse(request.input.content).statements[0].text, '你知道这位作曲家吗？');
+    return { status: 'completed', output };
+  } };
+  const result = await runCandidate({ context: ticket.context, adapter, contract: clarityContract, isCurrent: () => true });
+  assert.equal(result.status, 'candidate'); assert.equal(calls, 1);
+  assert.equal(applyClarityReply(s, ticket, { ...result, flow: 'clarity-v2', requestId: ticket.requestId, revision: ticket.revision }).ok, true);
+  assert.equal(s.stage, 'exploring'); assert.equal(s.complete, false); assert.equal(s.review, null);
+  assert.deepEqual(s.claims, []); assert.deepEqual(s.question, output.question);
+  // This verifies pipeline support for a legal candidate, not that a real model
+  // correctly classifies every knowledge question or follows the prompt.
+});
+
+test('a concern can keep interim claims empty and still build a complete sourced final review', () => {
+  const s = createClaritySession();
+  for (const [index, input] of inputs.entries()) {
+    addExpression(s, input); const ticket = beginClarityRequest(s), raw = c01Candidate(ticket.context);
+    if (!raw.finish) raw.claims = [];
+    const result = validateClarityResponse(raw, ticket.context);
+    assert.equal(result.ok, true);
+    assert.equal(applyClarityReply(s, ticket, { flow: 'clarity-v2', requestId: ticket.requestId, revision: ticket.revision, status: 'candidate', candidate: result.candidate }).ok, true);
+    if (index < inputs.length - 1) { assert.deepEqual(s.claims, []); assert.equal(s.review, null); }
+  }
+  assert.equal(s.stage, 'reviewing'); assert.equal(s.complete, true);
+  assert.deepEqual(s.review.blocks.map(b => b.id), ['context', 'insight', 'unknown']);
+  assert.match(s.review.blocks[0].text, /两个周六/);
+  assert.match(s.review.blocks[1].text, /主动重约/);
+  assert.match(s.review.blocks[2].text, /目前仍不知道/);
+  assert.equal(s.callCount, inputs.length);
+});
+
 test('a real-model duplicate question is removed from reply without altering the dedicated question', () => {
   const context = first(), c = c01Candidate(context);
   c.reply = '两个周六都专门空出来了。你觉得委屈吗？是哪一部分更难受？我们可以把经历和猜测分开看。';

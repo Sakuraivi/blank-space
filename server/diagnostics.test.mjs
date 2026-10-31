@@ -20,6 +20,20 @@ test('diagnostic sink failure never replaces an otherwise usable result', () => 
   assert.doesNotThrow(() => recordAiResult({ status: 'candidate', stage: 'review' }, () => { throw Error('sink unavailable'); }));
 });
 
+test('timing diagnostics contain only finite bounded stage numbers', () => {
+  const logs = [];
+  const write = line => logs.push(JSON.parse(line));
+  const timings = { prepareMs: 12.34, modelMs: 4000, finalizeMs: 2, totalMs: 4014.34, privateKey: 'fake-secret' };
+  recordAiResult({ status: 'candidate', timings }, write);
+  assert.deepEqual(logs[0].timings, { prepareMs: 12.3, modelMs: 4000, finalizeMs: 2, totalMs: 4014.3 });
+  assert.doesNotMatch(JSON.stringify(logs), /privateKey|fake-secret/);
+  for (const invalid of [Infinity, -1, 600001, 'fake-secret']) {
+    recordAiResult({ status: 'candidate', timings: { ...timings, modelMs: invalid } }, write);
+    assert.equal(logs.at(-1).timings, undefined);
+    assert.equal(logs.at(-1).status, 'candidate');
+  }
+});
+
 test('route metadata is logged only for an exact known provider and model', () => {
   const logs = [];
   const write = line => logs.push(JSON.parse(line));

@@ -1,6 +1,7 @@
 // Bounded operational metadata only. Never pass requests, credentials, user
 // expressions, model output, or provider error bodies into production logs.
 import { getRoute, getPersonalRoute } from '../ai/providers.mjs';
+import { sanitizedRequestTimings } from './request-timing.mjs';
 const REASONS = new Set([
   'inactive', 'timeout', 'error', 'incomplete_response', 'generation_failed',
   'invalid_shape', 'invalid_claim', 'invalid_evidence', 'question_not_allowed', 'action_not_allowed',
@@ -11,7 +12,7 @@ const REASONS = new Set([
   'config_changed', 'ungrounded_event', 'correction_not_applied',
 ]);
 
-export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode }, write = console.info) {
+export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode, timings }, write = console.info) {
   const event = {
     event: 'liubai_ai_result',
     requestId: typeof requestId === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId) ? requestId : 'unavailable',
@@ -26,6 +27,8 @@ export function recordAiResult({ requestId, stage, status, reason, providerId, m
     // Ledger/request matching retain the ID; operational logs do not echo it.
     event.route = { providerId, modelId: 'custom', sourceMode };
   }
+  const safeTimings = sanitizedRequestTimings(timings);
+  if (safeTimings) event.timings = safeTimings;
   // Logging failure must not change the model result or invite another call.
   try { write(JSON.stringify(event)); } catch {}
 }

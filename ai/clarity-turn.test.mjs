@@ -18,6 +18,26 @@ test('a request to start chatting opens one question instead of becoming a memor
   const quote=contextFor('她说“陪我聊聊”，我很开心。');
   assert.equal(validateClarityResponse({...raw,claims:[{...raw.claims[0],text:quote.statements[0].text}]},quote).candidate.modeId,'moment');
 });
+test('a provisional concern opener can turn into interest without inheriting the concern question', () => {
+  const s = createClaritySession(); addExpression(s, '陪我聊聊');
+  const first = beginClarityRequest(s), opened = validateClarityResponse(c01Candidate(first.context), first.context);
+  assert.equal(opened.ok, true);
+  assert.equal(applyClarityReply(s, first, { flow: 'clarity-v2', requestId: first.requestId, revision: first.revision, status: 'candidate', candidate: opened.candidate }).ok, true);
+  assert.equal(s.modeId, 'concern');
+  addExpression(s, '你知道这位作曲家吗？');
+  const ticket = beginClarityRequest(s);
+  assert.equal(clarityTurn(ticket.context).question, CONCERN_QUESTIONS.interpretation);
+  const raw = { modeId: 'moment', goal: '找到想聊的事', title: '慢慢聊', reply: '可以先从你感兴趣的部分聊起。',
+    question: { text: '你想聊哪一方面？', target: 'unknown', evidenceIds: ['u2'] }, claims: [], finish: false };
+  const result = validateClarityResponse(raw, ticket.context);
+  assert.equal(result.ok, true); assert.deepEqual(result.candidate.question, raw.question);
+  assert.equal(applyClarityReply(s, ticket, { flow: 'clarity-v2', requestId: ticket.requestId, revision: ticket.revision, status: 'candidate', candidate: result.candidate }).ok, true);
+  assert.equal(s.modeId, 'moment'); assert.equal(s.stage, 'exploring'); assert.equal(s.review, null);
+  assert.deepEqual(s.claims, []);
+  const bad = structuredClone(raw); bad.question.evidenceIds = ['invented'];
+  assert.equal(validateClarityResponse(bad, ticket.context).ok, false);
+});
+
 test('C01 advances actual gap questions and ends at the concrete expectation', () => {
   const s = createClaritySession(), targets = [];
   for (const text of CORE_SAMPLES.C01) {

@@ -113,6 +113,35 @@ test('Bailian uses exact Qwen capabilities and bounds unknown vendor models with
   assert.equal(instructions.size, 1);
 });
 
+test('exact Bailian latency profiles control thinking without changing custom model routing or retrying', async () => {
+  for (const [modelId, thinking, effort] of [
+    ['qwen3.8-2.4t-a95b', undefined, 'low'],
+    ['deepseek-v4-pro-0813', false, undefined],
+    ['qwen3.8-2.4t-a95b-future', undefined, undefined],
+    ['deepseek-v4-pro-0813-future', undefined, undefined],
+  ]) {
+    const route = getPersonalRoute('bailian', modelId), base = request(route); let calls = 0;
+    const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async (url, options) => {
+      calls++; const body = JSON.parse(options.body);
+      assert.equal(url, route.endpoint); assert.equal(body.model, modelId);
+      assert.equal(body.enable_thinking, thinking); assert.equal(body.reasoning_effort, effort);
+      assert.equal(body.thinking_budget, undefined);
+      assert.equal(body.max_completion_tokens, 2000);
+      assert.deepEqual(body.messages[1], { role: 'user', content: base.input.content });
+      return response(completion({ choices: [{ finish_reason: 'stop', message: {
+        content: JSON.stringify(candidate), reasoning_content: 'PRIVATE_THINKING',
+      } }] }));
+    } });
+    const result = await adapter.generate({ ...base, reasoning_effort: 'xhigh', enable_thinking: true });
+    assert.equal(calls, 1); assert.equal(result.status, 'completed');
+    assert.deepEqual(result.output, candidate);
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_THINKING|fake-test-key/);
+  }
+  const outside = getPersonalRoute('deepseek', 'deepseek-v4-pro-0813');
+  const body = JSON.parse(prepareProviderRequest(request(outside), outside).body);
+  assert.equal(body.enable_thinking, undefined); assert.equal(body.reasoning_effort, undefined);
+});
+
 test('every transport makes one fixed authenticated request, reports numeric usage and passes the common runtime validator', async () => {
   for (const route of transportRoutes) {
     let calls = 0, observedUsage;
@@ -356,10 +385,10 @@ test('invalid key and adapter options are rejected with fixed messages', () => {
 
 test('known and custom personal routes use Workerd-compatible manual fetch and reject 302 without a second outbound request', { timeout: 30000 }, async t => {
   const { Miniflare, Response: WorkerResponse } = await import('miniflare');
-  const paths = ['providers.mjs', 'provider-transport.mjs'];
+  const paths = ['providers.mjs', 'provider-transport.mjs', 'clarity-schema.mjs', 'clarity-turn.mjs', '../public/clarity-contract.mjs'];
   let mode = 'success'; const calls = [];
   const worker = new Miniflare({
-    modulesRoot: fileURLToPath(new URL('./', import.meta.url)), compatibilityDate: '2026-05-01', cf: false,
+    modulesRoot: fileURLToPath(new URL('../', import.meta.url)), compatibilityDate: '2026-05-01', cf: false,
     modules: [{ type: 'ESModule', path: fileURLToPath(new URL('./provider-workerd-test-entry.mjs', import.meta.url)), contents: `
       import { getRoute, getPersonalRoute } from './providers.mjs';
       import { createProviderAdapter } from './provider-transport.mjs';
@@ -379,7 +408,8 @@ test('known and custom personal routes use Workerd-compatible manual fetch and r
       const body = await outgoing.json();
       if (outgoing.url === routeFor('bailian').endpoint) {
         assert.equal(body.max_completion_tokens, 2000);
-        assert.equal(body.enable_thinking, body.model === 'qwen3.8-flash' ? false : undefined);
+        assert.equal(body.enable_thinking, ['qwen3.8-flash', 'deepseek-v4-pro-0813'].includes(body.model) ? false : undefined);
+        assert.equal(body.reasoning_effort, body.model === 'qwen3.8-2.4t-a95b' ? 'low' : undefined);
         assert.equal(body.messages[0].role, 'system');
         assert.match(body.messages[0].content, /JSON/);
         for (const option of ['max_tokens', 'response_format', 'thinking', 'store']) assert.equal(body[option], undefined);
@@ -390,7 +420,7 @@ test('known and custom personal routes use Workerd-compatible manual fetch and r
   });
   t.after(() => worker.dispose());
   const cases = [...routes.map(route => ({ route, source: 'default' })), ...publicProviders().map(provider => ({ route: getPersonalRoute(provider.id, 'future-custom-chat-model'), source: 'personal' })),
-    ...['qwen3.8-flash', 'glm-5.3', 'kimi-k3'].map(modelId => ({ route: getPersonalRoute('bailian', modelId), source: 'personal' }))];
+    ...['qwen3.8-flash', 'qwen3.8-2.4t-a95b', 'deepseek-v4-pro-0813', 'deepseek-v4-pro-0813-future', 'glm-5.3', 'kimi-k3'].map(modelId => ({ route: getPersonalRoute('bailian', modelId), source: 'personal' }))];
   for (const { route, source } of cases) for (const testMode of ['success', 'redirect']) {
     mode = testMode; calls.length = 0;
     const result = await worker.dispatchFetch(`https://worker.test/?provider=${route.providerId}&model=${route.modelId}&source=${source}`);

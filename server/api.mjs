@@ -7,13 +7,17 @@ import { createLedger } from '../ai/ledger.mjs';
 import { encryptKey, decryptKey, digest } from './secrets.mjs';
 import { recordAiResult } from './diagnostics.mjs';
 import { resolveOrganizerSource } from './organizer-config.mjs';
+import { createRequestTiming, serverTimingHeader } from './request-timing.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
 export const PUBLIC_CONFIG_VERSION = 'multi-flex-v1';
 export { PRICE_VALID_UNTIL };
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+const response = (body, status = 200, timings) => {
+  const timingHeader = serverTimingHeader(timings);
+  return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(timingHeader ? { 'Server-Timing': timingHeader } : {}) } });
+};
 const fallback = (reason, status = 400) => response({ status: 'fallback', reason }, status);
 const validId = x => typeof x === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test(x);
 const configVersion = c => `deepseek-${c?.revision ?? 0}`;
@@ -101,6 +105,7 @@ async function authorizeAdmin(request, env, { readOnly = false } = {}) {
 }
 
 export async function handleApi(request, env, { fetchImpl = globalThis.fetch, now = () => Date.now() } = {}) {
+  const requestTiming = createRequestTiming();
   try {
     const url = new URL(request.url), path = url.pathname;
     const maintenance = env.LIUBAI_MAINTENANCE === '1';
@@ -191,6 +196,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       reservedMicros: body.sourceMode === 'default' ? route.reserveMicros : 0, now: now() });
     if (!reservation.ok) return fallback(reservation.reason, 429);
     let usage = null, result, providerReason = null;
+    if (isClarity) requestTiming.startModel();
     try {
       const transport = createProviderAdapter({ route, apiKey, fetchImpl, onUsage: value => { usage = value; } });
       const adapter = { profile: transport.profile, async generate(...args) {
@@ -208,18 +214,23 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
+    if (isClarity) requestTiming.endModel();
+    // Includes policy validation and the adapter's source recheck. It is not a
+    // claim about pure provider inference time or time to its first token.
+    const completeGeneration = (value, httpStatus = 200) => {
+      const timings = isClarity ? requestTiming.finish() : undefined;
+      recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings });
+      return response(value, httpStatus, timings);
+    };
     // Already dispatched inference may be billed even after cancellation.
     await ledger.finish(body.requestId, { outcome: (body.sourceMode === 'default' && unsafeUsage(usage, route)) || result.reason === 'usage_out_of_bounds' ? 'error' : result.status, usage, now: now() });
     if (await safetyStopped(env.DB)) {
-      recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'usage_out_of_bounds', ...responseRoute });
-      return fallback('usage_out_of_bounds', 503);
+      return completeGeneration({ status: 'fallback', reason: 'usage_out_of_bounds' }, 503);
     }
     if (source && !sameSource(source, (await currentDefault(env, now)).source)) {
-      recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'config_changed', ...responseRoute });
-      return fallback('config_changed', 409);
+      return completeGeneration({ status: 'fallback', reason: 'config_changed' }, 409);
     }
-    recordAiResult({ requestId: body.requestId, stage: body.stage, status: result.status, reason: result.reason, ...responseRoute });
-    return response({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) });
+    return completeGeneration({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) });
   } catch (error) {
     if (['input_too_large', 'invalid_content_type', 'invalid_body'].includes(error?.message) || error instanceof SyntaxError) return fallback('invalid_body', 400);
     return fallback('service_unavailable', 503);

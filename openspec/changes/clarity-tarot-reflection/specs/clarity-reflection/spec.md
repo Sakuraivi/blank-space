@@ -36,6 +36,24 @@
 - **WHEN** 经过已经补充、但真正介意的部分尚不明确
 - **THEN** 应用选择聚焦介意点的问题，模型不能改为让用户比较虚构回应；已有明确在意点时跳到期待，明确停止时直接整理
 
+### Requirement: Bounded waiting and measurable response time
+
+系统 SHALL 在提交后立即显示真实等待状态；等待10秒后只更新状态文字，不伪造模型进度，不提前展示未经校验的JSON片段。客户端 SHALL 对完整请求及响应体读取设置60秒截止，超时保留用户原话并允许手动重试或本地整理；此截止不是聊天轮次或费用上限。取消、结束、先整理与完成 SHALL 清除计时器，晚响应不能写回新请求。
+
+模型参数 SHALL 仅按已核实的精确型号配置。百炼`qwen3.8-2.4t-a95b`使用`reasoning_effort=low`且不尝试关闭思考；`deepseek-v4-pro-0813`使用`enable_thinking=false`。未知型号不通过名称前缀推断能力，不自动换模型或付款来源。
+
+#### Scenario: Response body stalls
+- **WHEN** 请求已发出但fetch或响应JSON读取持续挂起，甚至未响应取消
+- **THEN** 客户端截止后退出等待、保留原文，不自动重试；用户可手动重新发送或先整理
+
+#### Scenario: A stale request finishes after retry
+- **WHEN** 用户取消后重新发送，旧请求随后返回
+- **THEN** 旧结果和旧计时器不修改新请求内容、等待文字或焦点
+
+#### Scenario: Completed generation has timing evidence
+- **WHEN** 新版生成到达候选或失败结果返回阶段
+- **THEN** 服务端通过固定Server-Timing字段记录准备、模型阶段、收尾及总耗时，日志只接受有界数字，不包含Key或原文；模型阶段包含来源复核与校验，不等同纯推理时间，诊断失败不能改变生成结果
+
 ### Requirement: Grounded warmth and visible progress
 
 系统 SHALL 用用户提供的具体投入、影响或顾虑承接表达，并通过可修正的区分、取舍或矛盾推进当前问题；不能以固定安慰、连续问卷或冗长解释替代这一作用。用户可见回应 SHALL 解释材料与下一问的简短联系，不展示模型内部思考过程。不确定的感受和动机 SHALL 保持不确定，用户纠正时立即采用。
@@ -51,6 +69,10 @@
 #### Scenario: No need for another question
 - **WHEN** 已有材料足以说明本次区分与未知
 - **THEN** 系统可直接整理，不为凑足三问或五次点击继续询问
+
+#### Scenario: An interest opener is not a concern
+- **WHEN** 用户只询问是否知道某人物、作品或兴趣，尚未提供具体困扰
+- **THEN** 系统先简短承接题面，可以问一个想聊的方面，不推断用户的介意或试探心理；使用现有moment作为暂存承接，claims为空且不直接形成报告，只有明确具体经历后才进入相应梳理
 
 ### Requirement: Provisional understanding and correction
 

@@ -34,6 +34,13 @@ export function prepareProviderRequest(request, route) {
       // Documented hybrid-thinking aliases. Keep unknown/custom IDs generic.
       // https://help.aliyun.com/en/model-studio/deep-thinking (2026-10-31)
       if (legacyQwen || ['qwen3.8-flash', 'qwen3.8-max', 'qwen3.8-max-0902'].includes(route.modelId)) body.enable_thinking = false;
+      // Exact, documented capabilities only (2026-11-01). The 2.4T Qwen
+      // model is thinking-only; do not send the unsupported disable flag.
+      // DeepSeek's dated Pro snapshot supports non-thinking conversation.
+      // https://help.aliyun.com/en/model-studio/qwen-api-via-openai-chat-completions
+      // https://help.aliyun.com/en/model-studio/deepseek-api
+      if (route.modelId === 'qwen3.8-2.4t-a95b') body.reasoning_effort = 'low';
+      if (route.modelId === 'deepseek-v4-pro-0813') body.enable_thinking = false;
     } else if (route.providerId === 'openai') {
       body.max_completion_tokens = route.maxOutputTokens;
       body.store = false;

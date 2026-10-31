@@ -17,7 +17,7 @@ function fixture(t) {
       const request = JSON.parse(options.body), context = JSON.parse(request.messages[1].content);
       const output = legacy ? { reflection: { text: '今天的散步很开心。', evidenceIds: ['u_story'] }, hypothesis: null, question: null, nextStep: null } : c01Candidate(context);
       return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(transform(output)) } }], usage: { prompt_tokens: 1000, completion_tokens: 300, total_tokens: 1300 } });
-    } }); return { status: response.status, body: await response.json() };
+    } }); return { status: response.status, headers: response.headers, body: await response.json() };
   };
   return { db, env, call, calls: () => calls, legacy: () => { legacy = true; }, transform: fn => { transform = fn; } };
 }
@@ -52,6 +52,39 @@ test('absence of flow still dispatches the legacy v1 contract', async t => {
   const body = input({ session: s }); delete body.flow;
   const result = await f.call(body); assert.equal(result.body.status, 'candidate', JSON.stringify(result));
   assert.equal(result.body.flow, undefined); assert.ok(result.body.candidate.reflection); assert.equal(f.calls(), 1);
+  assert.equal(result.headers.get('Server-Timing'), null);
+});
+
+test('clarity candidate and model failure expose fixed timing stages without extra calls or JSON fields', async t => {
+  const f = fixture(t);
+  const candidate = await f.call(input({ sourceMode: 'personal', personalApiKey: fakeKey }));
+  f.transform(value => ({ ...value, claims: [{ ...value.claims[0], evidenceIds: ['invented'] }] }));
+  const fallback = await f.call(input());
+  f.transform(() => { throw Error('synthetic-provider-private-error'); });
+  const transportFailure = await f.call(input());
+  assert.equal(candidate.body.status, 'candidate');
+  assert.equal(fallback.body.status, 'fallback');
+  assert.equal(transportFailure.body.reason, 'provider_response_failed');
+  assert.equal(f.calls(), 3);
+  for (const result of [candidate, fallback, transportFailure]) {
+    assert.match(result.headers.get('Server-Timing'), /^prepare;dur=\d+(?:\.\d)?, model;dur=\d+(?:\.\d)?, finalize;dur=\d+(?:\.\d)?, total;dur=\d+(?:\.\d)?$/);
+    assert.equal(result.headers.get('Timing-Allow-Origin'), null);
+    assert.equal(result.body.timings, undefined);
+    assert.doesNotMatch(result.headers.get('Server-Timing'), new RegExp(fakeKey));
+    assert.doesNotMatch(JSON.stringify(result.body), /synthetic-provider-private-error/);
+    assert.deepEqual(Object.keys(result.body).sort(), (result.body.status === 'candidate'
+      ? ['status', 'candidate', 'policyVersion', 'schemaVersion', 'requestId', 'revision', 'route', 'flow']
+      : ['status', 'reason', 'candidate', 'requestId', 'revision', 'route', 'flow']).sort());
+  }
+});
+
+test('a broken timing clock cannot replace a usable candidate or trigger another model request', async t => {
+  t.mock.method(performance, 'now', () => { throw Error('synthetic-private-clock-error'); });
+  const f = fixture(t), result = await f.call(input());
+  assert.equal(result.body.status, 'candidate');
+  assert.equal(result.headers.get('Server-Timing'), null);
+  assert.equal(f.calls(), 1);
+  assert.doesNotMatch(JSON.stringify(result.body), /synthetic-private-clock-error/);
 });
 
 test('API folds four valid concern parts but never invents missing evidence', async t => {

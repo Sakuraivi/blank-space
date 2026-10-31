@@ -1,5 +1,11 @@
 # 多服务商接入依据
 
+## 等待反馈后的精确型号参数（2026-11-01）
+
+- 用户使用`qwen3.8-2.4t-a95b`报告等待一两分钟。官方[思考模式](https://help.aliyun.com/en/model-studio/deep-thinking)列明该型号只支持思考，[Chat参数](https://help.aliyun.com/en/model-studio/qwen-api-via-openai-chat-completions)列明默认xhigh且支持low。因此仅该精确型号设置`reasoning_effort:low`，不传`enable_thinking:false`或同时设置thinking_budget；完整输出上限继续2000tokens，不作实际速度承诺。
+- 用户准备换百炼`deepseek-v4-pro-0813`。[百炼DeepSeek文档](https://help.aliyun.com/en/model-studio/deepseek-api)说明DeepSeek-V4可切换思考模式，该快照默认思考且支持low强度。本场景对该精确型号传顶层`enable_thinking:false`，保留原模型ID、端点及完整输出上限；不添加与关闭思考冲突的强度参数，不自动更换默认Key或模型。
+- 参数支持的证据来自官方，真实账户兼容、速度和内容质量仍待实际请求验证。相似后缀、未知型号及其它厂商相同名字保持通用参数，不按前缀继承能力。此前2026-10-31段落是接入历史，精确型号新增以本段及当前源码为准。
+
 ## 百炼增量依据（2026-10-31）
 
 新增个人目录 `bailian`，界面仅显示“阿里云百炼”，预选 `qwen3.8-flash`，也支持合法的自填模型Code；不将百炼加入默认共享模型目录，不猜测用户免费额度或模型费率。
