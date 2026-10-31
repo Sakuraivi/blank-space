@@ -1,5 +1,20 @@
 # 验证记录
 
+## 组织者后台与成品样式联合发布（in progress）
+
+日期：2026-10-31。契约：[organizer-admin](openspec/changes/organizer-admin/design.md)。用户明确要求跳过回归，本轮没有运行全量或旧回归，不以以前测试数声明新版本回归通过。
+
+- 新增独立/admin管理口令登录、安全8小时会话、持久每IP10次/15分钟限速、同源写边界和退出撤销；旧oai身份仍不能授权管理。仅新权限smoke 6项与新配置smoke 9项通过，独立交叉只读审查未发现高影响问题。
+- 五家默认共享服务可用预设或自填模型，Key AES-GCM加密存储、只展示hasKey，不回填；同厂商换模型可留空保留，换厂商必须新Key。配置CAS及defaultRevision贯穿同意、预留前/出站前/结果后重查，默认源停用后不借其他Key。
+- 按用户最新要求默认只监控，不设固定次数或金额上限；可选callLimit/budgetCny的null表示不限。保留历史调用与tokens、区分累计预留和实际账单；未知价格不伪造免费。新组织者与个人服务不继承旧11/06价格到期停机，旧legacy默认仅做兼容保留。
+- 本地4190假口令/假Key登录→保存启用百炼→访客默认同意→1次假模型候选完整通过；模型请求带defaultRevision。假共享历史2行保留，累计3调用/150000微元预留，输入输出500/120。随后同厂商空Key保存自填未知价模型成功，停用与退出正常，未触发真实模型请求。
+- 390px后台实测页面宽375无横向溢出，Key字段为空；默认视口已恢复。工作区图 `outputs/liubai-organizer-console-local.jpg` 与 `outputs/liubai-organizer-mobile.jpg`。
+- 按样式侧聊联合发布要求，移入已审核的letter-label/CSS与pngExport差异；侧聊原记录为 `work/letter-heading-side/REVIEW.md`，仅两个限定样式文件，不含其他warm-reflection-policy未完成工作。本轮未重跑其旧回归。
+- 独立worktree基于65e1540；0002/0003仅新增组织者配置、会话和限速表，已应用生产。运行Secrets仅补缺失的admin口令hash与AES master，通过stdin设置，本机私有文件交付登录材料，未写入Git或输出口令。生产共享Key未填写、未自动启用。
+- standalone dry-run构建92.42KiB/gzip22.84KiB通过；预发布公共状态仍默认未开放、共享16次/¥0.80。正式部署和认证/资产核对待补录。
+
+实现、最小权限/配置检查及构建 `completed`；正式发布核对 `in progress`。下一步：发布后交付/admin入口和本机口令文件，由组织者自行填真实共享Key并保存启用。
+
 ## 百炼接入（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。契约：[add-bailian-provider](openspec/changes/add-bailian-provider/design.md)。本节为新增第五家，不改下方迁移历史。

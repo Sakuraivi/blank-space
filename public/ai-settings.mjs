@@ -30,10 +30,12 @@ export function normalizeAiStatus(value) {
     });
     if (!models.length || !models.some(model => model.id === provider.defaultModelId)) return [];
     seen.add(provider.id);
-    return [{ id: provider.id, label: provider.label, keyHelp: bounded(provider.keyHelp, 1500) ? provider.keyHelp : '', defaultModelId: provider.defaultModelId, allowCustomModels: provider.allowCustomModels === true, personalOnly: provider.id === 'bailian' || provider.personalOnly === true, models }];
+    return [{ id: provider.id, label: provider.label, keyHelp: bounded(provider.keyHelp, 1500) ? provider.keyHelp : '', defaultModelId: provider.defaultModelId, allowCustomModels: provider.allowCustomModels === true, personalOnly: provider.personalOnly === true, models }];
   });
-  const defaultProvider = providers.find(provider => provider.id === value.defaultProfile?.providerId);
-  const defaultProfile = defaultProvider?.personalOnly ? null : findAiProfile(providers, value.defaultProfile?.providerId, value.defaultProfile?.modelId);
+  const hasRevision = plain(value.defaultProfile) && Object.hasOwn(value.defaultProfile, 'defaultRevision');
+  const revision = value.defaultProfile?.defaultRevision;
+  const foundDefault = hasRevision && (!Number.isSafeInteger(revision) || revision <= 0) ? null : findAiProfile(providers, value.defaultProfile?.providerId, value.defaultProfile?.modelId, { allowCustom: true });
+  const defaultProfile = foundDefault ? { ...foundDefault, ...(hasRevision ? { defaultRevision: revision } : {}) } : null;
   const defaultAvailable = value.defaultAvailable === true && Boolean(defaultProfile);
   return {
     enabled: value.enabled === true && providers.length > 0, loading: false, providers,
@@ -49,7 +51,7 @@ export function normalizeAiStatus(value) {
 }
 
 export function aiSelectionProfile(selection, status) {
-  if (selection?.sourceMode === 'default') return status.defaultProfile && status.defaultProfile.providerId !== 'bailian' ? { sourceMode: 'default', ...status.defaultProfile } : null;
+  if (selection?.sourceMode === 'default') return status.defaultProfile ? { sourceMode: 'default', ...status.defaultProfile } : null;
   if (selection?.sourceMode !== 'personal') return null;
   const profile = findAiProfile(status.providers, selection.providerId, selection.modelId, { allowCustom: true });
   return profile ? { sourceMode: 'personal', ...profile } : null;
@@ -88,7 +90,7 @@ export function changeAiSettingsModel(draft, selection, status) {
 
 export function sameAiRoute(first, second) {
   return Boolean(first && second && ['default', 'personal'].includes(first.sourceMode) && PROVIDERS.has(first.providerId) && modelId(first.modelId) &&
-    !(first.sourceMode === 'default' && first.providerId === 'bailian') &&
+    (first.sourceMode !== 'default' || ((first.defaultRevision === undefined || Number.isSafeInteger(first.defaultRevision) && first.defaultRevision > 0) && first.defaultRevision === second.defaultRevision)) &&
     first.sourceMode === second.sourceMode && first.providerId === second.providerId && first.modelId === second.modelId);
 }
 

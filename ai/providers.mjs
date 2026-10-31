@@ -1,5 +1,5 @@
 // Server-owned provider targets. Personal callers can choose a model ID, never
-// an endpoint or shared-budget price. Shared routes remain a closed catalog.
+// an endpoint or shared-budget price. Organizer routes require server config.
 export const PRICE_VALID_UNTIL = Date.parse('2026-11-06T00:00:00+08:00');
 const PRICE_VERSION = 'official-2026-10-30-v1';
 const freeze = value => {
@@ -42,7 +42,7 @@ const definitions = [
   },
   {
     id: 'bailian', label: '阿里云百炼', keyHelp: '使用阿里云百炼标准 API Key；模型权限与费用由你的百炼账户承担。',
-    modelId: 'qwen3.8-flash', modelLabel: 'Qwen3.8 Flash', personalOnly: true,
+    modelId: 'qwen3.8-flash', modelLabel: 'Qwen3.8 Flash', legacyShared: false,
     note: '轻量复盘，关闭思考；每次完整输出最多 2000 tokens，实际效果待验证。',
     endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
     maxOutputTokens: 2000,
@@ -51,7 +51,7 @@ const definitions = [
 
 const trustedRoutes = new WeakSet();
 const issueRoute = value => { const route = freeze(value); trustedRoutes.add(route); return route; };
-const routes = definitions.filter(d => !d.personalOnly).map(d => issueRoute({
+const routes = definitions.filter(d => d.legacyShared !== false).map(d => issueRoute({
   providerId: d.id, modelId: d.modelId, providerLabel: d.label, modelLabel: d.modelLabel,
   endpoint: d.endpoint,
   profile: { providerId: d.id, modelId: d.modelId, instructionChannel: d.instructionChannel, structuredOutput: false },
@@ -63,7 +63,6 @@ const routes = definitions.filter(d => !d.personalOnly).map(d => issueRoute({
 const catalog = freeze(definitions.map(d => ({
   id: d.id, label: d.label, keyHelp: d.keyHelp, defaultModelId: d.modelId,
   allowCustomModels: true,
-  ...(d.personalOnly ? { personalOnly: true } : {}),
   models: [{ id: d.modelId, label: d.modelLabel, note: d.note }],
 })));
 
@@ -88,6 +87,30 @@ export function getPersonalRoute(providerId, modelId) {
     // Unpriced means unknown, never a zero-cost claim or a shared-budget route.
     inputRateCnyPerMillion: null, outputRateCnyPerMillion: null,
     reserveMicros: 0, priceVersion: 'personal-unpriced-v1',
+  });
+}
+
+// Only persisted organizer configuration may authorize these shared routes.
+// Public requests never supply the reference prices used by this signer.
+export function getOrganizerRoute({ providerId, modelId, pricingMode, inputRate, outputRate, revision } = {}) {
+  if (!Number.isSafeInteger(revision) || revision < 1 || !['catalog', 'manual'].includes(pricingMode)) return null;
+  const definition = definitions.find(value => value.id === providerId);
+  const base = getPersonalRoute(providerId, modelId);
+  if (!definition || !base) return null;
+  if (pricingMode === 'catalog') {
+    if (modelId !== definition.modelId) return null;
+    inputRate = providerId === 'bailian' ? 0.8 : definition.inputRate;
+    outputRate = providerId === 'bailian' ? 2.7 : definition.outputRate;
+  }
+  const unpriced = pricingMode === 'manual' && inputRate === null && outputRate === null;
+  if (!unpriced && ![inputRate, outputRate].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) return null;
+  // Reference estimates include headroom, with the existing minimum reserve.
+  const reserveMicros = unpriced ? 0 : Math.max(50000, pricingMode === 'catalog' ? definition.reserveMicros ?? 0 : 0,
+    Math.ceil((base.maxPromptTokens * inputRate + base.maxOutputTokens * outputRate) * 1.25));
+  if (!Number.isSafeInteger(reserveMicros)) return null;
+  return issueRoute({ ...base, modelLabel: modelId === definition.modelId ? definition.modelLabel : modelId,
+    inputRateCnyPerMillion: inputRate, outputRateCnyPerMillion: outputRate, reserveMicros,
+    priceVersion: unpriced ? `organizer-unpriced-r${revision}` : `organizer-${revision}-${pricingMode}-${PRICE_VERSION}`,
   });
 }
 

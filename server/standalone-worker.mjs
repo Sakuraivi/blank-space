@@ -1,4 +1,5 @@
 import { handleApi } from './api.mjs';
+import { handleOrganizerApi } from './organizer-api.mjs';
 
 // Standalone entry only. No Sites dispatch, OAuth, Vinext or connector runtime.
 // Activation requires a verified import of the historical ledger.
@@ -34,17 +35,31 @@ async function importedLedgerReady(env) {
   } catch { return false; }
 }
 
-export function createStandaloneWorker({ handleApiImpl = handleApi } = {}) {
+export function createStandaloneWorker({ handleApiImpl = handleApi, handleOrganizerApiImpl = handleOrganizerApi } = {}) {
   return Object.freeze({
     async fetch(request, env) {
       const url = new URL(request.url);
       if (blockedIdentityPath(url.pathname)) return fallback('not_found', 404);
-      if (url.pathname === '/admin' || url.pathname === '/admin/') {
-        return Response.redirect(new URL('/?settings=ai', url), 303);
-      }
       const sanitized = withoutPlatformIdentity(request);
+      if (['/admin', '/admin/', '/admin.html'].includes(url.pathname)) {
+        if (!['GET', 'HEAD'].includes(request.method)) return fallback('method_not_allowed', 405);
+        if (!env.ASSETS?.fetch) return fallback('assets_unconfigured', 503);
+        // The assets binding resolves the extensionless route to admin.html.
+        // Request that canonical path to avoid its automatic .html redirect.
+        const asset = await env.ASSETS.fetch(new Request(new URL('/admin', url), sanitized));
+        const headers = new Headers(asset.headers);
+        headers.set('Cache-Control', 'no-store');
+        headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+        headers.set('X-Frame-Options', 'DENY');
+        headers.set('Referrer-Policy', 'no-referrer');
+        return new Response(request.method === 'HEAD' ? null : asset.body, { status: asset.status, headers });
+      }
       if (url.pathname.startsWith('/api/')) {
-        if (!await importedLedgerReady(env)) return fallback('service_unconfigured', 503);
+        const organizerApi = /^\/api\/organizer(?:\/|$)/.test(url.pathname);
+        if (!await importedLedgerReady(env)) return organizerApi
+          ? Response.json({ reason: 'service_unavailable' }, { status: 503, headers: JSON_HEADERS })
+          : fallback('service_unconfigured', 503);
+        if (organizerApi) return handleOrganizerApiImpl(sanitized, env);
         return handleApiImpl(sanitized, env);
       }
       if (!['GET', 'HEAD'].includes(request.method)) return fallback('method_not_allowed', 405);

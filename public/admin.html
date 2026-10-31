@@ -1,3 +1,50 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin"><title>留白 · AI 设置</title><link rel="stylesheet" href="./admin.css"></head>
-<body><main><p class="eyebrow">留白</p><h1>AI 设置，回到你手中。</h1><p class="intro">无需登录。你可以使用组织者的默认 Key，也可以填写只用于本页的个人 DeepSeek Key。</p><a class="button" href="/?settings=ai">打开 AI 设置</a><p class="hint">正在回到留白的公开设置入口……</p></main><script type="module" src="./admin.mjs"></script></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f7ede6">
+  <title>留白 · 组织者设置</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="留白，返回首页"><span class="brand-mark" aria-hidden="true">✉</span><span>留白<small>组织者设置</small></span></a>
+    <div class="header-actions"><a href="/">回到留白</a><button id="logout" class="text-button" type="button" hidden>退出登录</button></div>
+  </header>
+  <main id="main">
+    <div class="page-heading"><h1>照顾好这份陪伴。</h1><p>为来访的朋友，准备一项默认 AI 服务。</p></div>
+    <p id="boot-status" class="loading-note" role="status">正在确认管理会话……</p>
+    <section id="login-view" class="paper login-paper" aria-labelledby="login-title" hidden>
+      <h2 id="login-title">组织者验证</h2>
+      <p class="intro">输入管理口令后，即可维护默认服务。登录会话最长保留 8 小时。</p>
+      <form id="login-form"><fieldset id="login-fields"><label for="password">管理口令</label><input id="password" type="password" autocomplete="current-password" maxlength="256" required><button class="primary" type="submit">进入管理</button></fieldset></form>
+      <p id="login-message" class="message" role="alert"></p>
+    </section>
+    <div id="console-view" class="workspace" hidden>
+      <section class="paper config-paper" aria-labelledby="config-title">
+        <div class="section-heading"><div><h2 id="config-title">默认 AI 服务</h2><p id="saved-profile" class="small-note"></p></div><span id="service-state" class="state-badge"></span></div>
+        <p id="availability-note" class="intro"></p>
+        <form id="config-form" novalidate><fieldset id="config-fields">
+          <div class="field-grid"><div class="field"><label for="provider">服务商</label><select id="provider" required></select></div><div class="field"><label for="model">模型</label><select id="model" required></select></div></div>
+          <div id="custom-model-field" class="field" hidden><label for="custom-model">模型 ID</label><input id="custom-model" type="text" maxlength="100" autocomplete="off" spellcheck="false" placeholder="填写服务商的文本对话模型 ID"><p class="small-note">使用支持文本 Chat Completions 的模型，调用地址由平台固定。</p></div>
+          <div class="field"><div class="label-row"><label for="api-key">共享 API Key</label><span id="key-state" class="small-note"></span></div><input id="api-key" type="password" maxlength="256" autocomplete="off" spellcheck="false" aria-describedby="key-help key-retention"><p id="key-help" class="small-note"></p><p id="key-retention" class="small-note">Key 加密保存在服务端，不会回填到页面。</p></div>
+          <details id="pricing-details" class="settings-details"><summary>参考单价</summary><div class="details-content"><label for="pricing-mode">计价方式</label><select id="pricing-mode"><option value="catalog">使用预设参考价</option><option value="manual">填写参考单价</option></select><p id="catalog-price" class="small-note"></p><div id="manual-pricing" class="field-grid" hidden><div class="field"><label for="input-rate">输入单价（可选）</label><div class="rate-input"><input id="input-rate" type="number" min="0" step="any" inputmode="decimal"><span>元 / 百万 tokens</span></div></div><div class="field"><label for="output-rate">输出单价（可选）</label><div class="rate-input"><input id="output-rate" type="number" min="0" step="any" inputmode="decimal"><span>元 / 百万 tokens</span></div></div></div><p class="small-note">用于累计保守预留，仅供参考。两项都留空表示价格未知，继续监控调用和 tokens；实际费用以服务商账单为准。</p></div></details>
+          <details id="limits-details" class="settings-details"><summary>共享使用上限（可选）</summary><div class="details-content"><p class="small-note">留空时只监控使用，不设上限。设置上限不会清空历史消耗。</p><div class="field-grid"><div class="field"><label for="call-limit">累计调用次数上限</label><input id="call-limit" type="number" min="0" step="1" inputmode="numeric" placeholder="不设上限"></div><div class="field"><label for="budget-limit">参考预算上限（元）</label><input id="budget-limit" type="number" min="0" step="any" inputmode="decimal" placeholder="不设上限"></div></div><p class="small-note">设置金额上限时，需提供明确参考单价。这是参考预算门禁，不是服务商账单限额。</p></div></details>
+          <label class="check-row" for="enabled"><input id="enabled" type="checkbox"><span>保存后启用，供访客选择默认 AI 服务</span></label>
+          <div class="form-actions"><button class="primary" type="submit">保存设置</button><span class="small-note">费用由组织者的服务商账户承担。</span></div>
+        </fieldset></form>
+        <p id="config-message" class="message" role="status" aria-live="polite"></p>
+        <div class="maintenance-actions"><button id="toggle-service" class="secondary" type="button">启用默认 AI</button><button id="refresh-config" class="text-button" type="button">重新读取配置</button><button id="clear-key" class="text-button danger" type="button">清除 Key 并停用</button></div>
+      </section>
+      <aside class="paper budget-paper" aria-labelledby="budget-title"><h2 id="budget-title">共享使用概览</h2><p class="small-note">保留已有记录，随时查看使用情况。</p><dl class="budget-list"><div><dt>累计调用</dt><dd><strong id="used-calls">—</strong><span>次</span></dd></div><div><dt>已记录输入 / 输出 tokens</dt><dd class="token-count" id="used-tokens">—</dd></div><div><dt>累计保守预留</dt><dd><strong id="reserved-budget">—</strong></dd></div></dl><p id="remaining-summary" class="small-note"></p><p class="small-note">价格未知的调用不计入参考金额。实际费用以服务商账单为准；个人 Key 不占共享用量。</p><p class="small-note">停用或清除 Key 不会清空历史消耗，已经发出的请求仍可能计费。</p><p id="updated-at" class="small-note updated-at"></p></aside>
+    </div>
+  </main>
+  <footer>给生活留白，也给体验留一份安心。</footer>
+  <noscript>组织者设置需要开启 JavaScript。</noscript>
+  <script type="module" src="/admin.mjs"></script>
+</body>
+</html>

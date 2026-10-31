@@ -46,6 +46,9 @@ button svg { flex-shrink: 0; }
 .nav-settings { border: 1px solid #c8afbf; border-radius: 30px; padding: 6px 18px; color: var(--berry); }
 .site-footer { max-width: 1160px; margin: 30px auto 0; padding: 18px 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
 .site-footer .text-button { font-size: 12px; }
+.site-footer { flex-wrap: wrap; }
+.footer-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.organizer-link { text-decoration: none; white-space: nowrap; }
 #main { min-height: calc(100svh - 195px); }
 #main:focus { outline: none; }
 .home { max-width: 1160px; margin: 0 auto; }
@@ -119,8 +122,8 @@ button svg { flex-shrink: 0; }
 .letter-paper .letter-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin: 0 0 22px; color: #796771; font-size: 12px; line-height: 1.7; }
 .letter-paper .letter-title { margin: 0 0 24px; font-size: 26px; line-height: 1.5; font-weight: 650; color: var(--berry-dark); overflow-wrap: anywhere; }
 .letter-paper .letter-text { max-width: 34em; margin: 0; font-size: 16px; line-height: 1.85; font-weight: 400; color: #493942; white-space: pre-wrap; overflow-wrap: anywhere; }
-.letter-paper .letter-label { margin: 0 0 6px; font-size: 13px; line-height: 1.75; font-weight: 500; color: #796771; }
-.letter-section + .letter-section { margin-top: 22px; }
+.letter-paper .letter-label { display: table; max-width: 100%; margin: 0 0 12px; padding: 3px 0; color: #684455; font-size: 15px; line-height: 1.65; font-weight: 700; letter-spacing: .035em; background: linear-gradient(transparent 58%, #f0dfe5 58%, #f0dfe5 92%, transparent 92%); overflow-wrap: anywhere; }
+.letter-section + .letter-section { margin-top: 28px; }
 .letter-paper .letter-signoff { margin-top: 28px; padding-top: 18px; border-top: 1px solid #e6d8ce; color: #796771; font-size: 13px; line-height: 1.8; text-align: left; }
 dialog:has(.preview-letter) { width: min(660px, calc(100vw - 24px)); overflow: hidden; }
 .modal-body:has(> .preview-letter) { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-height: 88svh; }

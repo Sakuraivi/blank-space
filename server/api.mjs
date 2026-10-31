@@ -5,6 +5,7 @@ import { createProviderAdapter, prepareProviderRequest } from '../ai/provider-tr
 import { createLedger } from '../ai/ledger.mjs';
 import { encryptKey, decryptKey, digest } from './secrets.mjs';
 import { recordAiResult } from './diagnostics.mjs';
+import { resolveOrganizerSource } from './organizer-config.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
@@ -18,10 +19,12 @@ const configVersion = c => `deepseek-${c?.revision ?? 0}`;
 const configRow = db => db.prepare("SELECT * FROM pilot_config WHERE id = 'main'").first();
 const isConfigured = (c, env) => !!(c?.encrypted_key && c?.iv && c?.invite_hash && env.LIUBAI_SECRET_KEY);
 const validKey = value => typeof value === 'string' && /^[\x21-\x7E]{16,256}$/.test(value);
-const unsafeUsage = (usage, route) => !!usage && (usage.promptTokens > route.maxPromptTokens || usage.completionTokens > route.maxOutputTokens || usage.promptTokens * route.inputRateCnyPerMillion + usage.completionTokens * route.outputRateCnyPerMillion > route.reserveMicros);
-const SAFE_PROVIDER_REASONS = new Set(['provider_auth_failed', 'provider_balance_low', 'provider_rate_limited', 'provider_access_denied', 'provider_model_unavailable', 'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected', 'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds', 'incomplete_response']);
+const unsafeUsage = (usage, route) => !!usage && (usage.promptTokens > route.maxPromptTokens || usage.completionTokens > route.maxOutputTokens ||
+  route.inputRateCnyPerMillion !== null && route.outputRateCnyPerMillion !== null && usage.promptTokens * route.inputRateCnyPerMillion + usage.completionTokens * route.outputRateCnyPerMillion > route.reserveMicros);
+const SAFE_PROVIDER_REASONS = new Set(['provider_auth_failed', 'provider_balance_low', 'provider_rate_limited', 'provider_access_denied', 'provider_model_unavailable', 'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected', 'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds', 'incomplete_response', 'config_changed']);
 
-const publicProfile = route => route ? { providerId: route.providerId, modelId: route.modelId, providerLabel: route.providerLabel, modelLabel: route.modelLabel } : null;
+const publicProfile = source => source ? { providerId: source.route.providerId, modelId: source.route.modelId, providerLabel: source.route.providerLabel,
+  modelLabel: source.route.modelLabel, ...(source.type === 'organizer' ? { defaultRevision: source.revision } : {}) } : null;
 
 function defaultSource(config, env) {
   const providerId = typeof env.LIUBAI_DEFAULT_PROVIDER === 'string' && env.LIUBAI_DEFAULT_PROVIDER.trim() ? env.LIUBAI_DEFAULT_PROVIDER.trim() : 'deepseek';
@@ -40,8 +43,15 @@ function defaultSource(config, env) {
   return null;
 }
 
+async function currentDefault(env, now) {
+  const organizer = await resolveOrganizerSource(env, { now });
+  return organizer.present ? organizer : { present: false, source: defaultSource(await configRow(env.DB), env) };
+}
+
 function sameSource(a, b) {
-  return !!a && !!b && a.type === b.type && a.route.providerId === b.route.providerId && a.route.modelId === b.route.modelId && (a.type === 'environment' ? a.key === b.key : a.encrypted_key === b.encrypted_key && a.iv === b.iv);
+  return !!a && !!b && a.type === b.type && a.route.providerId === b.route.providerId && a.route.modelId === b.route.modelId &&
+    a.revision === b.revision && a.route.priceVersion === b.route.priceVersion &&
+    (a.type === 'environment' ? a.key === b.key : a.encrypted_key === b.encrypted_key && a.iv === b.iv);
 }
 
 async function safetyStopped(db) {
@@ -128,33 +138,35 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       return fallback('not_found', 404);
     }
     if (path === '/api/ai/status' && request.method === 'GET') {
-      const config = await configRow(env.DB), stats = await createLedger(env.DB).stats();
-      const source = defaultSource(config, env), defaultAvailable = !!source;
-      const reason = maintenance ? 'maintenance' : now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : await safetyStopped(env.DB) ? 'usage_out_of_bounds' : null;
-      const defaultReason = reason || (!source ? 'default_unavailable' : stats.remainingCalls <= 0 || stats.remainingBudgetMicros < source.route.reserveMicros ? 'budget_exhausted' : null);
+      const state = await currentDefault(env, now), source = state.source, defaultAvailable = !!source;
+      const stats = await createLedger(env.DB, state.present ? { sharedLimits: state.sharedLimits } : {}).stats({ now: now() });
+      const reason = maintenance ? 'maintenance' : await safetyStopped(env.DB) ? 'usage_out_of_bounds' : null;
+      const defaultReason = reason || (source && source.type !== 'organizer' && now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : !source ? 'default_unavailable' :
+        stats.remainingCalls !== null && stats.remainingCalls <= 0 || stats.remainingBudgetMicros !== null && stats.remainingBudgetMicros < source.route.reserveMicros ? 'budget_exhausted' : null);
       return response({ enabled: reason === null, configVersion: PUBLIC_CONFIG_VERSION, consentVersion: CONSENT_VERSION,
-        providers: publicProviders(), defaultProfile: publicProfile(source?.route), personalKeySupported: true, defaultAvailable,
+        providers: publicProviders(), defaultProfile: publicProfile(source), personalKeySupported: true, defaultAvailable,
         defaultEnabled: defaultReason === null, defaultReason, remainingCalls: stats.remainingCalls,
-        remainingBudgetCny: stats.remainingBudgetMicros / 1000000, inviteRequired: false, reason });
+        remainingBudgetCny: stats.remainingBudgetMicros === null ? null : stats.remainingBudgetMicros / 1000000, inviteRequired: false, reason });
     }
     if (path !== '/api/ai/generate' || request.method !== 'POST') return fallback('not_found', 404);
     const body = await readJson(request);
-    if (now() >= PRICE_VALID_UNTIL) return fallback('pricing_expired', 503);
     if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
     if (body.configVersion !== PUBLIC_CONFIG_VERSION || body.consentVersion !== CONSENT_VERSION) return fallback('consent_changed', 409);
     if (!['default', 'personal'].includes(body.sourceMode)) return fallback('invalid_source');
     if (['baseUrl', 'endpoint', 'apiUrl'].some(key => body[key] !== undefined)) return fallback('invalid_request');
     if (!publicProviders().some(p => p.id === body.providerId)) return fallback('unsupported_provider');
-    const route = body.sourceMode === 'personal' ? getPersonalRoute(body.providerId, body.modelId) : getRoute(body.providerId, body.modelId);
-    if (!route) return fallback('unsupported_model');
     if (body.personalApiKey !== undefined && typeof body.personalApiKey !== 'string') return fallback('invalid_personal_key');
     const personalApiKey = body.personalApiKey?.trim() ?? '';
     if (body.sourceMode === 'personal' && !personalApiKey) return fallback('missing_personal_key');
     if (body.sourceMode === 'personal' && !validKey(personalApiKey)) return fallback('invalid_personal_key');
     if (body.sourceMode === 'default' && personalApiKey) return fallback('invalid_source');
-    const source = body.sourceMode === 'personal' ? null : defaultSource(await configRow(env.DB), env);
+    const source = body.sourceMode === 'personal' ? null : (await currentDefault(env, now)).source;
     if (body.sourceMode === 'default' && !source) return fallback('default_unavailable', 503);
-    if (source && (source.route.providerId !== route.providerId || source.route.modelId !== route.modelId)) return fallback('consent_changed', 409);
+    if (source && (source.route.providerId !== body.providerId || source.route.modelId !== body.modelId ||
+      source.type === 'organizer' && body.defaultRevision !== source.revision)) return fallback('consent_changed', 409);
+    if (source && source.type !== 'organizer' && now() >= PRICE_VALID_UNTIL) return fallback('pricing_expired', 503);
+    const route = body.sourceMode === 'personal' ? getPersonalRoute(body.providerId, body.modelId) : source.route;
+    if (!route) return fallback('unsupported_model');
     if (!validId(body.requestId) || !validId(body.session?.id) || !['reflect', 'review'].includes(body.stage) || !Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.allowNextStep !== 'boolean') return fallback('invalid_request');
     let context, requestData;
     try {
@@ -165,10 +177,13 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (request.signal.aborted) return fallback('inactive', 409);
     const apiKey = personalApiKey || (source.type === 'environment' ? source.key : await decryptKey(source, env.LIUBAI_SECRET_KEY));
     if (!validKey(apiKey)) return fallback('default_unavailable', 503);
-    const ledger = createLedger(env.DB);
-    const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId };
+    const ledger = createLedger(env.DB, source?.type === 'organizer' ? { sharedLimits: source.sharedLimits } : {});
+    const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId,
+      ...(source?.type === 'organizer' ? { defaultRevision: source.revision } : {}) };
+    const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute }));
+    if (source && !sameSource(source, (await currentDefault(env, now)).source)) return fallback('config_changed', 409);
     const reservation = await ledger.reserve({ requestId: body.requestId, sessionId: body.session.id,
-      digest: await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute })), configVersion: body.configVersion,
+      digest: requestDigest, configVersion: body.configVersion,
       sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId, priceVersion: route.priceVersion,
       reservedMicros: body.sourceMode === 'default' ? route.reserveMicros : 0, now: now() });
     if (!reservation.ok) return fallback(reservation.reason, 429);
@@ -176,6 +191,10 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     try {
       const transport = createProviderAdapter({ route, apiKey, fetchImpl, onUsage: value => { usage = value; } });
       const adapter = { profile: transport.profile, async generate(...args) {
+        if (source && !sameSource(source, (await currentDefault(env, now)).source)) {
+          providerReason = 'config_changed';
+          return { status: 'failed', reason: 'config_changed' };
+        }
         const response = await transport.generate(...args);
         if (response.status === 'failed' && SAFE_PROVIDER_REASONS.has(response.reason)) providerReason = response.reason;
         return response;
@@ -191,7 +210,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'usage_out_of_bounds', ...responseRoute });
       return fallback('usage_out_of_bounds', 503);
     }
-    if (!personalApiKey && !sameSource(source, defaultSource(await configRow(env.DB), env))) {
+    if (source && !sameSource(source, (await currentDefault(env, now)).source)) {
       recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'config_changed', ...responseRoute });
       return fallback('config_changed', 409);
     }

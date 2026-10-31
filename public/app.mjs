@@ -135,7 +135,7 @@ async function aiConsent(){
   capture();
   if(!canUseAiSelection(personalKey.selection(),aiStatus,personalKey.hasKey())){await aiSettings(true);return;}
   const profile=selectedAiProfile();
-  pendingAiConsent={ticket,sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId,providerLabel:profile.providerLabel,modelLabel:profile.modelLabel,configVersion:aiStatus.configVersion,consentVersion:aiStatus.consentVersion};
+  pendingAiConsent={ticket,sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId,providerLabel:profile.providerLabel,modelLabel:profile.modelLabel,configVersion:aiStatus.configVersion,consentVersion:aiStatus.consentVersion,...(profile.sourceMode==='default'&&Number.isSafeInteger(profile.defaultRevision)?{defaultRevision:profile.defaultRevision}:{})};
   openModal('开始前，由你选择',`<p>这次使用<strong>${e(aiSourceLabel())}</strong>。</p><p>${profile.sourceMode==='personal'?`费用由你的 ${e(profile.providerLabel)} 账户承担，失败或超时也可能计费。`:'费用由组织者承担。'}</p><p>本次表达和后续回答会经留白发送给 <strong>${e(profile.providerLabel)}</strong>，用于追问和整理。旧记录不会上传。</p><p>AI 的理解可能不准确，你可以纠正、跳过或结束。卡片只供联想，不作诊断或预测。</p><form id="ai-consent-form"><label class="check-row"><input id="ai-consent" type="checkbox" required><span>我了解费用承担方式，并同意将本次表达发送给 ${e(profile.providerLabel)}。</span></label><div id="ai-consent-error" class="error-text" role="alert"></div><div class="modal-actions"><button class="secondary" type="button" data-action="local-from-consent">继续轻引导</button><button class="primary" type="submit">启用 AI 陪伴</button></div></form>`,true);
 }
 function hypothesisMarkup(){
@@ -250,14 +250,14 @@ function textExport(){const r=state.session.review;const content=`${r.title}\n${
 async function pngExport(button){button.disabled=true;try{
  const r=state.session.review;const c=document.createElement('canvas');const ctx=c.getContext('2d');if(!ctx)throw Error();
  const width=1000,pad=76,contentWidth=width-2*pad;const font='"Microsoft YaHei", "PingFang SC", sans-serif';
- const wrap=(text,size)=>{ctx.font=`${size}px ${font}`;const lines=[];for(const p of String(text).split('\n')){let line='';for(const ch of p){if(ctx.measureText(line+ch).width>contentWidth&&line){lines.push(line);line='';}line+=ch;}lines.push(line);}return lines;};
- const titles=wrap(r.title,42);const sections=r.sections.map(s=>({...s,lines:wrap(s.text,26),labelLines:wrap(s.label,22)}));
+ const wrap=(text,size,weight=400)=>{ctx.font=`${weight} ${size}px ${font}`;const lines=[];for(const p of String(text).split('\n')){let line='';for(const ch of p){if(ctx.measureText(line+ch).width>contentWidth&&line){lines.push(line);line='';}line+=ch;}lines.push(line);}return lines;};
+ const titles=wrap(r.title,42,650);const sections=r.sections.map(s=>({...s,lines:wrap(s.text,26),labelLines:wrap(s.label,24,700)}));
  const height=240+titles.length*61+sections.reduce((n,s)=>n+60+s.labelLines.length*34+s.lines.length*44,0)+110;
  if(height>24000){notify('这份记录较长，请使用“下载文字”完整保存。');return;}
  c.width=width;c.height=height;ctx.fillStyle='#fffaf3';ctx.fillRect(0,0,width,height);ctx.strokeStyle='#ddc9c9';ctx.lineWidth=2;ctx.strokeRect(30,30,width-60,height-60);
  ctx.fillStyle='#776371';ctx.font=`20px ${font}`;ctx.fillText('留白 · 我的生活片刻',pad,95);ctx.textAlign='right';ctx.fillText(dateLabel(state.session.createdAt),width-pad,95);ctx.textAlign='left';ctx.beginPath();ctx.moveTo(pad,124);ctx.lineTo(width-pad,124);ctx.stroke();let y=190;
- ctx.fillStyle='#3e2f3d';ctx.font=`42px ${font}`;for(const line of titles){ctx.fillText(line,pad,y);y+=61;}y+=18;
- for(const s of sections){ctx.fillStyle='#776371';ctx.font=`22px ${font}`;for(const line of s.labelLines){ctx.fillText(line,pad,y);y+=34;}y+=12;ctx.fillStyle='#3e2f3d';ctx.font=`26px ${font}`;for(const line of s.lines){ctx.fillText(line,pad,y);y+=44;}y+=48;}
+ ctx.fillStyle='#4d2c47';ctx.font=`650 42px ${font}`;for(const line of titles){ctx.fillText(line,pad,y);y+=61;}y+=18;
+ for(const s of sections){ctx.font=`700 24px ${font}`;for(const line of s.labelLines){ctx.fillStyle='#f0dfe5';ctx.fillRect(pad,y-6,ctx.measureText(line).width,10);ctx.fillStyle='#684455';ctx.fillText(line,pad,y);y+=34;}y+=12;ctx.fillStyle='#493942';ctx.font=`26px ${font}`;for(const line of s.lines){ctx.fillText(line,pad,y);y+=44;}y+=48;}
  ctx.fillStyle='#776371';ctx.font=`20px ${font}`;ctx.fillText('给生活留一点自己的余地。',pad,height-80);
  const blob=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(Error()),'image/png'));download(blob,`留白-${fileDate()}.png`);notify('图片下载已发起。分享前请检查私密内容。');
  }catch{notify('图片未能导出。请使用“下载文字”，或换一个浏览器重试。');}finally{button.disabled=false;}}
@@ -277,7 +277,7 @@ document.addEventListener('submit',async event=>{
   if(event.target.id==='ai-consent-form'){
     event.preventDefault();const profile=selectedAiProfile();
     if(!document.querySelector('#ai-consent').checked||!pendingAiConsent||!storyMethodGate.isCurrent(pendingAiConsent.ticket,state)||!canUseAiSelection(personalKey.selection(),aiStatus,personalKey.hasKey())||!sameAiRoute(profile,pendingAiConsent)){document.querySelector('#ai-consent-error').textContent='服务选择已变化或暂不可用，请关闭后重新设置并确认发送说明。';return;}
-    const route=Object.freeze({sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId});
+    const route=Object.freeze({sourceMode:profile.sourceMode,providerId:profile.providerId,modelId:profile.modelId,...(profile.sourceMode==='default'&&Number.isSafeInteger(profile.defaultRevision)?{defaultRevision:profile.defaultRevision}:{})});
     const {ticket,...confirmed}=pendingAiConsent;
     const options={...confirmed,route,personalApiKey:profile.sourceMode==='personal'?personalKey.forRequest().personalApiKey:''};
     capture();closeModal();invalidateAI();state.ai=aiState(options);render();focusStory();return;

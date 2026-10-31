@@ -7,10 +7,12 @@ const tokenIsValid = value => Number.isSafeInteger(value) && value >= 0 && value
 const routePartIsValid = value => value === null || (typeof value === 'string' && /^[a-zA-Z0-9._/-]{1,100}$/.test(value));
 const modelPartIsValid = value => value === null || (typeof value === 'string' && /^[a-zA-Z0-9_][a-zA-Z0-9_./:-]{0,99}$/.test(value) && !value.includes('://'));
 
-function validateReservation({ requestId, sessionId, digest, configVersion, now, sourceMode, providerId, modelId, priceVersion, reservedMicros }) {
+function validateReservation({ requestId, sessionId, digest, configVersion, now, sourceMode, providerId, modelId, priceVersion, reservedMicros }, sharedLimits) {
+  const unpricedDefault = sourceMode === 'default' && reservedMicros === 0 && sharedLimits.sharedBudgetMicros === null &&
+    typeof priceVersion === 'string' && /^organizer-unpriced-r[1-9][0-9]*$/.test(priceVersion);
   if (!idIsValid(requestId) || !idIsValid(sessionId) || typeof digest !== 'string' || !/^[a-f0-9]{64}$/i.test(digest) || typeof configVersion !== 'string' || !configVersion.trim() || configVersion.length > 200 || !timeIsValid(now) ||
       !['default', 'personal'].includes(sourceMode) || ![providerId, priceVersion].every(routePartIsValid) || !modelPartIsValid(modelId) || (providerId === null) !== (modelId === null) ||
-      !Number.isSafeInteger(reservedMicros) || (sourceMode === 'personal' ? reservedMicros !== 0 : reservedMicros < PILOT_LIMITS.reservedMicrosPerCall || reservedMicros > PILOT_LIMITS.sharedBudgetMicros)) throw new TypeError('invalid_reservation');
+      !Number.isSafeInteger(reservedMicros) || (sourceMode === 'personal' ? reservedMicros !== 0 : !unpricedDefault && reservedMicros < PILOT_LIMITS.reservedMicrosPerCall)) throw new TypeError('invalid_reservation');
 }
 
 function readUsage(usage) {
@@ -18,8 +20,11 @@ function readUsage(usage) {
   return { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens, totalTokens: usage.totalTokens };
 }
 
-export function createLedger(db) {
+export function createLedger(db, { sharedLimits = { totalCalls: PILOT_LIMITS.totalCalls, sharedBudgetMicros: PILOT_LIMITS.sharedBudgetMicros } } = {}) {
   if (!db || typeof db.prepare !== 'function') throw new TypeError('persistent_ledger_required');
+  if (!sharedLimits || ![sharedLimits.totalCalls, sharedLimits.sharedBudgetMicros].every(value => value === null || Number.isSafeInteger(value) && value >= 0)) throw new TypeError('invalid_shared_limits');
+  // Snapshot server-owned policy so later caller mutations cannot alter checks.
+  sharedLimits = Object.freeze({ totalCalls: sharedLimits.totalCalls, sharedBudgetMicros: sharedLimits.sharedBudgetMicros });
   async function stats({ now = Date.now() } = {}) {
     if (!timeIsValid(now)) throw new TypeError('invalid_ledger_time');
     const row = await db.prepare(`SELECT
@@ -39,10 +44,10 @@ export function createLedger(db) {
     const reservedMicros = Number(row?.reserved_micros ?? 0);
     if ([usedCalls, personalCalls, reservedMicros].some(value => !Number.isSafeInteger(value) || value < 0)) throw new Error('invalid_ledger_state');
     return {
-      usedCalls, remainingCalls: Math.max(0, PILOT_LIMITS.totalCalls - usedCalls),
+      usedCalls, remainingCalls: sharedLimits.totalCalls === null ? null : Math.max(0, sharedLimits.totalCalls - usedCalls),
       personalCalls,
       activeCalls: Number(row?.active_calls ?? 0),
-      reservedMicros, remainingBudgetMicros: Math.max(0, PILOT_LIMITS.sharedBudgetMicros - reservedMicros),
+      reservedMicros, remainingBudgetMicros: sharedLimits.sharedBudgetMicros === null ? null : Math.max(0, sharedLimits.sharedBudgetMicros - reservedMicros),
       // Total token observations span both payers; they are not shared spend.
       currency: 'CNY', promptTokens: Number(row?.prompt_tokens ?? 0), completionTokens: Number(row?.completion_tokens ?? 0),
       sharedPromptTokens: Number(row?.shared_prompt_tokens ?? 0), sharedCompletionTokens: Number(row?.shared_completion_tokens ?? 0),
@@ -51,7 +56,7 @@ export function createLedger(db) {
   }
 
   async function reserve({ requestId, sessionId, digest, configVersion, now = Date.now(), sourceMode = 'default', providerId = null, modelId = null, priceVersion = null, reservedMicros = sourceMode === 'personal' ? 0 : PILOT_LIMITS.reservedMicrosPerCall }) {
-    validateReservation({ requestId, sessionId, digest, configVersion, now, sourceMode, providerId, modelId, priceVersion, reservedMicros });
+    validateReservation({ requestId, sessionId, digest, configVersion, now, sourceMode, providerId, modelId, priceVersion, reservedMicros }, sharedLimits);
     // All eligibility checks and the insertion happen in one SQLite statement.
     // D1 serializes writes; no prior read or process-local lock grants capacity.
     const result = await db.prepare(`INSERT INTO pilot_requests
@@ -59,15 +64,15 @@ export function createLedger(db) {
        source_mode, provider_id, model_id, price_version, reserved_micros)
       SELECT ?, ?, ?, ?, 'started', ?, ?, ?, ?, ?, ?
       WHERE (? = 'personal' OR (
-          (SELECT COUNT(*) FROM pilot_requests WHERE source_mode = 'default') < ?
-          AND (SELECT COALESCE(SUM(reserved_micros), 0) FROM pilot_requests WHERE source_mode = 'default') + ? <= ?
+          (? IS NULL OR (SELECT COUNT(*) FROM pilot_requests WHERE source_mode = 'default') < ?)
+          AND (? IS NULL OR (SELECT COALESCE(SUM(reserved_micros), 0) FROM pilot_requests WHERE source_mode = 'default') + ? <= ?)
         ))
         AND (SELECT COUNT(*) FROM pilot_requests WHERE session_id = ?) < ?
         AND (SELECT COUNT(*) FROM pilot_requests WHERE state = 'started' AND created_at_ms > ?) < ?
       ON CONFLICT(request_id) DO NOTHING`).bind(
       requestId, sessionId, digest.toLowerCase(), configVersion, now,
       sourceMode, providerId, modelId, priceVersion, reservedMicros,
-      sourceMode, PILOT_LIMITS.totalCalls, reservedMicros, PILOT_LIMITS.sharedBudgetMicros, sessionId, PILOT_LIMITS.sessionCalls,
+      sourceMode, sharedLimits.totalCalls, sharedLimits.totalCalls, sharedLimits.sharedBudgetMicros, reservedMicros, sharedLimits.sharedBudgetMicros, sessionId, PILOT_LIMITS.sessionCalls,
       now - PILOT_LIMITS.activeTtlMs, PILOT_LIMITS.concurrentCalls,
     ).run();
     if (result?.success === false) throw new Error('ledger_write_failed');
@@ -77,7 +82,8 @@ export function createLedger(db) {
     if (existing) return { ok: false, reason: existing.session_id === sessionId && existing.digest === digest.toLowerCase() && existing.config_version === configVersion &&
       existing.source_mode === sourceMode && existing.provider_id === providerId && existing.model_id === modelId && existing.price_version === priceVersion && existing.reserved_micros === reservedMicros ? 'duplicate_request' : 'request_conflict' };
     const totals = await stats({ now });
-    if (sourceMode === 'default' && (totals.usedCalls >= PILOT_LIMITS.totalCalls || totals.reservedMicros + reservedMicros > PILOT_LIMITS.sharedBudgetMicros)) return { ok: false, reason: 'budget_exhausted' };
+    if (sourceMode === 'default' && ((sharedLimits.totalCalls !== null && totals.usedCalls >= sharedLimits.totalCalls) ||
+      (sharedLimits.sharedBudgetMicros !== null && totals.reservedMicros + reservedMicros > sharedLimits.sharedBudgetMicros))) return { ok: false, reason: 'budget_exhausted' };
     const session = await db.prepare('SELECT COUNT(*) AS calls FROM pilot_requests WHERE session_id = ?').bind(sessionId).first();
     if (Number(session?.calls ?? 0) >= PILOT_LIMITS.sessionCalls) return { ok: false, reason: 'session_limit' };
     return { ok: false, reason: 'concurrency_limit' };
