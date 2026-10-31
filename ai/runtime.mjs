@@ -1,5 +1,5 @@
 import { buildModelRequest, validateCandidate } from './contract.mjs';
-import { isClaimValidationDetail } from '../public/clarity-contract.mjs';
+import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
 
 // No network, credential, rendering or persistence ownership in this module.
 // Adapter supplies transport. Caller owns revision and lifecycle checks.
@@ -36,7 +36,7 @@ export async function runCandidate({ context, adapter, signal, isCurrent, timeou
     if (result.value?.status !== 'completed') return { status: 'fallback', reason: 'incomplete_response', candidate: null };
     const checked = contract.validateCandidate(result.value.output, snapshot);
     if (!checked.ok) {
-      if (checked.reason === 'invalid_claim' && isClaimValidationDetail(checked.detail) && typeof onValidationFailure === 'function') {
+      if (isClarityValidationDetail(checked.reason, checked.detail) && typeof onValidationFailure === 'function') {
         // A diagnostic sink cannot replace the result, delay it, or trigger a
         // second generation. Never pass the candidate or arbitrary detail.
         try {

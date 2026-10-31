@@ -56,7 +56,7 @@
 
 #### Scenario: An invalid claim needs diagnosis
 - **WHEN** 模型线索因形状、枚举、长度、来源或替换引用不符合契约被拒绝
-- **THEN** 公开API仍仅返回原有invalid_claim；内部只记录固定错误类别，不记录候选、字段内容或ID，诊断回调抛错或拒绝不改变结果，不延迟等待或触发再次调用
+- **THEN** 公开JSON仍保持原有invalid_claim/invalid_shape及字段；内部只记录固定错误类别，匹配失败可通过X-Liubai-Validation技术响应头给出该固定类别，不展示到产品界面、不包含候选、实际字段值或ID；诊断回调抛错或拒绝不改变结果，不延迟等待或触发再次调用
 
 ### Requirement: Grounded warmth and visible progress
 

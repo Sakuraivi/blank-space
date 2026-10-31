@@ -8,16 +8,18 @@ import { encryptKey, decryptKey, digest } from './secrets.mjs';
 import { recordAiResult } from './diagnostics.mjs';
 import { resolveOrganizerSource } from './organizer-config.mjs';
 import { createRequestTiming, serverTimingHeader } from './request-timing.mjs';
-import { isClaimValidationDetail } from '../public/clarity-contract.mjs';
+import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
 export const PUBLIC_CONFIG_VERSION = 'multi-flex-v1';
 export { PRICE_VALID_UNTIL };
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-const response = (body, status = 200, timings) => {
+const response = (body, status = 200, timings, validationDetail) => {
   const timingHeader = serverTimingHeader(timings);
-  return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(timingHeader ? { 'Server-Timing': timingHeader } : {}) } });
+  const diagnostic = body?.status === 'fallback' && isClarityValidationDetail(body.reason, validationDetail);
+  return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(timingHeader ? { 'Server-Timing': timingHeader } : {}),
+    ...(diagnostic ? { 'X-Liubai-Validation': validationDetail } : {}) } });
 };
 const fallback = (reason, status = 400) => response({ status: 'fallback', reason }, status);
 const validId = x => typeof x === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test(x);
@@ -212,7 +214,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       result = await runCandidate({ context,
         adapter,
         ...(isClarity ? { contract: clarityContract, onValidationFailure: detail => {
-          if (isClaimValidationDetail(detail)) validationDetail = detail;
+          if (isClarityValidationDetail('invalid_claim', detail) || isClarityValidationDetail('invalid_shape', detail)) validationDetail = detail;
         } } : {}),
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
@@ -223,7 +225,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     const completeGeneration = (value, httpStatus = 200) => {
       const timings = isClarity ? requestTiming.finish() : undefined;
       recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings, validationDetail });
-      return response(value, httpStatus, timings);
+      return response(value, httpStatus, timings, validationDetail);
     };
     // Already dispatched inference may be billed even after cancellation.
     await ledger.finish(body.requestId, { outcome: (body.sourceMode === 'default' && unsafeUsage(usage, route)) || result.reason === 'usage_out_of_bounds' ? 'error' : result.status, usage, now: now() });

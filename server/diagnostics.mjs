@@ -2,7 +2,7 @@
 // expressions, model output, or provider error bodies into production logs.
 import { getRoute, getPersonalRoute } from '../ai/providers.mjs';
 import { sanitizedRequestTimings } from './request-timing.mjs';
-import { isClaimValidationDetail } from '../public/clarity-contract.mjs';
+import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
 const REASONS = new Set([
   'inactive', 'timeout', 'error', 'incomplete_response', 'generation_failed',
   'invalid_shape', 'invalid_claim', 'invalid_evidence', 'question_not_allowed', 'action_not_allowed',
@@ -30,7 +30,7 @@ export function recordAiResult({ requestId, stage, status, reason, providerId, m
   }
   const safeTimings = sanitizedRequestTimings(timings);
   if (safeTimings) event.timings = safeTimings;
-  if (status === 'fallback' && reason === 'invalid_claim' && isClaimValidationDetail(validationDetail)) event.validationDetail = validationDetail;
+  if (status === 'fallback' && isClarityValidationDetail(reason, validationDetail)) event.validationDetail = validationDetail;
   // Logging failure must not change the model result or invite another call.
   try { write(JSON.stringify(event)); } catch {}
 }

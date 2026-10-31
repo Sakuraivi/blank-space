@@ -232,6 +232,8 @@ Write --> One question at a time --> Short review --> Confirm + save
 
 新版默认服务改为DeepSeek0813后，兴趣题真实7.6秒成功；C01第三轮被invalid_claim拒绝，原候选未保留，具体原因未知。warm-16将伪枚举示例改为真正合法JSON值，显式区分输入历史claim与输出五字段候选；非strict请求附已校验的允许来源ID和替换ID集合。增加固定八类诊断，只经runtime可选回调进入匹配失败的内部日志，公开JSON不加字段。同步抛错/异步拒绝不影响结果，不等待、不重试；不为通过适配放宽校验，也不盲开官方支持表未列明的DeepSeek严格schema。
 
+warm-16首次完整复测前三轮通过，第四轮invalid_shape。由于日志流连接超时，增补七类固定shape诊断；匹配失败可在`X-Liubai-Validation`技术响应头提供固定类别，公开JSON契约和产品界面保持。成功、调用前拒绝、供应商错误和旧版不加该头；不回显实际值、数量、原文字段列表或ID。此信息仅证明结构拒绝类别，不证明语义原因。
+
 ## Risks / Trade-offs
 
 - [仍可能只有精致复述] → 以完整输入到成品的语义对照验收；困扰和选择须有具体认知增量。不能靠 UI 截图或 JSON 合法率宣称有效。

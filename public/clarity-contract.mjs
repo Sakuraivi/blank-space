@@ -4,10 +4,13 @@ export const CLARITY_SCHEMA_VERSION = 'liubai-clarity-1';
 export const CLAIM_TYPES = ['event', 'thought', 'feeling', 'need', 'option', 'tradeoff', 'unknown', 'insight', 'action'];
 export const MODES = ['auto', 'moment', 'concern', 'choice'];
 // Diagnostics are fixed codes, never model fields, text, or source identifiers.
-// They are not part of the candidate wire schema or the public API response.
+// They are not part of the candidate wire schema or public JSON response.
 export const CLAIM_VALIDATION_DETAILS = Object.freeze(['claim_shape', 'claim_type', 'claim_text', 'claim_evidence', 'claim_derivation',
   'supersedes_shape', 'supersedes_unknown', 'supersedes_duplicate']);
+export const SHAPE_VALIDATION_DETAILS = Object.freeze(['shape_fields', 'shape_mode', 'shape_goal', 'shape_title', 'shape_reply', 'shape_finish', 'shape_claims']);
 export const isClaimValidationDetail = value => typeof value === 'string' && CLAIM_VALIDATION_DETAILS.includes(value);
+export const isClarityValidationDetail = (reason, value) => reason === 'invalid_claim' ? isClaimValidationDetail(value)
+  : reason === 'invalid_shape' && typeof value === 'string' && SHAPE_VALIDATION_DETAILS.includes(value);
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const exact = (x, keys) => plain(x) && Object.keys(x).length === keys.length && keys.every(k => Object.hasOwn(x, k));
 const text = (x, max) => typeof x === 'string' && x.trim().length > 0 && x.length <= max;
@@ -16,6 +19,7 @@ const list = (x, min, max) => Array.isArray(x) && x.length >= min && x.length <=
 const unique = a => new Set(a).size === a.length;
 const fail = reason => ({ ok: false, reason });
 const failClaim = detail => ({ ok: false, reason: 'invalid_claim', detail });
+const failShape = detail => ({ ok: false, reason: 'invalid_shape', detail });
 export function declarativeReply(value) {
   // Only the dedicated question field may ask something. Preserve complete
   // declarative sentences; never splice words into a new claim or question.
@@ -53,9 +57,13 @@ export function buildClarityContext({ session, revision, stage = 'reflect', allo
 
 export function validateClarityCandidate(value, context) {
   checkClarityContext(context);
-  if (!exact(value, ['modeId', 'goal', 'reply', 'question', 'claims', 'finish', 'title']) ||
-      !MODES.slice(1).includes(value.modeId) || !text(value.goal, 80) || !text(value.title, 60) ||
-      !text(value.reply, 300) || typeof value.finish !== 'boolean' || !list(value.claims, 0, 3)) return fail('invalid_shape');
+  if (!exact(value, ['modeId', 'goal', 'reply', 'question', 'claims', 'finish', 'title'])) return failShape('shape_fields');
+  if (!MODES.slice(1).includes(value.modeId)) return failShape('shape_mode');
+  if (!text(value.goal, 80)) return failShape('shape_goal');
+  if (!text(value.title, 60)) return failShape('shape_title');
+  if (!text(value.reply, 300)) return failShape('shape_reply');
+  if (typeof value.finish !== 'boolean') return failShape('shape_finish');
+  if (!list(value.claims, 0, 3)) return failShape('shape_claims');
   const evidence = new Set(context.statements.map(s => s.id));
   const existing = new Set(context.claims.map(c => c.id));
   const sources = ids => list(ids, 1, 12) && unique(ids) && ids.every(x => evidence.has(x));

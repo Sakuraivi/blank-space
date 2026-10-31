@@ -53,6 +53,7 @@ test('absence of flow still dispatches the legacy v1 contract', async t => {
   const result = await f.call(body); assert.equal(result.body.status, 'candidate', JSON.stringify(result));
   assert.equal(result.body.flow, undefined); assert.ok(result.body.candidate.reflection); assert.equal(f.calls(), 1);
   assert.equal(result.headers.get('Server-Timing'), null);
+  assert.equal(result.headers.get('X-Liubai-Validation'), null);
 });
 
 test('clarity candidate and model failure expose fixed timing stages without extra calls or JSON fields', async t => {
@@ -65,6 +66,9 @@ test('clarity candidate and model failure expose fixed timing stages without ext
   assert.equal(candidate.body.status, 'candidate');
   assert.equal(fallback.body.status, 'fallback');
   assert.equal(transportFailure.body.reason, 'provider_response_failed');
+  assert.equal(candidate.headers.get('X-Liubai-Validation'), null);
+  assert.equal(fallback.headers.get('X-Liubai-Validation'), 'claim_evidence');
+  assert.equal(transportFailure.headers.get('X-Liubai-Validation'), null);
   assert.equal(f.calls(), 3);
   for (const result of [candidate, fallback, transportFailure]) {
     assert.match(result.headers.get('Server-Timing'), /^prepare;dur=\d+(?:\.\d)?, model;dur=\d+(?:\.\d)?, finalize;dur=\d+(?:\.\d)?, total;dur=\d+(?:\.\d)?$/);
@@ -87,7 +91,7 @@ test('a broken timing clock cannot replace a usable candidate or trigger another
   assert.doesNotMatch(JSON.stringify(result.body), /synthetic-private-clock-error/);
 });
 
-test('claim validation detail reaches only operational logs, with the public response unchanged', async t => {
+test('claim validation detail reaches logs and a fixed header, with public JSON unchanged', async t => {
   const logs = [];
   t.mock.method(console, 'info', line => logs.push(JSON.parse(line)));
   const f = fixture(t), body = input();
@@ -98,8 +102,38 @@ test('claim validation detail reaches only operational logs, with the public res
   assert.equal(result.body.candidate, null); assert.equal(f.calls(), 1);
   const event = logs.find(entry => entry.requestId === body.requestId);
   assert.equal(event.validationDetail, 'claim_shape');
+  assert.equal(result.headers.get('X-Liubai-Validation'), 'claim_shape');
   assert.doesNotMatch(JSON.stringify([result, logs]), /synthetic-private-value|privateField/);
   assert.equal(result.body.detail, undefined); assert.equal(result.body.validationDetail, undefined);
+});
+
+test('shape diagnostic headers expose only fixed enums and are absent for success or early refusal', async t => {
+  const logs = [];
+  t.mock.method(console, 'info', line => logs.push(JSON.parse(line)));
+  const f = fixture(t), privateValue = 'synthetic-private-value-never-in-headers';
+  const variants = [
+    ['shape_fields', v => ({ ...v, [privateValue]: privateValue })],
+    ['shape_mode', v => ({ ...v, modeId: privateValue })],
+    ['shape_goal', v => ({ ...v, goal: privateValue.repeat(3) })],
+    ['shape_title', v => ({ ...v, title: privateValue.repeat(3) })],
+    ['shape_reply', v => ({ ...v, reply: privateValue.repeat(12) })],
+    ['shape_finish', v => ({ ...v, finish: privateValue })],
+    ['shape_claims', v => ({ ...v, claims: privateValue })],
+  ];
+  for (const [detail, transform] of variants) {
+    f.transform(transform); const body = input(), result = await f.call(body);
+    assert.equal(result.body.reason, 'invalid_shape'); assert.equal(result.body.status, 'fallback');
+    assert.equal(result.headers.get('X-Liubai-Validation'), detail);
+    assert.deepEqual(Object.keys(result.body).sort(), ['status', 'reason', 'candidate', 'requestId', 'revision', 'route', 'flow'].sort());
+    assert.equal(logs.find(entry => entry.requestId === body.requestId).validationDetail, detail);
+    assert.doesNotMatch(JSON.stringify([result.body, [...result.headers], logs]), new RegExp(privateValue));
+  }
+  f.transform(value => value);
+  const success = await f.call(input());
+  assert.equal(success.body.status, 'candidate'); assert.equal(success.headers.get('X-Liubai-Validation'), null);
+  const refused = await f.call(input({ flow: 'not-supported' }));
+  assert.equal(refused.headers.get('X-Liubai-Validation'), null);
+  assert.equal(f.calls(), variants.length + 1);
 });
 
 test('API folds four valid concern parts but never invents missing evidence', async t => {

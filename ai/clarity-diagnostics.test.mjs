@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CLAIM_VALIDATION_DETAILS, validateClarityCandidate } from '../public/clarity-contract.mjs';
+import { CLAIM_VALIDATION_DETAILS, SHAPE_VALIDATION_DETAILS, validateClarityCandidate } from '../public/clarity-contract.mjs';
 import { createClaritySession, addExpression, beginClarityRequest } from '../public/clarity-state.mjs';
 import { clarityContract } from './clarity.mjs';
 import { runCandidate } from './runtime.mjs';
@@ -24,6 +24,24 @@ const cases = [
   ['supersedes_unknown', v => { v.claims[0].supersedes = [privateValue]; }],
   ['supersedes_duplicate', v => { v.claims[0].supersedes = ['c_existing', 'c_existing']; }],
 ];
+const shapes = [
+  ['shape_fields', v => { v[privateValue] = privateValue; }],
+  ['shape_mode', v => { v.modeId = privateValue; }],
+  ['shape_goal', v => { v.goal = privateValue.repeat(3); }],
+  ['shape_title', v => { v.title = privateValue.repeat(3); }],
+  ['shape_reply', v => { v.reply = privateValue.repeat(12); }],
+  ['shape_finish', v => { v.finish = privateValue; }],
+  ['shape_claims', v => { v.claims = privateValue; }],
+];
+
+for (const [detail, mutate] of shapes) {
+  test(`invalid shape retains the same rejection reason and only the fixed ${detail} detail`, () => {
+    const { context, candidate } = fixture(); mutate(candidate);
+    const result = validateClarityCandidate(candidate, context);
+    assert.deepEqual(result, { ok: false, reason: 'invalid_shape', detail });
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(privateValue));
+  });
+}
 
 for (const [detail, mutate] of cases) {
   test(`invalid claims retain the same rejection reason and only the fixed ${detail} detail`, () => {
@@ -54,6 +72,17 @@ test('a validation failure notifies once with no candidate, fields, or source va
   assert.doesNotMatch(JSON.stringify([result, notifications]), new RegExp(privateValue));
 });
 
+test('an invalid shape notifies once using only its matching fixed enum', async () => {
+  const { context, candidate } = fixture(); candidate[privateValue] = privateValue;
+  const notifications = []; let calls = 0;
+  const adapter = { profile: getPersonalRoute('deepseek', 'deepseek-flash').profile,
+    generate: async () => { calls++; return { status: 'completed', output: candidate }; } };
+  const result = await runCandidate({ context, adapter, contract: clarityContract, isCurrent: () => true,
+    onValidationFailure: (...args) => notifications.push(args) });
+  assert.deepEqual(result, { status: 'fallback', reason: 'invalid_shape', candidate: null });
+  assert.deepEqual(notifications, [['shape_fields']]); assert.equal(calls, 1);
+});
+
 test('synchronous or asynchronous diagnostic sink failure cannot change the result or retry', async () => {
   for (const onValidationFailure of [() => { throw Error(privateValue); }, () => Promise.reject(Error(privateValue))]) {
     const { context, candidate } = fixture(); candidate.claims[0].type = privateValue;
@@ -71,6 +100,9 @@ test('runtime ignores arbitrary contract detail and detail attached to other rea
   for (const failure of [
     { ok: false, reason: 'invalid_claim', detail: privateValue },
     { ok: false, reason: 'invalid_claim', detail: { privateValue } },
+    { ok: false, reason: 'invalid_shape', detail: privateValue },
+    { ok: false, reason: 'invalid_shape', detail: 'claim_shape' },
+    { ok: false, reason: 'invalid_claim', detail: 'shape_fields' },
     { ok: false, reason: 'invalid_evidence', detail: 'claim_evidence' },
   ]) {
     let calls = 0, notifications = 0;
@@ -82,6 +114,7 @@ test('runtime ignores arbitrary contract detail and detail attached to other rea
     assert.equal(calls, 1); assert.equal(notifications, 0);
   }
   assert.deepEqual(CLAIM_VALIDATION_DETAILS, cases.map(([detail]) => detail));
+  assert.deepEqual(SHAPE_VALIDATION_DETAILS, shapes.map(([detail]) => detail));
 });
 
 test('successful validation never invokes the failure hook', async () => {

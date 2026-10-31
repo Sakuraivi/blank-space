@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { recordAiResult } from './diagnostics.mjs';
-import { CLAIM_VALIDATION_DETAILS } from '../public/clarity-contract.mjs';
+import { CLAIM_VALIDATION_DETAILS, SHAPE_VALIDATION_DETAILS } from '../public/clarity-contract.mjs';
 
 test('operational result logs expose only bounded metadata, never supplied prose or credentials', () => {
   const logs = [];
@@ -33,6 +33,24 @@ test('claim validation diagnostics accept only fixed codes for the matching fail
   }
   for (const result of [{ status: 'candidate', reason: 'invalid_claim' }, { status: 'fallback', reason: 'provider_response_failed' }]) {
     recordAiResult({ ...result, validationDetail: 'claim_shape' }, write);
+    assert.equal(logs.at(-1).validationDetail, undefined);
+  }
+  assert.doesNotMatch(JSON.stringify(logs), /synthetic-private-value/);
+});
+
+test('shape diagnostic codes remain category-bound and contain no observed values', () => {
+  const logs = [], write = line => logs.push(JSON.parse(line));
+  for (const validationDetail of SHAPE_VALIDATION_DETAILS) {
+    recordAiResult({ status: 'fallback', reason: 'invalid_shape', validationDetail }, write);
+    assert.equal(logs.at(-1).validationDetail, validationDetail);
+  }
+  for (const result of [
+    { status: 'fallback', reason: 'invalid_claim', validationDetail: 'shape_fields' },
+    { status: 'fallback', reason: 'invalid_shape', validationDetail: 'claim_shape' },
+    { status: 'fallback', reason: 'invalid_shape', validationDetail: 'synthetic-private-value' },
+    { status: 'candidate', reason: 'invalid_shape', validationDetail: 'shape_mode' },
+  ]) {
+    recordAiResult(result, write);
     assert.equal(logs.at(-1).validationDetail, undefined);
   }
   assert.doesNotMatch(JSON.stringify(logs), /synthetic-private-value/);
