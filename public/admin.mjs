@@ -24,6 +24,19 @@ const errors = {
   invalid_pricing: '单价可同时留空，或填写两项有效值；设置金额上限时需提供完整参考单价。',
   config_conflict: '配置已在别处更新。请点击「重新读取配置」，再继续修改。',
 };
+const passwordErrors = {
+  current_password_invalid: '当前管理口令不正确，请重新输入。',
+  invalid_password: '新口令需为 15–128 个字符，请重新输入。',
+  password_mismatch: '两次输入的新口令不一致，请重新输入。',
+  password_unchanged: '新口令需与当前口令不同，请重新输入。',
+  credentials_conflict: '管理口令已在别处更新，请退出后使用最新口令重新登录。',
+  rate_limited: '修改尝试较多，请稍后再试。',
+  service_unavailable: '暂时无法修改口令，请稍后重试。',
+};
+
+function clearSensitiveDrafts() {
+  for (const id of ['password', 'api-key', 'current-password', 'new-password', 'confirm-password']) $(`#${id}`).value = '';
+}
 
 function message(target, text = '', error = false) {
   $(target).textContent = text;
@@ -32,25 +45,29 @@ function message(target, text = '', error = false) {
 
 function setBusy(value) {
   busy = value;
+  if (value) clearSensitiveDrafts();
   $('#login-fields').disabled = value;
   $('#config-fields').disabled = value || conflict;
+  $('#password-fields').disabled = value;
   $('#logout').disabled = value;
   $('#refresh-config').disabled = value;
   $('#toggle-service').disabled = value || conflict || !snapshot?.config.hasKey;
   $('#clear-key').disabled = value || conflict || !snapshot?.config.hasKey;
   $('#config-form').setAttribute('aria-busy', String(value));
+  $('#password-form').setAttribute('aria-busy', String(value));
 }
 
-function showLogin(text = '') {
+function showLogin(text = '', error = Boolean(text)) {
   snapshot = null;
   conflict = false;
-  $('#api-key').value = '';
-  $('#password').value = '';
+  clearSensitiveDrafts();
+  $('#security-settings').open = false;
+  message('#password-message');
   $('#boot-status').hidden = true;
   $('#console-view').hidden = true;
   $('#login-view').hidden = false;
   $('#logout').hidden = true;
-  message('#login-message', text, Boolean(text));
+  message('#login-message', text, error);
   setBusy(false);
 }
 
@@ -256,7 +273,41 @@ $('#logout').addEventListener('click', async () => {
   catch (error) { handleError(error); }
   finally { setBusy(false); }
 });
-window.addEventListener('pagehide', () => { $('#api-key').value = ''; $('#password').value = ''; });
+$('#security-settings').addEventListener('toggle', () => {
+  if (!$('#security-settings').open) { clearSensitiveDrafts(); message('#password-message'); }
+});
+$('#cancel-password').addEventListener('click', () => {
+  if (busy) return;
+  clearSensitiveDrafts(); message('#password-message');
+  $('#security-settings').open = false;
+});
+$('#password-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || !snapshot || $('#console-view').hidden) return;
+  const currentPassword = $('#current-password').value;
+  const newPassword = $('#new-password').value;
+  const confirmPassword = $('#confirm-password').value;
+  // Keep exact Unicode input only in this request scope; never trim or normalize.
+  clearSensitiveDrafts(); message('#password-message');
+  if (!currentPassword) { message('#password-message', '请输入当前管理口令后重试。', true); return; }
+  const length = [...newPassword].length;
+  if (length < 15 || length > 128) { message('#password-message', passwordErrors.invalid_password, true); return; }
+  if (newPassword !== confirmPassword) { message('#password-message', passwordErrors.password_mismatch, true); return; }
+  if (newPassword === currentPassword) { message('#password-message', passwordErrors.password_unchanged, true); return; }
+  setBusy(true);
+  try {
+    const result = await api('password', { method: 'POST', body: { currentPassword, newPassword, confirmPassword } });
+    if (result.changed !== true || result.authenticated !== false) throw new Error('invalid_password_response');
+    showLogin('管理口令已更新，请用新口令登录', false);
+  } catch (error) {
+    if (error.status === 401 && error.reason !== 'current_password_invalid') handleError(error, '#password-message');
+    else message('#password-message', passwordErrors[error.reason] || (error instanceof TypeError || error.name === 'TimeoutError' ? '暂时未能确认修改结果，请重新登录核实。' : '口令修改暂未完成，请稍后重试。'), true);
+  } finally {
+    clearSensitiveDrafts();
+    setBusy(false);
+  }
+});
+window.addEventListener('pagehide', clearSensitiveDrafts);
 window.addEventListener('pageshow', event => { if (event.persisted) initialize(); });
 
 async function initialize() {

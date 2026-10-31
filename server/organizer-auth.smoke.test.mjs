@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 import { handleOrganizerApi } from './organizer-api.mjs';
 import { ORGANIZER_COOKIE, ORGANIZER_SESSION_MS, ORGANIZER_LOGIN_WINDOW_MS } from './organizer-auth.mjs';
 import { createStandaloneWorker } from './standalone-worker.mjs';
 
 const ORIGIN = 'https://organizer.example.test';
 const PASSWORD = 'synthetic-random-management-password-only-tests';
-const AUTH_SCHEMA = `CREATE TABLE organizer_sessions(token_hash TEXT PRIMARY KEY, auth_epoch TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
-CREATE TABLE organizer_login_limits(bucket_hash TEXT PRIMARY KEY, window_started_at INTEGER NOT NULL, attempts INTEGER NOT NULL, updated_at INTEGER NOT NULL);`;
+const AUTH_SCHEMA = ['0003_organizer_auth.sql', '0004_organizer_credentials.sql']
+  .map(name => readFileSync(new URL(`../drizzle/${name}`, import.meta.url), 'utf8')).join('\n');
 const hash = async value => Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
 const identity = { 'oai-authenticated-user-id': 'forged-owner', 'oai-authenticated-user-email': 'owner@example.test' };
 

@@ -4,6 +4,12 @@
 
 登录资料保存在用户电脑的仓库外私有目录；本次路径由交付消息给出。页面不提供未认证的首次注册或找回入口。不要把本机登录文件、bootstrap备份、真实API Key或运行secret提交Git。
 
+## 修改管理口令
+
+登录后台后展开“登录与安全”，填写当前管理口令、新口令及确认口令，再选择“更新口令并退出所有会话”。新口令为15–128个Unicode字符，支持中文及空格，按输入原样处理；两次输入须完全一致，且不能与当前口令相同。
+
+修改成功会使所有已登录管理会话失效，页面返回登录入口，需用新口令重新验证。输入错误不会自动修改口令；取消、收起、提交完成或离开页面都会清空口令与未保存Key草稿。页面不会显示或保存口令明文。后台修改不会自动更新电脑上的首次开通资料，请自行妥善更新保管的新口令记录。
+
 ## 配置默认服务
 
 选择服务商与预设模型，或自填模型ID；输入对应共享Key，勾选启用后保存。保存不试调模型。Key加密存D1，页面只显示是否存在。同厂商换模型可留空保留Key；换厂商需要新Key。启停与清Key不清除历史用量。
@@ -14,8 +20,10 @@
 
 ## 维护与部署
 
-使用既有 `npm run deploy:standalone` 和 `wrangler.standalone.jsonc`，保持原D1及verified状态。新增schema由 `0002_organizer_admin.sql` 与 `0003_organizer_auth.sql` 建立，不重置pilot_requests。
+使用既有 `npm run deploy:standalone` 和 `wrangler.standalone.jsonc`，保持原D1及verified状态。schema由 `0002_organizer_admin.sql`、`0003_organizer_auth.sql` 与 `0004_organizer_credentials.sql` 建立，不重置pilot_requests。0004只种入明确的首次口令状态，迁移不会替用户改口令。
 
 首次开通工具：`node scripts/provision-organizer.mjs ABSOLUTE_PRIVATE_DIRECTORY`。它只补缺失的 `LIUBAI_ADMIN_PASSWORD_HASH` 和 `LIUBAI_SECRET_KEY`，运行秘密经stdin传Wrangler；不读取或覆盖已有secret值。高熵口令只以SHA256存运行环境，明文及master备份仅在受控本机目录，不输出到终端。已有管理secret但无对应本机资料时工具拒绝重置。
+
+首次改密后，D1中的盐化PBKDF2凭据成为唯一口令来源，原首次口令不再有效；缺失或损坏的凭据不会回退到旧口令。共享Key的加密主密钥保持独立。改密后如需回滚，须使用识别D1凭据的版本，不能回滚到忽略D1凭据、只识别首次口令的旧认证代码，也不要删除或重种凭据行。本轮不提供未登录找回入口。
 
 新配置服务不继承旧试用价格日期或固定18次/¥0.90限制；旧无organizer行的兼容路径保留其原策略。服务商价格与真实账单需组织者自行核查。按用户要求本轮跳过全量/旧回归，仅做新权限与配置最小检查、浏览器联通及构建/发布核对。

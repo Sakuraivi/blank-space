@@ -39,6 +39,20 @@
         </fieldset></form>
         <p id="config-message" class="message" role="status" aria-live="polite"></p>
         <div class="maintenance-actions"><button id="toggle-service" class="secondary" type="button">启用默认 AI</button><button id="refresh-config" class="text-button" type="button">重新读取配置</button><button id="clear-key" class="text-button danger" type="button">清除 Key 并停用</button></div>
+        <details id="security-settings" class="settings-details security-settings">
+          <summary>登录与安全</summary>
+          <div class="details-content">
+            <h3>修改管理口令</h3>
+            <p id="password-change-note" class="small-note">修改后，所有已登录的管理会话都会失效，包括当前会话。你需要使用新口令重新登录。</p>
+            <form id="password-form" novalidate><fieldset id="password-fields">
+              <div class="field"><label for="current-password">当前管理口令</label><input id="current-password" type="password" autocomplete="current-password" maxlength="256" required></div>
+              <div class="field"><label for="new-password">新管理口令</label><input id="new-password" type="password" autocomplete="new-password" maxlength="256" required aria-describedby="new-password-help password-change-note"><p id="new-password-help" class="small-note">15–128 个字符，支持中文和空格。请保留输入原样，并妥善保存新口令。</p></div>
+              <div class="field"><label for="confirm-password">再次输入新口令</label><input id="confirm-password" type="password" autocomplete="new-password" maxlength="256" required></div>
+              <div class="form-actions"><button class="primary" type="submit">更新口令并退出所有会话</button><button id="cancel-password" class="text-button" type="button">取消修改</button></div>
+            </fieldset></form>
+            <p id="password-message" class="message" role="status" aria-live="polite"></p>
+          </div>
+        </details>
       </section>
       <aside class="paper budget-paper" aria-labelledby="budget-title"><h2 id="budget-title">共享使用概览</h2><p class="small-note">保留已有记录，随时查看使用情况。</p><dl class="budget-list"><div><dt>累计调用</dt><dd><strong id="used-calls">—</strong><span>次</span></dd></div><div><dt>已记录输入 / 输出 tokens</dt><dd class="token-count" id="used-tokens">—</dd></div><div><dt>累计保守预留</dt><dd><strong id="reserved-budget">—</strong></dd></div></dl><p id="remaining-summary" class="small-note"></p><p class="small-note">价格未知的调用不计入参考金额。实际费用以服务商账单为准；个人 Key 不占共享用量。</p><p class="small-note">停用或清除 Key 不会清空历史消耗，已经发出的请求仍可能计费。</p><p id="updated-at" class="small-note updated-at"></p></aside>
     </div>

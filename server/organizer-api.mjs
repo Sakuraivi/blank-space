@@ -1,4 +1,4 @@
-import { getOrganizerSession, loginOrganizer, logoutOrganizer, organizerCookie } from './organizer-auth.mjs';
+import { getOrganizerSession, loginOrganizer, logoutOrganizer, changeOrganizerPassword, organizerCookie } from './organizer-auth.mjs';
 import { getOrganizerStatus, saveOrganizerConfig, setOrganizerEnabled, clearOrganizerKey } from './organizer-config.mjs';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -8,6 +8,7 @@ const services = { getOrganizerStatus, saveOrganizerConfig, setOrganizerEnabled,
 const methods = new Map([
   ['/api/organizer/login', ['POST']], ['/api/organizer/session', ['GET']], ['/api/organizer/logout', ['POST']],
   ['/api/organizer/status', ['GET']], ['/api/organizer/config', ['POST', 'DELETE']], ['/api/organizer/enabled', ['POST']],
+  ['/api/organizer/password', ['POST']],
 ]);
 
 async function readBody(request, maxBytes) {
@@ -58,6 +59,7 @@ export async function handleOrganizerApi(request, env, { now = Date.now, configS
     if (!session.authenticated) return error('auth_required', 401);
     if (path === '/api/organizer/status') return json(await configServices.getOrganizerStatus(env, { now }));
     if (env.LIUBAI_MAINTENANCE === '1') return error('maintenance', 503);
+    if (path === '/api/organizer/password') return authResponse(await changeOrganizerPassword(request, env, body, { now }));
     const action = path === '/api/organizer/enabled' ? configServices.setOrganizerEnabled :
       request.method === 'DELETE' ? configServices.clearOrganizerKey : configServices.saveOrganizerConfig;
     const result = await action(env, body, { now });
