@@ -1,15 +1,16 @@
 # 验证记录
 
-## 管理口令修改（in progress）
+## 管理口令修改（已发布）
 
 日期：2026-10-31。契约：organizer-password-change。后台新增“登录与安全”下的当前/新/确认口令；15–128码点且UTF-8≤512B、不trim或规范化，成功要求重新登录并撤销全部旧会话。共享Key、AES master、模型与账本不受改密影响。
 
 - 新增认证focused检查9/9、HTTP/API检查3/3通过；包含盐化KDF/冷启动持久化/旧bootstrap拒绝、缺行损坏失败关闭、持久限速、CAS、慢旧登录、清理失败、连续轮换延迟清理、原样Unicode、同源/认证/方法/体积边界及共享三表完整列摘要保留。未运行任何旧或全量回归；仅更新旧认证smoke的schema fixture使其使用0003/0004，未执行该旧文件。
 - 独立只读审阅未发现高影响阻塞；PBKDF2采用100000迭代、32B盐/输出，平台折中依据写入design。本地workerd原生100k KDF探针通过，仅证明本地兼容，不冒充生产已执行改密。
 - 本地合成数据后台登录、展开、空输入提示及取消通过；截图 `outputs/liubai-password-panel-local.jpg`。成功改密及新口令登录由真实内存API覆盖，未通过浏览器代用户提交新口令。首次资料文件不会自动更新。
-- standalone dry-run97.62KiB/gzip23.81KiB通过，必要语法/diff及OpenSpec严格检查通过。生产迁移与发布核对待补。
+- standalone dry-run97.62KiB/gzip23.81KiB通过，必要语法/diff及OpenSpec严格检查通过。0004已应用到原D1；源码 `e6cff57` 已部署到原Worker，版本 `b70a0899-7e23-4616-aee5-e760060ee79d`，原DB/verified及域名绑定保留。
+- 2026-10-31 06:27:48 UTC线上7项核对均通过：可信凭据解析就绪、匿名/伪造身份改密401、跨源403、错误方法405、共享路由摘要不变、5项静态资产一致。HTML仅去掉已定位Cloudflare自动beacon及统一Git CRLF/LF后对比，其余内容不忽略。证据 `work/liubai/password-production-evidence.json`。D1只读查询确认algorithm=bootstrap、revision=0，仍是首次口令状态；本轮没有读取私有口令文件、改写真实口令或发起真实模型调用。
 
-实现与最小检查 `completed`；生产迁移与发布 `in progress`。下一步：向现有D1应用0004并发布同一Worker，只核对只读状态、匿名守卫与资产，由用户自行完成真实口令修改。
+实现、最小检查、生产迁移及发布均 `completed`。下一步：用户登录正式后台，展开“登录与安全”并亲自填写当前与新口令；更换后重新登录并自行保管新口令。本轮不声称真实生产改密链路已由用户验收，也不替代旧或全量回归。
 
 ## 当前步骤提示修正（已发布）
 
