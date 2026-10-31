@@ -15,7 +15,7 @@
     "build:standalone": "node scripts/build-standalone.mjs",
     "deploy:standalone": "node node_modules/wrangler/bin/wrangler.js deploy --config wrangler.standalone.jsonc",
     "test:standalone": "node --test server/standalone-worker.test.mjs",
-    "test:clarity": "node --test ai/clarity.test.mjs ai/clarity-turn.test.mjs ai/clarity-grounding.test.mjs ai/clarity-state.test.mjs ai/clarity-wait.test.mjs server/clarity-api.test.mjs server/request-timing.test.mjs server/diagnostics.test.mjs scripts/clarity-evaluation.test.mjs",
+    "test:clarity": "node --test ai/clarity.test.mjs ai/clarity-turn.test.mjs ai/clarity-grounding.test.mjs ai/clarity-state.test.mjs ai/clarity-wait.test.mjs ai/clarity-diagnostics.test.mjs server/clarity-api.test.mjs server/request-timing.test.mjs server/diagnostics.test.mjs scripts/clarity-evaluation.test.mjs",
     "dev:clarity": "node scripts/clarity-preview.mjs",
     "dev:clarity-fixture": "node scripts/clarity-preview.mjs --fixture",
     "verify:migration": "node scripts/standalone/verify-ledger.mjs",

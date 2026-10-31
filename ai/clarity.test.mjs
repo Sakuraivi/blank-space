@@ -32,6 +32,19 @@ test('each C01 request stays within all five trusted transport input budgets; ou
   }
   assert.ok(largest > 0);
 });
+test('non-strict model references distinguish material IDs from existing claim IDs without dropping context', () => {
+  const s = createClaritySession(); addExpression(s, inputs[0]); const firstTicket = beginClarityRequest(s);
+  applyClarityReply(s, firstTicket, { flow: 'clarity-v2', requestId: firstTicket.requestId, revision: firstTicket.revision, status: 'candidate', candidate: c01Candidate(firstTicket.context) });
+  addExpression(s, inputs[1]); const ticket = beginClarityRequest(s);
+  const route = getPersonalRoute('bailian', 'deepseek-v4-pro-0813');
+  const request = buildClarityModelRequest(ticket.context, route.profile), data = JSON.parse(request.input.content);
+  assert.equal(request.output.format, 'json_text');
+  assert.deepEqual(data.outputConstraints.allowedEvidenceIds, ['u1', 'u2']);
+  assert.deepEqual(data.outputConstraints.allowedSupersedesIds, ticket.context.claims.map(c => c.id));
+  assert.ok(data.outputConstraints.allowedSupersedesIds.every(id => !data.outputConstraints.allowedEvidenceIds.includes(id)));
+  assert.deepEqual(data.statements, ticket.context.statements); assert.deepEqual(data.claims, ticket.context.claims);
+});
+
 test('full serialized size is enforced, with no silent user-text truncation', () => {
   const context = first(); context.statements[0].text = '想'.repeat(4000);
   const route = getPersonalRoute('deepseek', 'deepseek-flash');

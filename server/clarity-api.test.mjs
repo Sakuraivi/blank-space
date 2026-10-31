@@ -87,6 +87,21 @@ test('a broken timing clock cannot replace a usable candidate or trigger another
   assert.doesNotMatch(JSON.stringify(result.body), /synthetic-private-clock-error/);
 });
 
+test('claim validation detail reaches only operational logs, with the public response unchanged', async t => {
+  const logs = [];
+  t.mock.method(console, 'info', line => logs.push(JSON.parse(line)));
+  const f = fixture(t), body = input();
+  f.transform(value => ({ ...value, claims: [{ ...value.claims[0], privateField: 'synthetic-private-value' }] }));
+  const result = await f.call(body);
+  assert.equal(result.body.reason, 'invalid_claim'); assert.equal(result.body.status, 'fallback');
+  assert.deepEqual(Object.keys(result.body).sort(), ['status', 'reason', 'candidate', 'requestId', 'revision', 'route', 'flow'].sort());
+  assert.equal(result.body.candidate, null); assert.equal(f.calls(), 1);
+  const event = logs.find(entry => entry.requestId === body.requestId);
+  assert.equal(event.validationDetail, 'claim_shape');
+  assert.doesNotMatch(JSON.stringify([result, logs]), /synthetic-private-value|privateField/);
+  assert.equal(result.body.detail, undefined); assert.equal(result.body.validationDetail, undefined);
+});
+
 test('API folds four valid concern parts but never invents missing evidence', async t => {
   const f = fixture(t);
   const finished = value => ({ ...value, finish: true, question: null, claims: [

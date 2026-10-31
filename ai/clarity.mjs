@@ -3,7 +3,7 @@ import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
 import { groundingPlan, groundClarityCandidate } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-15';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-16';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.
@@ -39,8 +39,9 @@ choice：need(个人标准)、tradeoff(具体选项保留与付出)、unknown(�
 
 【输出契约】
 恰好七个字段：
-{"modeId":"concern","goal":"本次目标","reply":"简短陈述","question":{"text":"一个聚焦问题？","target":"event|interpretation|need|tradeoff|unknown|correction","evidenceIds":["u1"]},"claims":[],"finish":false,"title":"简短标题"}
-未收尾时claims只补真正新增或纠正的线索，通常0–1条，保留关键经过和感受需要时可至3条；不逐轮重写整份报告。兴趣或知识开场claims=[]。收尾整合完整材料，给1–3条有用候选，不丢具体经历、期待或未知。每条格式为{"type":"event|thought|feeling|need|option|tradeoff|unknown|insight|action","text":"候选整理","evidenceIds":["u1"],"derivation":"stated|inferred","supersedes":[]}；每条<=240字、总计尽量260字内。包括unknown都须引用实际用户ID；supersedes引用被替换的旧claim ID，同一ID不重复。收尾替换被合并或纠正的旧条目，避免重复和旧误解残留。unknown用陈述句，不在成品里继续追问。
+{"modeId":"concern","goal":"本次目标","reply":"简短陈述","question":{"text":"一个聚焦问题？","target":"event","evidenceIds":["u1"]},"claims":[],"finish":false,"title":"简短标题"}
+question.target只能选event、interpretation、need、tradeoff、unknown、correction之一。未收尾时claims只补真正新增或纠正的线索，通常0–1条，保留关键经过和感受需要时可至3条；不逐轮重写整份报告。兴趣或知识开场claims=[]。收尾整合完整材料，给1–3条有用候选，不丢具体经历、期待或未知。每条合法示例为{"type":"event","text":"原话中的必要经过","evidenceIds":["u1"],"derivation":"stated","supersedes":[]}；每条<=240字符、总计尽量260字内。type只能选event、thought、feeling、need、option、tradeoff、unknown、insight、action之一；derivation只能选stated或inferred。unknown用陈述句，不在成品里继续追问。
+每个claim恰好示例五字段，不得复制历史对象的id、status或添加label等字段；id和状态由应用生成。evidenceIds必须是非空去重数组，只用statements真实ID。supersedes始终是数组，只能逐字使用历史claims里已有的id，不能填u开头的材料ID、序号或自编ID；没有要替换的旧claim就填[]，历史claims为空也填[]。同一旧ID跨条目不得重复；收尾替换被合并或纠正的旧条目。outputConstraints若存在只列允许引用的标识，不是用户材料。
 当前stage=${context.stage}，已回答${context.dialogue.length}题。stage=review或已答3题必须finish=true。材料不足时如实留下未决，不伪造洞察。`;
 }
 
@@ -48,10 +49,12 @@ export function buildClarityModelRequest(context, profile) {
   checkClarityContext(context);
   if (!profile || !['system', 'developer', 'instructions'].includes(profile.instructionChannel)) throw new TypeError('unsupported_profile');
   const { materials, controls, ...turnPlan } = clarityTurn(context);
+  const structured = supportsClaritySchema(profile.providerId, profile.modelId);
+  const outputConstraints = { allowedEvidenceIds: context.statements.map(s => s.id), allowedSupersedesIds: context.claims.map(c => c.id) };
   return { providerId: profile.providerId, modelId: profile.modelId, policyVersion: CLARITY_POLICY_VERSION,
     schemaVersion: CLARITY_SCHEMA_VERSION, instruction: { channel: profile.instructionChannel, text: clarityInstructions(context) },
-    input: { role: 'user', content: JSON.stringify({ kind: 'liubai_clarity_user_data', ...context, turnPlan, grounding: groundingPlan(context) }) },
-    output: supportsClaritySchema(profile.providerId, profile.modelId)
+    input: { role: 'user', content: JSON.stringify({ kind: 'liubai_clarity_user_data', ...context, turnPlan, grounding: groundingPlan(context), ...(!structured ? { outputConstraints } : {}) }) },
+    output: structured
       ? { format: 'json_schema', schema: clarityOutputSchema(context) } : { format: 'json_text' } };
 }
 function validateClarityFormat(value, context) {

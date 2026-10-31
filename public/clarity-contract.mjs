@@ -3,6 +3,11 @@ export const CLARITY_FLOW = 'clarity-v2';
 export const CLARITY_SCHEMA_VERSION = 'liubai-clarity-1';
 export const CLAIM_TYPES = ['event', 'thought', 'feeling', 'need', 'option', 'tradeoff', 'unknown', 'insight', 'action'];
 export const MODES = ['auto', 'moment', 'concern', 'choice'];
+// Diagnostics are fixed codes, never model fields, text, or source identifiers.
+// They are not part of the candidate wire schema or the public API response.
+export const CLAIM_VALIDATION_DETAILS = Object.freeze(['claim_shape', 'claim_type', 'claim_text', 'claim_evidence', 'claim_derivation',
+  'supersedes_shape', 'supersedes_unknown', 'supersedes_duplicate']);
+export const isClaimValidationDetail = value => typeof value === 'string' && CLAIM_VALIDATION_DETAILS.includes(value);
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const exact = (x, keys) => plain(x) && Object.keys(x).length === keys.length && keys.every(k => Object.hasOwn(x, k));
 const text = (x, max) => typeof x === 'string' && x.trim().length > 0 && x.length <= max;
@@ -10,6 +15,7 @@ const id = x => text(x, 100) && /^[a-zA-Z0-9_-]+$/.test(x);
 const list = (x, min, max) => Array.isArray(x) && x.length >= min && x.length <= max;
 const unique = a => new Set(a).size === a.length;
 const fail = reason => ({ ok: false, reason });
+const failClaim = detail => ({ ok: false, reason: 'invalid_claim', detail });
 export function declarativeReply(value) {
   // Only the dedicated question field may ask something. Preserve complete
   // declarative sentences; never splice words into a new claim or question.
@@ -55,9 +61,15 @@ export function validateClarityCandidate(value, context) {
   const sources = ids => list(ids, 1, 12) && unique(ids) && ids.every(x => evidence.has(x));
   const replaced = new Set();
   for (const claim of value.claims) {
-    if (!exact(claim, ['type', 'text', 'evidenceIds', 'derivation', 'supersedes']) || !CLAIM_TYPES.includes(claim.type) ||
-        !text(claim.text, 240) || !sources(claim.evidenceIds) || !['stated', 'inferred'].includes(claim.derivation) ||
-        !list(claim.supersedes, 0, 15) || !unique(claim.supersedes) || claim.supersedes.some(k => !existing.has(k) || replaced.has(k))) return fail('invalid_claim');
+    if (!exact(claim, ['type', 'text', 'evidenceIds', 'derivation', 'supersedes'])) return failClaim('claim_shape');
+    if (!CLAIM_TYPES.includes(claim.type)) return failClaim('claim_type');
+    if (!text(claim.text, 240)) return failClaim('claim_text');
+    if (!sources(claim.evidenceIds)) return failClaim('claim_evidence');
+    if (!['stated', 'inferred'].includes(claim.derivation)) return failClaim('claim_derivation');
+    if (!list(claim.supersedes, 0, 15)) return failClaim('supersedes_shape');
+    if (!unique(claim.supersedes)) return failClaim('supersedes_duplicate');
+    if (claim.supersedes.some(k => !existing.has(k))) return failClaim('supersedes_unknown');
+    if (claim.supersedes.some(k => replaced.has(k))) return failClaim('supersedes_duplicate');
     claim.supersedes.forEach(k => replaced.add(k));
     if (claim.type === 'action' && !context.allowNextStep) return fail('action_not_allowed');
   }

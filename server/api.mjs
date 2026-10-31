@@ -8,6 +8,7 @@ import { encryptKey, decryptKey, digest } from './secrets.mjs';
 import { recordAiResult } from './diagnostics.mjs';
 import { resolveOrganizerSource } from './organizer-config.mjs';
 import { createRequestTiming, serverTimingHeader } from './request-timing.mjs';
+import { isClaimValidationDetail } from '../public/clarity-contract.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
@@ -195,7 +196,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId, priceVersion: route.priceVersion,
       reservedMicros: body.sourceMode === 'default' ? route.reserveMicros : 0, now: now() });
     if (!reservation.ok) return fallback(reservation.reason, 429);
-    let usage = null, result, providerReason = null;
+    let usage = null, result, providerReason = null, validationDetail;
     if (isClarity) requestTiming.startModel();
     try {
       const transport = createProviderAdapter({ route, apiKey, fetchImpl, onUsage: value => { usage = value; } });
@@ -210,7 +211,9 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       } };
       result = await runCandidate({ context,
         adapter,
-        ...(isClarity ? { contract: clarityContract } : {}),
+        ...(isClarity ? { contract: clarityContract, onValidationFailure: detail => {
+          if (isClaimValidationDetail(detail)) validationDetail = detail;
+        } } : {}),
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
@@ -219,7 +222,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     // claim about pure provider inference time or time to its first token.
     const completeGeneration = (value, httpStatus = 200) => {
       const timings = isClarity ? requestTiming.finish() : undefined;
-      recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings });
+      recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings, validationDetail });
       return response(value, httpStatus, timings);
     };
     // Already dispatched inference may be billed even after cancellation.

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { recordAiResult } from './diagnostics.mjs';
+import { CLAIM_VALIDATION_DETAILS } from '../public/clarity-contract.mjs';
 
 test('operational result logs expose only bounded metadata, never supplied prose or credentials', () => {
   const logs = [];
@@ -18,6 +19,23 @@ test('operational result logs expose only bounded metadata, never supplied prose
 
 test('diagnostic sink failure never replaces an otherwise usable result', () => {
   assert.doesNotThrow(() => recordAiResult({ status: 'candidate', stage: 'review' }, () => { throw Error('sink unavailable'); }));
+});
+
+test('claim validation diagnostics accept only fixed codes for the matching failure', () => {
+  const logs = [], write = line => logs.push(JSON.parse(line));
+  for (const validationDetail of CLAIM_VALIDATION_DETAILS) {
+    recordAiResult({ status: 'fallback', reason: 'invalid_claim', validationDetail }, write);
+    assert.equal(logs.at(-1).validationDetail, validationDetail);
+  }
+  for (const validationDetail of ['synthetic-private-value', { message: 'synthetic-private-value' }, null]) {
+    recordAiResult({ status: 'fallback', reason: 'invalid_claim', validationDetail }, write);
+    assert.equal(logs.at(-1).validationDetail, undefined);
+  }
+  for (const result of [{ status: 'candidate', reason: 'invalid_claim' }, { status: 'fallback', reason: 'provider_response_failed' }]) {
+    recordAiResult({ ...result, validationDetail: 'claim_shape' }, write);
+    assert.equal(logs.at(-1).validationDetail, undefined);
+  }
+  assert.doesNotMatch(JSON.stringify(logs), /synthetic-private-value/);
 });
 
 test('timing diagnostics contain only finite bounded stage numbers', () => {
