@@ -274,6 +274,20 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 用户只否定极端说法，或仍在弄清是否如此、哪个选项、程度或原因
 - **THEN** 模型分析不得把非禁止加强为肯定意愿/许可，也不得把未决对象偷换为原因；原话保留或引用合法不能抵消title/reply/analysis的语义偏移，旧版本真实失败保持可追溯
 
+### Requirement: Provisional relation plan preserves selected sides
+
+隔离concern/review生成实验 SHALL 使用独立四字段私有协议，在同一候选中选择active材料的两侧引用并写理解。focus可为null，不强填两难；非空时raw及compiled同一insight SHALL 字面包含两个独立引用、证据覆盖两侧。Host SHALL 保留来源与全部UTF16匹配、拒绝重叠或未解决歧义，不取first认证归属，不将非法focus静默降成null。
+
+公开候选、完整原话、长度/时长、保护与保存边界 SHALL 保持，focus只入实验trace、不入用户candidate或记录。引用覆盖 SHALL 不被当作两侧有意义、限定完整或理解有用的证明；null也不证明没有遗漏。选错两句、裁掉否定或仅拼引用的合法反例 SHALL 在语义评审独立失败，不能借审校空结果放行。
+
+#### Scenario: One source sentence contains both sides
+- **WHEN** 同一active原句含想保留的目标与已表达的担心
+- **THEN** 允许同anchor选择两个可定位独立片段，raw及compiled理解均保留两侧；整句上下文继续供人工核对，不以不同ID数判断有效
+
+#### Scenario: Literal selection remains provisional
+- **WHEN** 两引用在源与insight都存在，但片段裁掉否定或只有并排复述
+- **THEN** 机械结果仅标字面覆盖未核语义；原材料保留，逐例内容评审不得算作有用拆解通过
+
 ### Requirement: Isolated semantic audit observations
 
 离线语义审校 SHALL 使用独立私有schema，仅对Host固定的review两难连接、reflect提问预设、首轮knowledge明确题面回应作窄范围观察。输入 SHALL 包含不可变原context、实际候选与task，候选/来源/模型版本改变时旧快照失效；不能改写被审对象、把评审答案送入模型或以用户数据切换职责。
