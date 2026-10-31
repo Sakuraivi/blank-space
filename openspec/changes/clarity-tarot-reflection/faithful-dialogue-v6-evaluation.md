@@ -1,5 +1,7 @@
 # 忠实承接与开放追问切片
 
+后续[语义审校验证](semantic-audit-v1-evaluation.md)已完成14次私有审校：6缺陷检出3、漏报3，不能自动放行，也没有修改本页v6原始候选或内容门槛。
+
 状态：隔离策略、harness、17项新定向检查及固定真实批次 completed，内容发布门槛 not met；生产、界面与字体不变，整体4/10。本轮不扩展时长guard文法或把它接入所有线上输入。
 
 ## Responsibility and scope
