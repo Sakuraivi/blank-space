@@ -136,6 +136,22 @@
 - **WHEN** 用户选择“帮我想一句怎么说”
 - **THEN** 系统提供符合其修正后期待的话术，允许不放入记录，且不发送给第三方
 
+### Requirement: Retain the material that explains the concern
+
+困扰收尾 SHALL 回看全部用户材料，在现有三块与容量边界内保留解释困扰所必需的经过、具体投入或影响、同时存在的顾虑及后来明确的期待。原本对他人意图的猜测不得因自己的期待变清楚而升级为事实。材料没有提供的环节 SHALL 留白；纠正与停止要求优先，不为套用链条强造两难。合法来源ID不能单独证明正文保留了相应内容。
+
+#### Scenario: Investment and competing concerns survive the final report
+- **WHEN** 用户补充具体投入，随后同时表达想问清与担心催促，最后明确需要什么安排
+- **THEN** 模型候选及合并保存后的可见主文均保留必要投入、两份顾虑和有依据的区分，不以分栏复述或泛泛安慰代替
+
+#### Scenario: One accepted batch contains complementary claims
+- **WHEN** 同次收尾中两个通过校验且真正接受的候选属于同一展示组
+- **THEN** 主文保留两者的互补内容及来源关联，不只取末条；收尾为完整候选，缺席的组不从历史模型条目补回；手动编辑及拒绝替换所涉及的已确认可见块继续保留，冲突仍须重新核对
+
+#### Scenario: A concern is withdrawn
+- **WHEN** 用户明确撤回先前顾虑或只想保留一句
+- **THEN** 收尾遵循最新表达，不为材料覆盖要求复活旧顾虑或补写分析与建议
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。

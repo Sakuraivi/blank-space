@@ -75,24 +75,31 @@ export function applyClarityReply(s, ticket, envelope) {
   s.pending = null; s.failure = null; s.modeId = candidate.modeId; s.goal = candidate.goal;
   s.messages.push({ role: 'assistant', text: candidate.reply, question: candidate.question?.text ?? null });
   let protectedConflict = false;
+  const acceptedClaimIds = [];
+  const protectedClaimIds = new Set();
   candidate.claims.forEach((item, index) => {
     const old = s.claims.filter(c => item.supersedes.includes(c.id));
-    if (old.some(c => c.locked || ['edited', 'confirmed'].includes(c.status))) { protectedConflict = true; return; }
+    const protectedOld = old.filter(c => c.locked || ['edited', 'confirmed'].includes(c.status));
+    if (protectedOld.length) { protectedConflict = true; protectedOld.forEach(c => protectedClaimIds.add(c.id)); return; }
     old.forEach(c => { c.archived = true; });
     const claim = { ...copy(item), id: `c${ticket.revision}_${s.callCount}_${index}`, status: 'candidate', archived: false };
     s.claims.push(claim);
+    acceptedClaimIds.push(claim.id);
     if (item.type === 'action') s.actionProposal = claim;
   });
   s.question = candidate.question; s.complete = candidate.finish;
   s.stale = protectedConflict || s.claims.some(c => !c.archived && c.status === 'stale') ||
     (s.stale && (!candidate.finish || ticket.context.allowNextStep));
   if (candidate.finish) {
-    const fresh = composeClarityReview(s, candidate.title);
+    const fresh = composeClarityReview(s, candidate.title, acceptedClaimIds);
     if (s.review) {
       // Stable block IDs preserve manual edits even when the model restates them.
+      // A refused replacement must also preserve its confirmed visible block;
+      // an empty accepted batch cannot erase the material we just protected.
+      const preserved = s.review.blocks.filter(b => b.edited || b.claimIds?.some(id => protectedClaimIds.has(id)));
       const excluded = new Set(s.removed.map(x => x.block.id));
-      fresh.blocks = fresh.blocks.filter(b => !excluded.has(b.id)).map(b => s.review.blocks.find(old => old.id === b.id && old.edited) ?? b);
-      for (const b of s.review.blocks.filter(b => b.edited && !fresh.blocks.some(n => n.id === b.id))) fresh.blocks.push(copy(b));
+      fresh.blocks = fresh.blocks.filter(b => !excluded.has(b.id)).map(b => preserved.find(old => old.id === b.id) ?? b);
+      for (const b of preserved.filter(b => !fresh.blocks.some(n => n.id === b.id))) fresh.blocks.push(copy(b));
       let mainCount = 0;
       fresh.blocks = fresh.blocks.map(b => b.group === 'main' && ++mainCount > 3 ? { ...b, group: 'details' } : b);
       fresh.blocks = fresh.blocks.slice(0, 6);
@@ -113,18 +120,25 @@ const groups = {
   moment: [['context', '这一刻', ['event']], ['insight', '我想留下的', ['insight', 'feeling', 'need']], ['unknown', '还想慢慢想的', ['unknown']]],
   choice: [['context', '我的标准', ['need', 'event']], ['insight', '关键取舍', ['tradeoff', 'insight', 'option']], ['unknown', '还缺的信息', ['unknown']]],
 };
-export function composeClarityReview(s, title = '这次的整理') {
+export function composeClarityReview(s, title = '这次的整理', finalClaimIds = null) {
   const active = s.claims.filter(c => !c.archived && c.status !== 'stale' && c.type !== 'action');
+  const finalBatch = finalClaimIds === null ? null : new Set(finalClaimIds);
   const blocks = (groups[s.modeId] ?? groups.concern).flatMap(([id, label, types]) => {
+    // A finishing response is a complete candidate report, not an interim
+    // patch. Do not resurrect an omitted old feeling, expectation or guess.
+    // Explicitly edited blocks are preserved by the review merge above.
+    const finalGroup = finalBatch
+      ? active.filter(c => finalBatch.has(c.id) && types.includes(c.type)) : [];
     // An updated feeling must not evict the actual event from the report.
     // Preserve the latest event, feeling and thought as a linked context block.
-    const selected = s.modeId === 'concern' && id === 'context'
+    const selected = finalBatch ? finalGroup : s.modeId === 'concern' && id === 'context'
       ? ['event', 'feeling', 'thought'].map(type => active.findLast(c => c.type === type)).filter(Boolean)
       : [active.findLast(c => types.includes(c.type))].filter(Boolean);
     const distinct = selected.filter((c, index) => !selected.some((other, i) => i !== index && other.text.includes(c.text) && (other.text !== c.text || i < index)));
-    return distinct.length ? [{ id, type: 'text', group: 'main', label: !s.complete && id === 'insight' ? '目前的理解' : label, text: distinct.map(c => c.text).join('\n\n'), claimIds: distinct.map(c => c.id), edited: false }] : [];
+    // Text deduplication must not discard contributing source/edit associations.
+    return distinct.length ? [{ id, type: 'text', group: 'main', label: !s.complete && id === 'insight' ? '目前的理解' : label, text: distinct.map(c => c.text).join('\n\n'), claimIds: selected.map(c => c.id), edited: false }] : [];
   });
-  if (!blocks.length) blocks.push({ id: 'context', type: 'text', group: 'main', label: '我写下的', text: s.statements.map(x => x.text).join('\n\n'), claimIds: [], edited: false });
+  if (!blocks.length && !finalBatch) blocks.push({ id: 'context', type: 'text', group: 'main', label: '我写下的', text: s.statements.map(x => x.text).join('\n\n'), claimIds: [], edited: false });
   return { title, blocks };
 }
 
