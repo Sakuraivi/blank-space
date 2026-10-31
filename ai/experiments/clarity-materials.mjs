@@ -5,6 +5,7 @@ import { checkClarityContext, CLARITY_SCHEMA_VERSION } from '../../public/clarit
 import { expressionParts, clarityTurn } from '../clarity-turn.mjs';
 import { groundingPlan } from '../clarity-grounding.mjs';
 import { validateClarityResponse } from '../clarity.mjs';
+import { runCandidate } from '../runtime.mjs';
 
 export const MATERIAL_INDEX_VERSION = 'liubai-material-index-1';
 export const MATERIAL_SELECTION_VERSION = 'liubai-material-selection-1';
@@ -150,11 +151,9 @@ export async function compileConcernSelection(value,context) {
   return compileWithIndex(selection,c,index);
 }
 
-export async function buildConcernMaterialRequest(context,profile) {
-  const c=cloneContext(context);
+function requestFromIndex(c,profile,index) {
   if(!supported(c))throw new TypeError('unsupported_material_scope');
   if(!profile || !['system','developer','instructions'].includes(profile.instructionChannel))throw new TypeError('unsupported_profile');
-  const index=await indexFromSnapshot(c);
   if(!index.anchors.some(anchor=>anchor.selectable))throw new TypeError('unsupported_no_selectable_material');
   const instruction=`你是留白。本轮只整理已经谈过的困扰，输出合法JSON，不含Markdown、工具或内部推理。question=null，finish=true，不再追问。
 用自然第一人称留下待本人确认的候选记录，不称“用户”，不代替本人确认结论。
@@ -171,4 +170,35 @@ anchorIds非空去重，只选selectable=true的真实ID，按材料原顺序，
       working:{sessionId:c.sessionId,revision:c.revision,stage:c.stage,modeId:c.modeId,goal:c.goal,dialogue:c.dialogue,claims:c.claims},
       materialIndex:{version:MATERIAL_INDEX_VERSION,selectionVersion:MATERIAL_SELECTION_VERSION,snapshotId:index.snapshotId,
         anchors:index.anchors.map(({id,sourceId,sourceKind,quote,selectable})=>({id,sourceId,sourceKind,quote,selectable}))}})}};
+}
+
+export async function buildConcernMaterialRequest(context,profile) {
+  const c=cloneContext(context),p=structuredClone(profile);
+  return requestFromIndex(c,p,await indexFromSnapshot(c));
+}
+
+// Isolated Host seam: asynchronous preparation finishes before the API reserves
+// a call. Runtime still receives a synchronous contract bound to that snapshot.
+// No credentials, network or persistence here; production does not import it.
+export async function prepareConcernMaterialRun(context,profile) {
+  const c=freeze(cloneContext(context)),p=freeze(structuredClone(profile));
+  const binding=fingerprint(c),profileBinding=JSON.stringify(p);
+  const index=await indexFromSnapshot(c);
+  const requestData=freeze(requestFromIndex(c,p,index));
+  const contract=Object.freeze({
+    buildModelRequest(current,activeProfile) {
+      if(fingerprint(cloneContext(current))!==binding || JSON.stringify(activeProfile)!==profileBinding)throw new TypeError('material_binding_changed');
+      return requestData;
+    },
+    validateCandidate(value,current) {
+      if(fingerprint(cloneContext(current))!==binding)return fail('stale_material_index');
+      return compileWithIndex(structuredClone(value),c,index);
+    },
+  });
+  return Object.freeze({requestData,async run({adapter,signal,isCurrent,timeoutMs,onValidationFailure}={}) {
+    const result=await runCandidate({context:c,contract,adapter,signal,isCurrent,timeoutMs,onValidationFailure});
+    // The private protocol is consumed entirely inside this bound compiler.
+    // The only exposed candidate is the existing public seven-field shape.
+    return result.status==='candidate'?{...result,schemaVersion:CLARITY_SCHEMA_VERSION}:result;
+  }});
 }

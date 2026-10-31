@@ -202,6 +202,24 @@
 - **WHEN** 程度夸大、条件写成决定、已撤回猜测恢复或他人感受归本人，但引用本身合法
 - **THEN** 工程编译结果只标识语义未验证；设计负对照不得计为内容成功，也不得用词句/ID命中代替语义评审
 
+### Requirement: Isolated asynchronous material preparation
+
+Host SHALL 在计费预留前完成异步材料快照准备及完整transport请求容量校验。准备结果 SHALL 捕获同一context/profile并绑定同步Runtime契约，调用方不能以run参数覆盖材料或校验器。公开body和env SHALL 不能开启私有实验协议；默认生产入口没有实验导入。
+
+私有九字段响应 SHALL 先由绑定编译器生成合法公开七字段候选，仅成功结果归一公开schema元数据，不泄露私有引用trace。实验请求的精确内容 SHALL 进入账本digest。准备、解密、摘要、来源复查之后且预留之前已取消的请求 SHALL 拒绝；已派发的取消可能计费，晚响应仍不得应用。
+
+#### Scenario: Caller changes the snapshot or model profile
+- **WHEN** await期间原context/profile被改动，或run传入另一context/contract/profile
+- **THEN** 准备只使用捕获快照，run不能覆盖绑定；profile不符时在模型派发前拒绝，由实际生命周期检查决定旧快照是否仍可运行
+
+#### Scenario: Cancellation or source change during preparation
+- **WHEN** 材料准备、密钥解密、摘要或来源复查等待时请求被取消，或默认源改变
+- **THEN** 已知取消和源变化在预留前拒绝，模型不派发；输入超容量或不支持场景同样不预留
+
+#### Scenario: Controlled live finalization evaluation
+- **WHEN** 在隔离预览使用固定H06/H03/H08合成材料各进行一次收尾
+- **THEN** 保留成功和失败的原输出与实际用量，不自动重试；协议、保存与语义分别验收，不将受控concern收尾称为场景路由、完整对话或真人体验通过
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。

@@ -1,5 +1,7 @@
 ## Context
 
+以下保留核心设计背景，最新生产发布状态见[beta-release.md](beta-release.md)，本轮隔离模型实验不等于生产已启用。
+
 设计日期：2026-10-31。版本：核心设计 r4，聚焦拆解与陪伴，塔罗移出本期。保留 r3 的简约交互、可见的拆解推进和具体陪伴。用户“下一步”后已实施本地核心切片；未发布、未通过新版无指导用户验证。当前实现与真实样本发现见 [implementation-review.md](implementation-review.md)。动机见 [proposal.md](proposal.md)。完整示例见 [experience-script.md](experience-script.md)，验收方法见 [acceptance.md](acceptance.md)。
 
 ### 当前字体：圆润的日记感（2026-11-01）
@@ -213,6 +215,14 @@ Write --> One question at a time --> Short review --> Confirm + save
 #### 2026-11-01 增量：收尾事实段的纠正检查
 
 离线原句引用实验复现了原校验的分支漏洞：concern收尾event的精确摘录或前缀重建跳过`repeatsDenied`，能把已明确纠正的本人旧感受重新带回。`clarity-grounding-4`将既有检查统一放到每条claim处理之后，不增加词表或新的语义规则。嵌套引号的`outsideQuotes`同步采用与原句扫描一致的引号栈，保留第三方引号内的情绪与纠正原词，同时检查真正位于外引号之后的本人表达。
+
+#### 2026-11-01 增量：隔离真实模型的准备与编译适配
+
+`prepareConcernMaterialRun`在await之前捕获并冻结context/profile，准备完成后返回同一不可变requestData及run。run的同步contract绑定材料与profile，调用方不能覆盖context/contract；仍使用原Runtime的取消、超时和晚响应检查。私有九字段只有编译成功才归一为公开七字段及公开schemaVersion，不向API返回selectionTrace。
+
+API仅增加内部函数参数prepareClarityRun，在解密及额度预留前完成异步准备和精确容量校验；公开body和env不能选择实验。实验精确requestData进入账本digest，无钩子时旧协议及digest保持。准备、解密、摘要、来源复查后的取消均在reserve前拒绝；已派发后仍可能计费，不宣称取消必然免费。
+
+真实模型首批只做H06/H03/H08各一次受控concern/review收尾，无自动重试，不追加总结调用；不验证通用场景识别、完整对话、追问或真人陪伴感。隔离入口只接受固定合成case，使用同名Worker远程临时预览及现有共享源/账本，不向本机导出Key，不修改默认服务或生产流量。每例分别保留原选择、公开候选、数值用量、状态合并及保存读回，再按冻结的语义要求独立评审；引用通过不能算语义通过。
 
 该修复只补齐已定义的窄范围文字校验，不声明能识别所有改写、同义感受或复杂撤回。原始表达不修改，不进行额外模型调用或自动付费修复。新的句级选择协议仍作为独立离线实验，未接入本次生产路径。
 

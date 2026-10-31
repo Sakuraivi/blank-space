@@ -107,7 +107,7 @@ async function authorizeAdmin(request, env, { readOnly = false } = {}) {
   return config?.admin_user_id === id ? { id, config } : null;
 }
 
-export async function handleApi(request, env, { fetchImpl = globalThis.fetch, now = () => Date.now() } = {}) {
+export async function handleApi(request, env, { fetchImpl = globalThis.fetch, now = () => Date.now(), prepareClarityRun } = {}) {
   const requestTiming = createRequestTiming();
   try {
     const url = new URL(request.url), path = url.pathname;
@@ -179,20 +179,32 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     const route = body.sourceMode === 'personal' ? getPersonalRoute(body.providerId, body.modelId) : source.route;
     if (!route) return fallback('unsupported_model');
     if (!validId(body.requestId) || !validId(body.session?.id) || !['reflect', 'review'].includes(body.stage) || !Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.allowNextStep !== 'boolean') return fallback('invalid_request');
-    let context, requestData;
+    let context, requestData, preparedClarity;
     try {
       context = (isClarity ? buildClarityContext : buildContext)({ session: body.session, revision: body.revision, stage: body.stage, questionsAsked: body.session.turns?.length ?? 0, allowNextStep: body.allowNextStep });
-      requestData = (isClarity ? buildClarityModelRequest : buildModelRequest)(context, route.profile);
+      // Internal dependency injection only: no request field or environment
+      // flag selects a different model contract. Production supplies no hook.
+      // Async preparation and exact transport capacity checks precede billing.
+      if (isClarity && prepareClarityRun !== undefined) {
+        if (typeof prepareClarityRun !== 'function') throw new TypeError('invalid_preparation');
+        preparedClarity = await prepareClarityRun(context, route.profile);
+        if (!preparedClarity || typeof preparedClarity.run !== 'function') throw new TypeError('invalid_preparation');
+        requestData = preparedClarity.requestData;
+      } else requestData = (isClarity ? buildClarityModelRequest : buildModelRequest)(context, route.profile);
       prepareProviderRequest(requestData, route);
     } catch { return fallback('input_too_large_or_invalid'); }
     if (request.signal.aborted) return fallback('inactive', 409);
     const apiKey = personalApiKey || (source.type === 'environment' ? source.key : await decryptKey(source, env.LIUBAI_SECRET_KEY));
+    if (request.signal.aborted) return fallback('inactive', 409);
     if (!validKey(apiKey)) return fallback('default_unavailable', 503);
     const ledger = createLedger(env.DB, { ...(source?.type === 'organizer' ? { sharedLimits: source.sharedLimits } : {}), ...(isClarity ? { sessionCalls:null } : {}) });
     const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId,
       ...(source?.type === 'organizer' ? { defaultRevision: source.revision } : {}) };
-    const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) }));
+    const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute,
+      ...(isClarity ? { flow: 'clarity-v2' } : {}), ...(preparedClarity ? { preparedRequest: requestData } : {}) }));
+    if (request.signal.aborted) return fallback('inactive', 409);
     if (source && !sameSource(source, (await currentDefault(env, now)).source)) return fallback('config_changed', 409);
+    if (request.signal.aborted) return fallback('inactive', 409);
     const reservation = await ledger.reserve({ requestId: body.requestId, sessionId: body.session.id,
       digest: requestDigest, configVersion: body.configVersion,
       sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId, priceVersion: route.priceVersion,
@@ -211,12 +223,15 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
         if (response.status === 'failed' && SAFE_PROVIDER_REASONS.has(response.reason)) providerReason = response.reason;
         return response;
       } };
-      result = await runCandidate({ context,
+      const runtimeOptions = {
         adapter,
-        ...(isClarity ? { contract: clarityContract, onValidationFailure: detail => {
+        ...(isClarity ? { onValidationFailure: detail => {
           if (isClarityValidationDetail('invalid_claim', detail) || isClarityValidationDetail('invalid_shape', detail)) validationDetail = detail;
         } } : {}),
-        signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
+        signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 };
+      result = preparedClarity
+        ? await preparedClarity.run(runtimeOptions)
+        : await runCandidate({ context, ...runtimeOptions, ...(isClarity ? { contract: clarityContract } : {}) });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
     if (isClarity) requestTiming.endModel();
