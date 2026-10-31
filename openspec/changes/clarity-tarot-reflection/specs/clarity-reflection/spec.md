@@ -274,6 +274,20 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 用户只否定极端说法，或仍在弄清是否如此、哪个选项、程度或原因
 - **THEN** 模型分析不得把非禁止加强为肯定意愿/许可，也不得把未决对象偷换为原因；原话保留或引用合法不能抵消title/reply/analysis的语义偏移，旧版本真实失败保持可追溯
 
+### Requirement: Host-scoped duration surface provenance
+
+隔离个人复盘实验 SHALL 由Host固定purpose，不能让模型通过modeId自行豁免。可识别的小时/分钟原形 SHALL 在原生候选所有文字字段和规范化后候选分别检查，保留完整源span及限定，不换算、加总、删句或改数值。源unsupported在模型和计费前退出，新增/unsupported输出不得进入状态或触发自动重试。
+
+此检查 SHALL 明确标注仅duration_surface_forms_only，semanticTruth/attribution未核。相同原形不证明当前值、事件/他人归属、每次与总计、条件或心理解释正确；知识scope由Host另行声明not_applicable，不可算检查通过。有限文法之外的覆盖边界和误拒必须进入证据，不宣称全语言事实验证。
+
+#### Scenario: A plausible but invented duration is returned
+- **WHEN** 原话为两次各半小时，而reply/title/goal/question或claim出现无源的两小时
+- **THEN** 新个人检查拒绝候选，保留原文和原始失败，既有规范化不能先删掉该字段来绕过检查；不替用户改成正确合计或自动重试
+
+#### Scenario: The same surface belongs to another event
+- **WHEN** 错误归属或错误总量仍使用源中已有的同形时长
+- **THEN** 原形检查可通过，但结果保持语义/归属unverified，内容评审仍应独立失败，不提升为事实正确
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。
