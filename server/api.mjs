@@ -1,6 +1,6 @@
 import { buildContext, buildModelRequest } from '../ai/contract.mjs';
 import { runCandidate } from '../ai/runtime.mjs';
-import { getRoute, publicProviders, PRICE_VALID_UNTIL } from '../ai/providers.mjs';
+import { getRoute, getPersonalRoute, publicProviders, PRICE_VALID_UNTIL } from '../ai/providers.mjs';
 import { createProviderAdapter, prepareProviderRequest } from '../ai/provider-transport.mjs';
 import { createLedger } from '../ai/ledger.mjs';
 import { encryptKey, decryptKey, digest } from './secrets.mjs';
@@ -8,7 +8,7 @@ import { recordAiResult } from './diagnostics.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
-export const PUBLIC_CONFIG_VERSION = 'multi-v1';
+export const PUBLIC_CONFIG_VERSION = 'multi-flex-v1';
 export { PRICE_VALID_UNTIL };
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -45,12 +45,12 @@ function sameSource(a, b) {
 }
 
 async function safetyStopped(db) {
-  // outcome=error persists an unsafe usage report even when its numbers exceed
-  // the ledger's storage bounds. Environment keys and BYOK cannot reset it.
+  // Shared unsafe usage persists even when numbers exceed storage bounds.
+  // A caller's personal model cannot poison the shared service's cost stop.
   return !!await db.prepare(`SELECT 1 AS stopped FROM pilot_requests
-    WHERE outcome = 'error' OR (price_version IS NULL AND source_mode = 'default' AND
+    WHERE source_mode = 'default' AND (outcome = 'error' OR (price_version IS NULL AND
       (prompt_tokens > 13000 OR completion_tokens > 1000
-      OR prompt_tokens * 2 + completion_tokens * 8 > 50000)) LIMIT 1`).first();
+      OR prompt_tokens * 2 + completion_tokens * 8 > 50000))) LIMIT 1`).first();
 }
 
 async function readJson(request, maxBytes = 24000) {
@@ -73,12 +73,13 @@ async function readJson(request, maxBytes = 24000) {
   } finally { reader.releaseLock(); }
 }
 
-async function authorizeAdmin(request, env) {
+async function authorizeAdmin(request, env, { readOnly = false } = {}) {
   const id = request.headers.get('oai-authenticated-user-id');
   const email = request.headers.get('oai-authenticated-user-email');
   if (!id || !email) return null;
   let config = await configRow(env.DB);
   if (config?.admin_user_id) return config.admin_user_id === id ? { id, config } : null;
+  if (readOnly) return null;
   // Bootstrap only the configured Site owner's platform-authenticated account;
   // after binding, the Site-scoped stable ID is the authorization identity.
   if (!env.LIUBAI_BOOTSTRAP_EMAIL || email.toLowerCase() !== env.LIUBAI_BOOTSTRAP_EMAIL.toLowerCase()) return null;
@@ -90,12 +91,16 @@ async function authorizeAdmin(request, env) {
 
 export async function handleApi(request, env, { fetchImpl = globalThis.fetch, now = () => Date.now() } = {}) {
   try {
-    if (!env.DB) return fallback('service_unconfigured', 503);
     const url = new URL(request.url), path = url.pathname;
+    const maintenance = env.LIUBAI_MAINTENANCE === '1';
+    // Freeze inference and configuration writes before reading bodies or DB.
+    // This runtime switch is independent of the legacy default-key setting.
+    if (maintenance && (path === '/api/ai/generate' || (path.startsWith('/api/admin/') && request.method !== 'GET'))) return fallback('maintenance', 503);
+    if (!env.DB) return fallback('service_unconfigured', 503);
     if (!['GET', 'POST', 'DELETE'].includes(request.method)) return fallback('method_not_allowed', 405);
     if (request.method !== 'GET' && (request.headers.get('origin') !== url.origin || request.headers.get('sec-fetch-site') === 'cross-site')) return fallback('origin_rejected', 403);
     if (path.startsWith('/api/admin/')) {
-      const admin = await authorizeAdmin(request, env);
+      const admin = await authorizeAdmin(request, env, { readOnly: maintenance });
       if (!admin) return fallback('admin_required', 403);
       if (path === '/api/admin/status' && request.method === 'GET') {
         const stats = await createLedger(env.DB).stats();
@@ -125,7 +130,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (path === '/api/ai/status' && request.method === 'GET') {
       const config = await configRow(env.DB), stats = await createLedger(env.DB).stats();
       const source = defaultSource(config, env), defaultAvailable = !!source;
-      const reason = now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : await safetyStopped(env.DB) ? 'usage_out_of_bounds' : null;
+      const reason = maintenance ? 'maintenance' : now() >= PRICE_VALID_UNTIL ? 'pricing_expired' : await safetyStopped(env.DB) ? 'usage_out_of_bounds' : null;
       const defaultReason = reason || (!source ? 'default_unavailable' : stats.remainingCalls <= 0 || stats.remainingBudgetMicros < source.route.reserveMicros ? 'budget_exhausted' : null);
       return response({ enabled: reason === null, configVersion: PUBLIC_CONFIG_VERSION, consentVersion: CONSENT_VERSION,
         providers: publicProviders(), defaultProfile: publicProfile(source?.route), personalKeySupported: true, defaultAvailable,
@@ -140,7 +145,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (!['default', 'personal'].includes(body.sourceMode)) return fallback('invalid_source');
     if (['baseUrl', 'endpoint', 'apiUrl'].some(key => body[key] !== undefined)) return fallback('invalid_request');
     if (!publicProviders().some(p => p.id === body.providerId)) return fallback('unsupported_provider');
-    const route = getRoute(body.providerId, body.modelId);
+    const route = body.sourceMode === 'personal' ? getPersonalRoute(body.providerId, body.modelId) : getRoute(body.providerId, body.modelId);
     if (!route) return fallback('unsupported_model');
     if (body.personalApiKey !== undefined && typeof body.personalApiKey !== 'string') return fallback('invalid_personal_key');
     const personalApiKey = body.personalApiKey?.trim() ?? '';
@@ -181,7 +186,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
     // Already dispatched inference may be billed even after cancellation.
-    await ledger.finish(body.requestId, { outcome: unsafeUsage(usage, route) || result.reason === 'usage_out_of_bounds' ? 'error' : result.status, usage, now: now() });
+    await ledger.finish(body.requestId, { outcome: (body.sourceMode === 'default' && unsafeUsage(usage, route)) || result.reason === 'usage_out_of_bounds' ? 'error' : result.status, usage, now: now() });
     if (await safetyStopped(env.DB)) {
       recordAiResult({ requestId: body.requestId, stage: body.stage, status: 'fallback', reason: 'usage_out_of_bounds', ...responseRoute });
       return fallback('usage_out_of_bounds', 503);

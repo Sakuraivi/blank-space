@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getRoute, publicProviders, PRICE_VALID_UNTIL } from './providers.mjs';
+import { getRoute, getPersonalRoute, isTrustedRoute, publicProviders, PRICE_VALID_UNTIL } from './providers.mjs';
 
 test('public catalog exposes four complete selections without private endpoints or mutable objects', () => {
   const catalog = publicProviders();
   assert.deepEqual(catalog.map(p => p.id), ['deepseek', 'kimi', 'glm', 'openai']);
   assert.ok(Object.isFrozen(catalog));
   for (const provider of catalog) {
-    assert.deepEqual(Object.keys(provider).sort(), ['defaultModelId', 'id', 'keyHelp', 'label', 'models']);
+    assert.deepEqual(Object.keys(provider).sort(), ['allowCustomModels', 'defaultModelId', 'id', 'keyHelp', 'label', 'models']);
+    assert.equal(provider.allowCustomModels, true);
     assert.equal(provider.models.length, 1);
     assert.equal(provider.models[0].id, provider.defaultModelId);
     assert.ok(provider.label && provider.keyHelp && provider.models[0].note);
@@ -15,6 +16,28 @@ test('public catalog exposes four complete selections without private endpoints 
   }
   assert.doesNotMatch(JSON.stringify(catalog), /https:|apiKey|Authorization|reserveMicros/);
   assert.throws(() => { catalog[0].models[0].id = 'other'; }, TypeError);
+});
+
+test('personal model IDs get only server-issued fixed-provider routes and no shared price', () => {
+  for (const provider of publicProviders()) {
+    const modelId = 'ft:future-text-model:team:review-1';
+    const route = getPersonalRoute(provider.id, modelId);
+    assert.ok(isTrustedRoute(route));
+    assert.ok(Object.isFrozen(route) && Object.isFrozen(route.profile));
+    assert.equal(route.endpoint, getRoute(provider.id, provider.defaultModelId).endpoint);
+    assert.equal(route.modelId, modelId);
+    assert.equal(route.transportMode, 'generic-chat');
+    assert.equal(route.profile.instructionChannel, 'system');
+    assert.equal(route.reserveMicros, 0);
+    assert.equal(route.inputRateCnyPerMillion, null);
+    assert.equal(route.outputRateCnyPerMillion, null);
+    assert.equal(route.priceVersion, 'personal-unpriced-v1');
+    assert.equal(getRoute(provider.id, modelId), null);
+    assert.equal(isTrustedRoute({ ...route }), false);
+    assert.equal(getPersonalRoute(provider.id, provider.defaultModelId), getRoute(provider.id, provider.defaultModelId));
+  }
+  for (const id of ['', ' spaced ', 'bad\nmodel', 'https://attacker.invalid/model', 'model?key=private', 'a'.repeat(101), null, {}]) assert.equal(getPersonalRoute('openai', id), null);
+  assert.equal(getPersonalRoute('__proto__', 'valid-model'), null);
 });
 
 test('unknown provider/model pairs and cross-provider model selection never grant a route', () => {

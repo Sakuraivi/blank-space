@@ -1,9 +1,9 @@
-import { getRoute } from './providers.mjs';
+import { isTrustedRoute } from './providers.mjs';
 
 export const MAX_RESPONSE_BYTES = 128 * 1024;
 export const MAX_ERROR_BYTES = 4096;
 const encoder = new TextEncoder();
-const trustedRoute = route => !!route && getRoute(route.providerId, route.modelId) === route;
+const trustedRoute = isTrustedRoute;
 
 export function prepareProviderRequest(request, route) {
   if (!trustedRoute(route)) throw new TypeError('invalid_route');
@@ -19,9 +19,17 @@ export function prepareProviderRequest(request, route) {
       { role: route.profile.instructionChannel, content: request.instruction.text },
       { role: 'user', content: request.input.content },
     ],
-    stream: false, response_format: { type: 'json_object' },
+    stream: false,
   };
-  if (route.providerId === 'kimi') {
+  if (route.transportMode === 'generic-chat') {
+    // A custom ID does not prove support for vendor/model-specific options.
+    // The common platform instruction still requires JSON, and the same
+    // candidate validator checks the result before it can reach the UI.
+    if (route.providerId === 'openai') {
+      body.max_completion_tokens = route.maxOutputTokens;
+      body.store = false;
+    } else body.max_tokens = route.maxOutputTokens;
+  } else if (route.providerId === 'kimi') {
     body.reasoning_effort = 'low';
     body.max_completion_tokens = route.maxOutputTokens;
     body.prompt_cache_options = { mode: 'implicit', ttl: '5m' };
@@ -34,6 +42,7 @@ export function prepareProviderRequest(request, route) {
     body.thinking = { type: 'disabled' };
     body.max_tokens = route.maxOutputTokens;
   }
+  if (route.transportMode !== 'generic-chat') body.response_format = { type: 'json_object' };
   const serialized = JSON.stringify(body);
   const byteLength = encoder.encode(serialized).byteLength;
   if (byteLength > route.maxRequestBytes) throw new RangeError('input_too_large');
@@ -161,7 +170,7 @@ export function createProviderAdapter({ route, apiKey, fetchImpl = globalThis.fe
             (message.tool_calls !== undefined && (!Array.isArray(message.tool_calls) || message.tool_calls.length)) ||
             (message.refusal !== undefined && message.refusal !== null && message.refusal !== '') ||
             (message.reasoning_content !== undefined && message.reasoning_content !== null &&
-              (typeof message.reasoning_content !== 'string' || (route.providerId !== 'kimi' && message.reasoning_content !== '')))) {
+              (typeof message.reasoning_content !== 'string' || (route.providerId !== 'kimi' && route.transportMode !== 'generic-chat' && message.reasoning_content !== '')))) {
           return { status: 'failed', reason: 'invalid_response' };
         }
         return { status: 'completed', output: JSON.parse(message.content) };

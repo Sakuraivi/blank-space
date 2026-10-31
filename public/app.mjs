@@ -1,6 +1,6 @@
 import { MODES, CARDS, createSession, makeReview, validateSavedRecord, shouldWarnBeforeUnload, aiEvidence, validateUiCandidate, makeAiReview, confirmedRecord, aiRequestSession, acceptsAiReply } from './core.mjs';
 import { createPersonalKeyPreference } from './personal-key.mjs';
-import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, sameAiRoute, aiErrorMessage as providerErrorMessage } from './ai-settings.mjs';
+import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage as providerErrorMessage } from './ai-settings.mjs';
 import { ENTRY_TOPICS, STORY_STARTERS, STORY_PLACEHOLDERS, EXAMPLE_LETTER } from './entry-content.mjs';
 import { canChooseStoryMethod, createStoryMethodGate } from './story-method.mjs';
 
@@ -76,14 +76,19 @@ function storyMethodMarkup(){
   const note=locked?'已进入整理流程。若需更换整理方式，请结束本次后重新开始。':state.ai.credentialExpired?'离开页面后个人 Key 已清除。你可以重新选择 AI 完成设置，或继续轻引导。':hasAI()?`已选择 ${aiSourceLabel()}。在后续追问前才会发送本次表达。`:'先写下你愿意表达的部分。轻引导按原话整理；AI 方式会先请你确认发送和费用。';
   return `<fieldset class="story-method" aria-describedby="story-method-note" ${locked?'disabled':''}><legend>这次，想怎么整理？</legend><div class="story-method-options"><button type="button" class="story-method-option" data-action="story-local" aria-pressed="${!hasAI()}"><strong>轻引导</strong><small>跟着几个问题，按原话整理</small></button><button type="button" class="story-method-option" data-action="story-ai" aria-pressed="${hasAI()}"><strong>AI 陪我整理</strong><small>让 AI 温和追问，再由你确认</small></button></div></fieldset><p class="story-method-note" id="story-method-note">${e(note)}</p>`;
 }
+function aiCustomModelField(){
+  const draft=aiSettingsDraft;const provider=aiStatus.providers.find(value=>value.id===draft?.providerId);
+  if(draft?.modelMode!=='custom'||provider?.allowCustomModels!==true)return '';
+  return `<label class="field-label" for="ai-custom-model">模型 ID</label><input id="ai-custom-model" class="ai-model-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" aria-describedby="ai-custom-model-help" placeholder="填写服务商的文本对话模型 ID" value="${e(draft.modelId)}" ${aiConfigurationLocked()?'disabled':''}><p id="ai-custom-model-help" class="gentle-note">请使用支持文本 Chat Completions 的模型，具体可用性由服务商决定。</p>`;
+}
 function aiSettingsFields(){
   const draft=aiSettingsDraft;const locked=aiConfigurationLocked();const disabled=locked?'disabled':'';
   if(!draft)return '';
   if(draft.sourceMode==='default'){
     return `<div class="ai-default-summary"><p>${aiStatus.defaultEnabled?'费用由组织者承担，无需填写 Key。':'默认 AI 暂未开放。可以使用个人 Key，或继续轻引导。'}</p></div>`;
   }
-  const provider=aiStatus.providers.find(value=>value.id===draft.providerId);
-  return `<div class="ai-provider-grid"><div><label class="field-label" for="ai-provider">服务商</label><select class="ai-select" id="ai-provider" ${disabled}>${aiStatus.providers.map(value=>`<option value="${e(value.id)}" ${value.id===draft.providerId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div><div><label class="field-label" for="ai-model">模型</label><select class="ai-select" id="ai-model" ${disabled}>${(provider?.models??[]).map(value=>`<option value="${e(value.id)}" ${value.id===draft.modelId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div></div><div class="ai-key-heading"><label class="field-label" for="personal-key">API Key</label>${personalKey.hasKey()?`<button type="button" class="ai-key-remove" data-action="clear-personal-key" ${disabled}>移除本页 Key</button>`:''}</div><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="provider-key-help personal-key-help personal-key-cost" placeholder="${draft.retainExisting&&personalKey.hasKey()?'本页已填写；留空保留':'填写所选服务商的 API Key'}" ${disabled}><p id="provider-key-help" class="gentle-note">${e(provider?.keyHelp||'请填写所选服务商官方平台的 API Key。')}</p><p id="personal-key-help" class="gentle-note">Key 仅在本页临时使用，刷新或离开即清除；调用时经留白发送给 ${e(provider?.label||'所选服务商')}，不保存在记录中。</p><p id="personal-key-cost" class="gentle-note">费用由你的服务商账户承担，失败或超时也可能计费。</p>`;
+  const provider=aiStatus.providers.find(value=>value.id===draft.providerId);const custom=draft.modelMode==='custom';
+  return `<div class="ai-provider-grid"><div><label class="field-label" for="ai-provider">服务商</label><select class="ai-select" id="ai-provider" ${disabled}>${aiStatus.providers.map(value=>`<option value="${e(value.id)}" ${value.id===draft.providerId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div><div><label class="field-label" for="ai-model">模型</label><select class="ai-select" id="ai-model" ${disabled}>${(provider?.models??[]).map(value=>`<option value="${e(value.id)}" ${!custom&&value.id===draft.modelId?'selected':''}>${e(value.label)}</option>`).join('')}${provider?.allowCustomModels?`<option value="${CUSTOM_MODEL_OPTION}" ${custom?'selected':''}>填写其他模型 ID</option>`:''}</select></div></div><div id="ai-custom-model-field">${aiCustomModelField()}</div><div class="ai-key-heading"><label class="field-label" for="personal-key">API Key</label>${personalKey.hasKey()?`<button type="button" class="ai-key-remove" data-action="clear-personal-key" ${disabled}>移除本页 Key</button>`:''}</div><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="provider-key-help personal-key-help personal-key-cost" placeholder="${draft.retainExisting&&personalKey.hasKey()?'本页已填写；留空保留':'填写所选服务商的 API Key'}" ${disabled}><p id="provider-key-help" class="gentle-note">${e(provider?.keyHelp||'请填写所选服务商官方平台的 API Key。')}</p><p id="personal-key-help" class="gentle-note">Key 仅在本页临时使用，刷新或离开即清除；调用时经留白发送给 ${e(provider?.label||'所选服务商')}，不保存在记录中。</p><p id="personal-key-cost" class="gentle-note">费用由你的服务商账户承担，失败或超时也可能计费。</p>`;
 }
 function renderAiSettingsFields(){const fields=document.querySelector('#ai-source-fields');if(fields)fields.innerHTML=aiSettingsFields();document.querySelector('#key-settings-error')?.replaceChildren();}
 async function aiSettings(resumeStoryAi=false){
@@ -248,9 +253,9 @@ document.addEventListener('submit',async event=>{
   if(event.target.id==='ai-settings-form'){
     event.preventDefault();if(aiConfigurationLocked()||!aiSettingsDraft)return;
     const sourceMode=event.target.querySelector('[name="sourceMode"]:checked')?.value;
-    const draft={...aiSettingsDraft,sourceMode,providerId:event.target.querySelector('#ai-provider')?.value??aiSettingsDraft.providerId,modelId:event.target.querySelector('#ai-model')?.value??aiSettingsDraft.modelId,apiKey:event.target.querySelector('#personal-key')?.value??''};
+    const draft={...aiSettingsDraft,sourceMode,providerId:event.target.querySelector('#ai-provider')?.value??aiSettingsDraft.providerId,modelId:event.target.querySelector('#ai-custom-model')?.value??event.target.querySelector('#ai-model')?.value??aiSettingsDraft.modelId,apiKey:event.target.querySelector('#personal-key')?.value??''};
     const result=personalKey.apply(draft,aiStatus.providers);
-    if(!result.ok){document.querySelector('#key-settings-error').textContent=result.reason==='missing_personal_key'?'请填写所选服务商的 API Key。已应用的配置没有改变。':result.reason==='invalid_personal_key'?'Key 需为 16–256 位英文可打印字符，不能包含空格。已应用的配置没有改变。':'服务商或模型不可用，请重新选择。已应用的配置没有改变。';return;}
+    if(!result.ok){document.querySelector('#key-settings-error').textContent=result.reason==='missing_personal_key'?'请填写所选服务商的 API Key。已应用的配置没有改变。':result.reason==='invalid_personal_key'?'Key 需为 16–256 位英文可打印字符，不能包含空格。已应用的配置没有改变。':'服务商或模型 ID 不可用。ID 需为 1–100 位英文字母、数字或 _ . / : -，不能填写网址或空格。已应用的配置没有改变。';return;}
     const resume=Boolean(aiSettingsResume&&storyMethodGate.isCurrent(aiSettingsResume,state));
     capture();closeModal();if(state.screen==='home'||state.screen==='story')render();notify(personalKey.hasKey()?'个人服务已应用到本页；尚未调用模型。':'已选择组织者默认服务；尚未调用模型。');if(resume)await aiConsent();return;
   }
@@ -273,10 +278,10 @@ document.addEventListener('change',event=>{
   }else if(event.target.id==='ai-provider'){
     clearSensitiveInputs();aiSettingsDraft=changeAiSettingsProvider(aiSettingsDraft,event.target.value,aiStatus);renderAiSettingsFields();document.querySelector('#ai-provider')?.focus();
   }else if(event.target.id==='ai-model'){
-    aiSettingsDraft={...aiSettingsDraft,modelId:event.target.value,retainExisting:false};document.querySelector('#personal-key')?.setAttribute('placeholder','填写所选服务商的 API Key');
+    aiSettingsDraft=changeAiSettingsModel(aiSettingsDraft,event.target.value,aiStatus);document.querySelector('#ai-custom-model-field').innerHTML=aiCustomModelField();document.querySelector('#personal-key')?.setAttribute('placeholder','填写所选服务商的 API Key');document.querySelector('#key-settings-error')?.replaceChildren();document.querySelector('#ai-custom-model')?.focus();
   }
 });
-document.addEventListener('input',event=>{if(state.session && (['entry','ai-correction','ai-allow-step','review-title'].includes(event.target.id)||event.target.hasAttribute('data-review-index')))invalidateAI();if(event.target.id==='entry'){document.querySelector('#char-count').textContent=`${event.target.value.length} / ${event.target.maxLength}`;document.querySelector('#input-error')?.replaceChildren();}if(event.target.closest('#feedback-form'))feedbackDraft=Object.fromEntries(new FormData(document.querySelector('#feedback-form')));});
+document.addEventListener('input',event=>{if(event.target.id==='ai-custom-model'&&aiSettingsDraft&&!aiConfigurationLocked()){aiSettingsDraft={...aiSettingsDraft,modelId:event.target.value,retainExisting:false};document.querySelector('#personal-key')?.setAttribute('placeholder','填写所选服务商的 API Key');document.querySelector('#key-settings-error')?.replaceChildren();}if(state.session && (['entry','ai-correction','ai-allow-step','review-title'].includes(event.target.id)||event.target.hasAttribute('data-review-index')))invalidateAI();if(event.target.id==='entry'){document.querySelector('#char-count').textContent=`${event.target.value.length} / ${event.target.maxLength}`;document.querySelector('#input-error')?.replaceChildren();}if(event.target.closest('#feedback-form'))feedbackDraft=Object.fromEntries(new FormData(document.querySelector('#feedback-form')));});
 document.addEventListener('click',async event=>{
  const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
  if(action==='enter-topic')start(button.dataset.mode);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { getRoute, publicProviders } from './providers.mjs';
+import { getRoute, getPersonalRoute, publicProviders } from './providers.mjs';
 import { prepareProviderRequest, createProviderAdapter, MAX_RESPONSE_BYTES, MAX_ERROR_BYTES } from './provider-transport.mjs';
 import { buildContext, buildModelRequest } from './contract.mjs';
 import { runCandidate } from './runtime.mjs';
@@ -64,6 +64,33 @@ test('request validation rejects mismatched routes, channels and UTF-8 overflow 
     assert.throws(() => prepareProviderRequest(base, { ...route }), /invalid_route/);
   }
   assert.equal(calls, 0);
+});
+
+test('custom personal IDs use the common policy and generic chat options without assuming model capabilities', async () => {
+  const instructions = new Set();
+  for (const provider of publicProviders()) {
+    const route = getPersonalRoute(provider.id, 'future-text-model');
+    const prepared = JSON.parse(prepareProviderRequest(request(route), route).body);
+    instructions.add(prepared.messages[0].content);
+    assert.equal(prepared.messages[0].role, 'system');
+    assert.match(prepared.messages[0].content, /JSON/);
+    for (const option of ['reasoning_effort', 'thinking', 'prompt_cache_options', 'response_format', 'service_tier']) assert.equal(prepared[option], undefined);
+    assert.equal(prepared.model, 'future-text-model');
+    assert.equal(prepared[provider.id === 'openai' ? 'max_completion_tokens' : 'max_tokens'], route.maxOutputTokens);
+    if (provider.id === 'openai') assert.equal(prepared.store, false);
+    assert.throws(() => prepareProviderRequest(request(route), { ...route, endpoint: 'https://attacker.invalid' }), /invalid_route/);
+    let calls = 0;
+    const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async (url, options) => {
+      calls++; assert.equal(url, route.endpoint); assert.equal(options.redirect, 'manual');
+      return response(completion({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(candidate), reasoning_content: 'PRIVATE_THINKING' } }] }));
+    } });
+    const result = await runCandidate({ context: context(), adapter, isCurrent: () => true });
+    assert.equal(result.status, 'candidate');
+    assert.deepEqual(result.candidate, candidate);
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_THINKING/);
+    assert.equal(calls, 1);
+  }
+  assert.equal(instructions.size, 1);
 });
 
 test('every transport makes one fixed authenticated request, reports numeric usage and passes the common runtime validator', async () => {
@@ -301,18 +328,18 @@ test('invalid key and adapter options are rejected with fixed messages', () => {
   assert.throws(() => createProviderAdapter({ route, apiKey, onUsage: {} }), /invalid_adapter_options/);
 });
 
-test('all four adapters use Workerd-compatible manual fetch and reject 302 without a second outbound request', { timeout: 30000 }, async t => {
+test('known and custom personal routes use Workerd-compatible manual fetch and reject 302 without a second outbound request', { timeout: 30000 }, async t => {
   const { Miniflare, Response: WorkerResponse } = await import('miniflare');
   const paths = ['providers.mjs', 'provider-transport.mjs'];
   let mode = 'success'; const calls = [];
   const worker = new Miniflare({
     modulesRoot: fileURLToPath(new URL('./', import.meta.url)), compatibilityDate: '2026-05-01', cf: false,
     modules: [{ type: 'ESModule', path: fileURLToPath(new URL('./provider-workerd-test-entry.mjs', import.meta.url)), contents: `
-      import { getRoute } from './providers.mjs';
+      import { getRoute, getPersonalRoute } from './providers.mjs';
       import { createProviderAdapter } from './provider-transport.mjs';
       export default { async fetch(incoming) {
         const params = new URL(incoming.url).searchParams;
-        const route = getRoute(params.get('provider'), params.get('model'));
+        const route = params.get('source') === 'personal' ? getPersonalRoute(params.get('provider'), params.get('model')) : getRoute(params.get('provider'), params.get('model'));
         const adapter = createProviderAdapter({ route, apiKey: ${JSON.stringify(apiKey)} });
         const request = ${JSON.stringify(request(routes[0]))};
         request.providerId = route.providerId; request.modelId = route.modelId; request.instruction.channel = route.profile.instructionChannel;
@@ -327,9 +354,10 @@ test('all four adapters use Workerd-compatible manual fetch and reject 302 witho
     },
   });
   t.after(() => worker.dispose());
-  for (const route of routes) for (const testMode of ['success', 'redirect']) {
+  const cases = [...routes.map(route => ({ route, source: 'default' })), ...publicProviders().map(provider => ({ route: getPersonalRoute(provider.id, 'future-custom-chat-model'), source: 'personal' }))];
+  for (const { route, source } of cases) for (const testMode of ['success', 'redirect']) {
     mode = testMode; calls.length = 0;
-    const result = await worker.dispatchFetch(`https://worker.test/?provider=${route.providerId}&model=${route.modelId}`);
+    const result = await worker.dispatchFetch(`https://worker.test/?provider=${route.providerId}&model=${route.modelId}&source=${source}`);
     assert.deepEqual(await result.json(), mode === 'success' ? { status: 'completed', output: candidate } : { status: 'failed', reason: 'provider_redirect_rejected' });
     assert.deepEqual(calls, [{ url: route.endpoint, authorization: `Bearer ${apiKey}` }]);
   }

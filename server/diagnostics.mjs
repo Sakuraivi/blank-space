@@ -1,6 +1,6 @@
 // Bounded operational metadata only. Never pass requests, credentials, user
 // expressions, model output, or provider error bodies into production logs.
-import { getRoute } from '../ai/providers.mjs';
+import { getRoute, getPersonalRoute } from '../ai/providers.mjs';
 const REASONS = new Set([
   'inactive', 'timeout', 'error', 'incomplete_response', 'generation_failed',
   'invalid_shape', 'invalid_claim', 'invalid_evidence', 'question_not_allowed', 'action_not_allowed',
@@ -21,6 +21,11 @@ export function recordAiResult({ requestId, stage, status, reason, providerId, m
   };
   const route = getRoute(providerId, modelId);
   if (route && ['default', 'personal'].includes(sourceMode)) event.route = { providerId: route.providerId, modelId: route.modelId, sourceMode };
+  else if (sourceMode === 'personal' && getPersonalRoute(providerId, modelId)) {
+    // A caller may put a private fine-tune name or even a secret in this field.
+    // Ledger/request matching retain the ID; operational logs do not echo it.
+    event.route = { providerId, modelId: 'custom', sourceMode };
+  }
   // Logging failure must not change the model result or invite another call.
   try { write(JSON.stringify(event)); } catch {}
 }

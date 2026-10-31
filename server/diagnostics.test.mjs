@@ -24,3 +24,13 @@ test('route metadata is logged only for an exact known provider and model', () =
   recordAiResult({ status: 'fallback', providerId: 'secret-not-a-provider', modelId: 'secret-not-a-model', sourceMode: 'personal' }, write);
   assert.equal(logs[1].route, undefined);
 });
+
+test('custom personal route diagnostics never echo caller-supplied model names', () => {
+  const logs = [];
+  const privateName = 'ft:PRIVATE_NAME:team:secret';
+  recordAiResult({ status: 'candidate', providerId: 'openai', modelId: privateName, sourceMode: 'personal' }, line => logs.push(line));
+  assert.deepEqual(JSON.parse(logs[0]).route, { providerId: 'openai', modelId: 'custom', sourceMode: 'personal' });
+  assert.doesNotMatch(logs[0], /PRIVATE_NAME|secret/);
+  recordAiResult({ status: 'candidate', providerId: 'openai', modelId: privateName, sourceMode: 'default' }, line => logs.push(line));
+  assert.equal(JSON.parse(logs[1]).route, undefined);
+});

@@ -1,0 +1,30 @@
+{
+  "name": "liubai-blank",
+  "account_id": "1420888f16c72742e6bde4cd995d156f",
+  "main": "server/standalone-worker.mjs",
+  "no_bundle": false,
+  "compatibility_date": "2026-05-15",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "liubai-blank-db",
+      "database_id": "6bc9e1c5-eac1-4c07-ba26-69b920f89ceb",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "vars": {
+    "LIUBAI_DATA_MIGRATION_STATE": "pending"
+  },
+  "observability": {
+    "enabled": false
+  }
+}

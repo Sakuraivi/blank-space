@@ -5,10 +5,11 @@ const idIsValid = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/
 const timeIsValid = value => Number.isSafeInteger(value) && value >= 0;
 const tokenIsValid = value => Number.isSafeInteger(value) && value >= 0 && value <= 1000000000;
 const routePartIsValid = value => value === null || (typeof value === 'string' && /^[a-zA-Z0-9._/-]{1,100}$/.test(value));
+const modelPartIsValid = value => value === null || (typeof value === 'string' && /^[a-zA-Z0-9_][a-zA-Z0-9_./:-]{0,99}$/.test(value) && !value.includes('://'));
 
 function validateReservation({ requestId, sessionId, digest, configVersion, now, sourceMode, providerId, modelId, priceVersion, reservedMicros }) {
   if (!idIsValid(requestId) || !idIsValid(sessionId) || typeof digest !== 'string' || !/^[a-f0-9]{64}$/i.test(digest) || typeof configVersion !== 'string' || !configVersion.trim() || configVersion.length > 200 || !timeIsValid(now) ||
-      !['default', 'personal'].includes(sourceMode) || ![providerId, modelId, priceVersion].every(routePartIsValid) || (providerId === null) !== (modelId === null) ||
+      !['default', 'personal'].includes(sourceMode) || ![providerId, priceVersion].every(routePartIsValid) || !modelPartIsValid(modelId) || (providerId === null) !== (modelId === null) ||
       !Number.isSafeInteger(reservedMicros) || (sourceMode === 'personal' ? reservedMicros !== 0 : reservedMicros < PILOT_LIMITS.reservedMicrosPerCall || reservedMicros > PILOT_LIMITS.sharedBudgetMicros)) throw new TypeError('invalid_reservation');
 }
 

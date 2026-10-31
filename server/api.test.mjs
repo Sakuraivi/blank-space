@@ -52,6 +52,94 @@ function input(overrides = {}) {
     stage: 'reflect', allowNextStep: false, session, ...overrides };
 }
 
+test('maintenance status disables both AI sources while retaining catalog, versions and ledger totals', async t => {
+  const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  const before = (await f.call('/api/ai/status')).body;
+  assert.equal(before.enabled, true); assert.equal(before.defaultEnabled, true);
+  f.env.LIUBAI_MAINTENANCE = '1';
+  const status = await f.call('/api/ai/status');
+  assert.equal(status.status, 200);
+  assert.equal(status.body.enabled, false);
+  assert.equal(status.body.defaultEnabled, false);
+  assert.equal(status.body.reason, 'maintenance');
+  assert.equal(status.body.defaultReason, 'maintenance');
+  assert.deepEqual(status.body.providers, before.providers);
+  assert.deepEqual(status.body.defaultProfile, before.defaultProfile);
+  assert.equal(status.body.configVersion, PUBLIC_CONFIG_VERSION);
+  assert.equal(status.body.consentVersion, CONSENT_VERSION);
+  assert.equal(status.body.remainingCalls, before.remainingCalls);
+  assert.equal(status.body.remainingBudgetCny, before.remainingBudgetCny);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
+  assert.equal(f.calls(), 0);
+});
+
+test('maintenance rejects default, personal and malformed generation before body consumption, database or fetch', async t => {
+  const f = fixture(t); f.env.LIUBAI_MAINTENANCE = '1';
+  for (const body of [input(), input({ personalApiKey: PERSONAL_KEY, modelId: 'custom-chat-model' }), '{invalid-json']) {
+    const result = await f.call('/api/ai/generate', { method: 'POST', body });
+    assert.equal(result.status, 503);
+    assert.deepEqual(result.body, { status: 'fallback', reason: 'maintenance' });
+  }
+  let dbCalls = 0, fetchCalls = 0;
+  const request = new Request(`${ORIGIN}/api/ai/generate`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' }, body: '{never-read-this' });
+  const result = await handleApi(request, { LIUBAI_MAINTENANCE: '1', DB: { prepare() { dbCalls++; throw Error('database must not be touched'); } } }, { fetchImpl: async () => { fetchCalls++; throw Error('must not dispatch'); } });
+  assert.equal(result.status, 503);
+  assert.equal((await result.json()).reason, 'maintenance');
+  assert.equal(request.bodyUsed, false);
+  assert.equal(dbCalls, 0); assert.equal(fetchCalls, 0);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
+  assert.equal(f.calls(), 0);
+});
+
+test('turning maintenance off restores generation without resetting previous reservations', async t => {
+  const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input() })).body.status, 'candidate');
+  f.env.LIUBAI_MAINTENANCE = '1';
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'blocked-during-maintenance', personalApiKey: PERSONAL_KEY }) })).body.reason, 'maintenance');
+  f.env.LIUBAI_MAINTENANCE = '0';
+  assert.equal((await f.call('/api/ai/status')).body.defaultEnabled, true);
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'resumed-default-request' }) })).body.status, 'candidate');
+  delete f.env.LIUBAI_MAINTENANCE;
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'resumed-personal-request', personalApiKey: PERSONAL_KEY, modelId: 'custom-chat-model' }) })).body.status, 'candidate');
+  const status = (await f.call('/api/ai/status')).body;
+  assert.equal(status.enabled, true);
+  assert.equal(status.remainingCalls, 16);
+  assert.equal(status.remainingBudgetCny, 0.8);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 3);
+  assert.equal(f.calls(), 3);
+});
+
+test('maintenance rejects every admin mutation before reading its body or touching configuration', async t => {
+  const f = fixture(t); await f.configure();
+  const before = { ...f.sqlite.prepare("SELECT * FROM pilot_config WHERE id='main'").get() };
+  f.env.LIUBAI_MAINTENANCE = '1';
+  for (const [path, method] of [['/api/admin/config', 'POST'], ['/api/admin/config', 'DELETE'], ['/api/admin/config', 'PUT'], ['/api/admin/future-config', 'PATCH']]) {
+    let dbCalls = 0, fetchCalls = 0;
+    const request = new Request(`${ORIGIN}${path}`, { method, headers: { Origin: ORIGIN, 'Content-Type': 'application/json', ...OWNER }, body: '{not-consumed' });
+    const result = await handleApi(request, { ...f.env, DB: { prepare() { dbCalls++; throw Error('must not access configuration'); } } }, { fetchImpl: async () => { fetchCalls++; throw Error('must not dispatch'); } });
+    assert.equal(result.status, 503);
+    assert.deepEqual(await result.json(), { status: 'fallback', reason: 'maintenance' });
+    assert.equal(request.bodyUsed, false);
+    assert.equal(dbCalls, 0); assert.equal(fetchCalls, 0);
+  }
+  assert.deepEqual({ ...f.sqlite.prepare("SELECT * FROM pilot_config WHERE id='main'").get() }, before);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
+  assert.equal(f.calls(), 0);
+});
+
+test('maintenance permits bound-owner admin reads without bootstrapping or changing configuration', async t => {
+  const fresh = fixture(t); fresh.env.LIUBAI_MAINTENANCE = '1';
+  assert.equal((await fresh.call('/api/admin/status', { headers: OWNER })).status, 403);
+  assert.equal(fresh.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_config').get().n, 0);
+  const bound = fixture(t); await bound.configure();
+  const before = { ...bound.sqlite.prepare("SELECT * FROM pilot_config WHERE id='main'").get() };
+  bound.env.LIUBAI_MAINTENANCE = '1';
+  assert.equal((await bound.call('/api/admin/status', { headers: OWNER })).status, 200);
+  assert.deepEqual({ ...bound.sqlite.prepare("SELECT * FROM pilot_config WHERE id='main'").get() }, before);
+  assert.equal((await bound.call('/api/admin/status')).status, 403);
+  assert.equal(bound.calls(), 0); assert.equal(fresh.calls(), 0);
+});
+
 test('anonymous and non-owner administrators are rejected without binding or calling a model', async t => {
   const f = fixture(t);
   for (const headers of [{}, { 'oai-authenticated-user-id': 'other-id', 'oai-authenticated-user-email': 'stranger@example.test' }]) {
@@ -423,18 +511,18 @@ test('switching key sources never resets the per-session five-call cap', async t
   assert.equal(f.calls(), 5);
 });
 
-test('extreme usage that cannot fit ledger counters still permanently stops the batch', async t => {
+test('extreme personal usage fails its request without poisoning shared service availability', async t => {
   const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
   const result = await f.call('/api/ai/generate', { method: 'POST', body: input({ personalApiKey: PERSONAL_KEY }), options: { fetchImpl: async () => complete({ prompt_tokens: 2000000000, completion_tokens: 1, total_tokens: 2000000001 }) } });
   assert.equal(result.body.reason, 'usage_out_of_bounds');
   assert.equal(f.sqlite.prepare('SELECT prompt_tokens FROM pilot_requests').get().prompt_tokens, null);
   assert.equal(f.sqlite.prepare('SELECT outcome FROM pilot_requests').get().outcome, 'error');
   const status = (await f.call('/api/ai/status')).body;
-  assert.equal(status.reason, 'usage_out_of_bounds');
-  assert.equal(status.enabled, false);
+  assert.equal(status.reason, null);
+  assert.equal(status.enabled, true);
   assert.equal(status.remainingCalls, 18);
-  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'after-extreme-usage' }) })).body.reason, 'usage_out_of_bounds');
-  assert.equal(f.calls(), 0);
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'after-extreme-usage' }) })).body.status, 'candidate');
+  assert.equal(f.calls(), 1);
 });
 
 test('changing the default while a personal request runs does not switch or discard its credential source', async t => {
@@ -637,7 +725,7 @@ test('corrupt optional or total usage fields cannot hide an explicitly exceeded 
     const result = await f.call('/api/ai/generate', { method: 'POST', body: input({ personalApiKey: PERSONAL_KEY, providerId: 'kimi', modelId: 'kimi-k3.1-pro' }), options: { fetchImpl: async () => complete(usage) } });
     assert.equal(result.body.reason, 'usage_out_of_bounds');
     assert.equal(f.sqlite.prepare('SELECT outcome FROM pilot_requests').get().outcome, 'error');
-    assert.equal((await f.call('/api/ai/status')).body.enabled, false);
+    assert.equal((await f.call('/api/ai/status')).body.enabled, true);
   }
 });
 
@@ -681,5 +769,71 @@ test('switching the default provider while inference runs withholds the old cand
   const result = await pending;
   assert.equal(result.body.reason, 'config_changed');
   assert.equal(result.body.candidate, undefined);
+  assert.equal((await f.call('/api/ai/status')).body.remainingCalls, 17);
+});
+
+test('all four personal sources accept custom chat model IDs without granting a shared route or price', async t => {
+  const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  const policies = new Set();
+  for (const [i, [providerId, , endpoint]] of ROUTES.entries()) {
+    const modelId = `custom-chat-model-${i}`;
+    const result = await f.call('/api/ai/generate', {
+      method: 'POST', body: input({ requestId: `personal-custom-${i}`, sourceMode: 'personal', personalApiKey: PERSONAL_KEY, providerId, modelId }),
+      options: { fetchImpl: async (url, options) => {
+        assert.equal(url, endpoint); assert.equal(options.headers.Authorization, `Bearer ${PERSONAL_KEY}`);
+        const payload = JSON.parse(options.body);
+        assert.equal(payload.model, modelId);
+        assert.equal(payload.messages[0].role, 'system');
+        assert.match(payload.messages[0].content, /JSON/); policies.add(payload.messages[0].content);
+        assert.equal(payload.response_format, undefined); assert.equal(payload.reasoning_effort, undefined); assert.equal(payload.thinking, undefined);
+        return complete();
+      } },
+    });
+    assert.equal(result.body.status, 'candidate');
+    assert.deepEqual(result.body.route, { sourceMode: 'personal', providerId, modelId });
+    const denied = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: `shared-custom-${i}`, providerId, modelId }) });
+    assert.equal(denied.body.reason, 'unsupported_model');
+  }
+  assert.equal(policies.size, 1);
+  const rows = f.sqlite.prepare('SELECT source_mode,price_version,reserved_micros FROM pilot_requests').all();
+  assert.equal(rows.length, 4);
+  assert.ok(rows.every(row => row.source_mode === 'personal' && row.price_version === 'personal-unpriced-v1' && row.reserved_micros === 0));
+  assert.equal((await f.call('/api/ai/status')).body.remainingCalls, 18);
+  assert.equal((await f.call('/api/ai/status')).body.remainingBudgetCny, 0.9);
+});
+
+test('custom personal IDs retain exact fine-tune routing and reject invalid IDs or caller endpoints before dispatch', async t => {
+  const f = fixture(t);
+  const modelId = 'ft:chat-model:team:reflection-1';
+  const result = await f.call('/api/ai/generate', { method: 'POST', body: input({ providerId: 'openai', modelId, personalApiKey: PERSONAL_KEY }) });
+  assert.equal(result.body.status, 'candidate');
+  assert.equal(result.body.route.modelId, modelId);
+  assert.equal(f.sqlite.prepare('SELECT model_id FROM pilot_requests').get().model_id, modelId);
+  const conflict = await f.call('/api/ai/generate', { method: 'POST', body: input({ providerId: 'openai', modelId: modelId + '-other', personalApiKey: PERSONAL_KEY }) });
+  assert.equal(conflict.body.reason, 'request_conflict');
+  for (const changes of [
+    { modelId: 'https://attacker.invalid/model' }, { modelId: 'bad model' }, { modelId: 'bad\nmodel' },
+    { modelId: 'a'.repeat(101) }, { modelId: 'model?secret=key' },
+    { endpoint: 'https://attacker.invalid' }, { baseUrl: 'https://attacker.invalid' }, { apiUrl: 'https://attacker.invalid' },
+  ]) {
+    const denied = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'custom-invalid-id', modelId: 'custom-chat-model', personalApiKey: PERSONAL_KEY, ...changes }) });
+    assert.ok(['unsupported_model', 'invalid_request'].includes(denied.body.reason));
+  }
+  assert.equal(f.calls(), 1);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 1);
+});
+
+test('custom personal output still requires evidence and its token overrun cannot stop another payer', async t => {
+  const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  const custom = { providerId: 'glm', modelId: 'custom-chat-model', personalApiKey: PERSONAL_KEY };
+  const invalid = { ...CANDIDATE, reflection: { text: '不属于本次输入。', evidenceIds: ['nonexistent'] } };
+  const rejected = await f.call('/api/ai/generate', { method: 'POST', body: input({ ...custom, requestId: 'custom-evidence-bad' }), options: { fetchImpl: async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(invalid) } }] })) } });
+  assert.equal(rejected.body.status, 'fallback'); assert.equal(rejected.body.candidate, null);
+  const over = await f.call('/api/ai/generate', { method: 'POST', body: input({ ...custom, requestId: 'custom-over-token' }), options: { fetchImpl: async () => complete({ prompt_tokens: 100, completion_tokens: 1001, total_tokens: 1101 }) } });
+  assert.equal(over.body.reason, 'usage_out_of_bounds');
+  assert.equal(f.sqlite.prepare("SELECT outcome FROM pilot_requests WHERE request_id='custom-over-token'").get().outcome, 'error');
+  assert.equal((await f.call('/api/ai/status')).body.enabled, true);
+  const next = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'shared-after-custom-overrun' }) });
+  assert.equal(next.body.status, 'candidate');
   assert.equal((await f.call('/api/ai/status')).body.remainingCalls, 17);
 });

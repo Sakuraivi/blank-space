@@ -303,3 +303,16 @@ test('invalid payer or reservation metadata is rejected before writing', async (
     assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
   } finally { sqlite.close(); }
 });
+
+test('personal fine-tune IDs bind idempotency without granting a shared reservation', async () => {
+  const { ledger, sqlite } = fixture();
+  try {
+    const original = reservation('personal-fine-tune', { sourceMode: 'personal', providerId: 'openai', modelId: 'ft:model:team:review-1', priceVersion: 'personal-unpriced-v1' });
+    assert.deepEqual(await ledger.reserve(original), { ok: true });
+    assert.deepEqual(await ledger.reserve(original), { ok: false, reason: 'duplicate_request' });
+    assert.deepEqual(await ledger.reserve({ ...original, modelId: 'ft:model:team:review-2' }), { ok: false, reason: 'request_conflict' });
+    const stats = await ledger.stats();
+    assert.equal(stats.usedCalls, 0); assert.equal(stats.personalCalls, 1); assert.equal(stats.reservedMicros, 0);
+    for (const modelId of ['https://attacker.invalid/model', 'model?private=key', 'model\nname']) await assert.rejects(ledger.reserve({ ...original, requestId: 'invalid-model-id', modelId }), /invalid_reservation/);
+  } finally { sqlite.close(); }
+});

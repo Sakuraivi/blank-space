@@ -1,4 +1,5 @@
-// Server-owned catalog. A Key never chooses a provider, endpoint, or price.
+// Server-owned provider targets. Personal callers can choose a model ID, never
+// an endpoint or shared-budget price. Shared routes remain a closed catalog.
 export const PRICE_VALID_UNTIL = Date.parse('2026-11-06T00:00:00+08:00');
 const PRICE_VERSION = 'official-2026-10-30-v1';
 const freeze = value => {
@@ -41,7 +42,9 @@ const definitions = [
   },
 ];
 
-const routes = definitions.map(d => freeze({
+const trustedRoutes = new WeakSet();
+const issueRoute = value => { const route = freeze(value); trustedRoutes.add(route); return route; };
+const routes = definitions.map(d => issueRoute({
   providerId: d.id, modelId: d.modelId, providerLabel: d.label, modelLabel: d.modelLabel,
   endpoint: d.endpoint,
   profile: { providerId: d.id, modelId: d.modelId, instructionChannel: d.instructionChannel, structuredOutput: false },
@@ -52,6 +55,7 @@ const routes = definitions.map(d => freeze({
 
 const catalog = freeze(definitions.map(d => ({
   id: d.id, label: d.label, keyHelp: d.keyHelp, defaultModelId: d.modelId,
+  allowCustomModels: true,
   models: [{ id: d.modelId, label: d.modelLabel, note: d.note }],
 })));
 
@@ -59,5 +63,27 @@ export function getRoute(providerId, modelId) {
   return routes.find(route => route.providerId === providerId && route.modelId === modelId) ?? null;
 }
 
-// No endpoint, credentials, caller-controlled model, or private source data.
+export function validPersonalModelId(modelId) {
+  return typeof modelId === 'string' && /^[a-zA-Z0-9_][a-zA-Z0-9_./:-]{0,99}$/.test(modelId) && !modelId.includes('://');
+}
+
+export function getPersonalRoute(providerId, modelId) {
+  const definition = definitions.find(value => value.id === providerId);
+  if (!definition || !validPersonalModelId(modelId)) return null;
+  const known = getRoute(providerId, modelId);
+  if (known) return known;
+  return issueRoute({
+    providerId, modelId, providerLabel: definition.label, modelLabel: modelId,
+    endpoint: definition.endpoint, transportMode: 'generic-chat',
+    profile: { providerId, modelId, instructionChannel: 'system', structuredOutput: false },
+    maxRequestBytes: 12000, maxPromptTokens: 13000, maxOutputTokens: definition.maxOutputTokens,
+    // Unpriced means unknown, never a zero-cost claim or a shared-budget route.
+    inputRateCnyPerMillion: null, outputRateCnyPerMillion: null,
+    reserveMicros: 0, priceVersion: 'personal-unpriced-v1',
+  });
+}
+
+export const isTrustedRoute = route => !!route && trustedRoutes.has(route);
+
+// No endpoints, credentials, caller-provided models or private source data.
 export function publicProviders() { return catalog; }

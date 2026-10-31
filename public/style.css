@@ -146,7 +146,7 @@ dialog:has(.preview-letter) { width: min(660px, calc(100vw - 24px)); overflow: h
 .ai-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .ai-provider-grid > div { min-width: 0; }
 .ai-provider-grid .field-label { margin-top: 0; }
-.ai-select { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid #d5bdc9; border-radius: 12px; background: #fffdfa; font-size: 14px; }
+.ai-select, .ai-model-input { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid #d5bdc9; border-radius: 12px; background: #fffdfa; font-size: 14px; }
 .ai-default-summary { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff8ee; }
 #ai-settings-form .gentle-note { overflow-wrap: anywhere; }
 .ai-key-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 22px 0 9px; }

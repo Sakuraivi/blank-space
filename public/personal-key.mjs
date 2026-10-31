@@ -12,7 +12,7 @@ export function createPersonalKeyPreference() {
         return { ok: true };
       }
       if (draft?.sourceMode !== 'personal') return { ok: false, reason: 'invalid_source' };
-      if (!findAiProfile(providers, draft.providerId, draft.modelId)) return { ok: false, reason: 'unsupported_model' };
+      if (!findAiProfile(providers, draft.providerId, draft.modelId, { allowCustom: true })) return { ok: false, reason: 'unsupported_model' };
       if (typeof draft.apiKey !== 'string') return { ok: false, reason: 'invalid_personal_key' };
       let nextKey = draft.apiKey.trim();
       if (!nextKey && draft.retainExisting === true && choice.sourceMode === 'personal' && choice.providerId === draft.providerId && choice.modelId === draft.modelId) nextKey = key;
