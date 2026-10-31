@@ -1,6 +1,6 @@
 # v2引用集合与内容区分验证
 
-状态：v2源码与离线定向 in progress；真实模型 not started；整体验收4/10，生产保持warm-19。以下为运行前计划，不能当结果。
+状态：v2源码、签名续步harness与离线定向 completed；真实模型 not started；整体验收4/10，生产保持warm-19。以下为运行前计划，不能当结果。
 
 ## 冻结的改动
 
@@ -13,6 +13,10 @@
 旧H03只作显式v2离线迁移重放，不能修改它原先真实失败的记录，也不能把重放称为新模型成功。新样例由独立agent先写入fixture；root在本轮策略提交前不读取原文，此后不按运行结果反复改词直到样例通过。此安排不是严格研究盲测。
 
 新样例为三条受控concern/review收尾及一条完整困扰四轮链路。每条收尾一次，完整链路每轮一次；前轮提前结束、拒绝或实际问题与下一固定回答不符就停止，不强行塞答案。首三轮沿用稳定clarityContract，最后整理采用v2。至多7次是固定测试脚本的长度，不是新增用户费用或轮次上限。
+
+v2策略及契约已先冻结于`6d6675a`，随后root才读取新fixture正文。本轮固定caseId为V2_GROUP_FEEDBACK、V2_FREQUENCY_EXCEPTION、V2_CORRECTED_FEELING及V2_FULL_DIALOGUE，具体判据见`ai/fixtures/clarity-material-v2-samples.mjs`。实现者不会在本轮输出后修改策略再挑选成功结果。
+
+运行前检查：v2及harness29项、原材料73项、主链路144项、构建、严格OpenSpec与独立源码审阅通过。完整续步实际mode/target/问句原文必须匹配原Host问题；该门禁不改写模型问题，也不证明一般语义有效性。旧H03的显式迁移离线编译已通过，但原过度归因仍可通过机械校验，内容成功记false、模型调用0，原先真实失败记录不修改。
 
 每次模型请求前持久attempt，保留失败及actual tokens/耗时，无自动重试或隐式总结调用。完整链路后续使用Worker签名的真实state continuation，绑定run/case/step/expiry，避免任意材料入口；签名密钥只在Worker内使用，报告不保存token或Key。共享源、路由、计费、并发与取消仍走已有API。
 
