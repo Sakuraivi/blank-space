@@ -3,7 +3,7 @@ import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
 import { groundingPlan, groundClarityCandidate, materialSentences } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-17';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-18';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.
@@ -59,12 +59,14 @@ export function buildClarityModelRequest(context, profile) {
 }
 function validateClarityFormat(value, context) {
   let checked = validateClarityCandidate(value, context);
-  // The application supplies the next concern question. Only an exact-repeat
-  // failure may be rechecked with that question; all other fields/sources must
-  // still validate before routing. Never repair a malformed or missing source.
+  // These failures occur only after top-level shape and every model claim have
+  // passed. The concern question is a Host-owned action, not model evidence:
+  // replace its entire metadata from the already validated context and plan.
   const plan = clarityTurn(context);
-  if (checked.reason === 'repeated_question' && value?.modeId === 'concern' && !plan.finish) {
-    checked = validateClarityCandidate({ ...value, question: { ...value.question, text: plan.question } }, context);
+  if (['invalid_question', 'missing_question', 'repeated_question', 'question_not_allowed'].includes(checked.reason) &&
+      value?.modeId === 'concern' && !context.allowNextStep && (!plan.finish || value.finish === true)) {
+    checked = validateClarityCandidate({ ...value, finish: plan.finish ? value.finish : false,
+      question: plan.finish ? null : { text: plan.question, target: plan.target, evidenceIds: [context.statements.at(-1).id] } }, context);
   }
   if (checked.ok || value?.modeId !== 'concern' || value.finish !== true || value.question !== null || context.allowNextStep ||
       !Array.isArray(value.claims) || value.claims.length < 4 || value.claims.length > 6) return checked;

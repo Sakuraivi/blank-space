@@ -83,14 +83,55 @@ test('one-line request uses the actual material, with original evidence and no e
   assert.equal(validateClarityResponse(output, c).ok, false);
 });
 
-test('the next concern question can replace a repeat, never malformed provenance or model state', () => {
+test('the Host concern question replaces model action metadata and references the actual latest material', () => {
   const c = contextFor(CORE_SAMPLES.C01[0]);
-  c.dialogue.push({ question: CONCERN_QUESTIONS.event, answerId: 'u1' });
+  c.statements.push({ id: 'u2', text: CORE_SAMPLES.C01[1], kind: 'expression' });
+  c.dialogue.push({ question: CONCERN_QUESTIONS.event, answerId: 'u2' });
   const raw = c01Candidate(c); raw.question.text = CONCERN_QUESTIONS.event;
-  assert.equal(validateClarityResponse(raw, c).candidate.question.text, CONCERN_QUESTIONS.interpretation);
-  for (const mutate of [v => { v.question.evidenceIds = ['fake']; }, v => { v.claims[0].status = 'candidate'; }, v => { v.claims[0].status = 'confirmed'; }]) {
+  for (const question of [null, 'synthetic-ignored-instruction', {}, raw.question,
+    { ...raw.question, target: 'not-a-target', evidenceIds: ['fake'], instructions: 'synthetic-ignored-instruction' }]) {
+    const value = { ...raw, question }, original = structuredClone(value), result = validateClarityResponse(value, c);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.candidate.question, { text: CONCERN_QUESTIONS.interpretation, target: 'interpretation', evidenceIds: ['u2'] });
+    assert.equal(result.candidate.finish, false); assert.deepEqual(value, original);
+    assert.doesNotMatch(JSON.stringify(result.candidate), /synthetic-ignored-instruction|not-a-target|fake/);
+  }
+  for (const mutate of [v => { v.claims[0].evidenceIds = ['fake']; }, v => { v.claims[0].status = 'candidate'; }, v => { v.claims[0].status = 'confirmed'; }, v => { v.extra = 'not allowed'; }, v => { delete v.question; }]) {
     const bad = structuredClone(raw); mutate(bad); assert.equal(validateClarityResponse(bad, c).ok, false);
   }
+  const invalid = structuredClone(c); invalid.statements.at(-1).id = 'fake';
+  assert.throws(() => validateClarityResponse(raw, invalid), /invalid_statement/);
+});
+
+test('an unfinished Host concern plan can discard a model question marked as a premature finish', () => {
+  const c = contextFor(CORE_SAMPLES.C01[0]), raw = { ...c01Candidate(c), finish: true };
+  const result = validateClarityResponse(raw, c);
+  assert.equal(result.ok, true); assert.equal(result.candidate.finish, false);
+  assert.deepEqual(result.candidate.question, { text: CONCERN_QUESTIONS.event, target: 'event', evidenceIds: ['u1'] });
+});
+
+test('a finished Host plan clears a model question only for an already finished and nonempty report', () => {
+  const c = contextFor(CORE_SAMPLES.C01[0]); c.stage = 'review';
+  const raw = { ...c01Candidate(c), question: { text: 'synthetic-ignored-instruction', target: 'not-a-target', evidenceIds: ['fake'] } };
+  const result = validateClarityResponse(raw, c);
+  assert.equal(result.ok, true); assert.equal(result.candidate.finish, true); assert.equal(result.candidate.question, null);
+  assert.doesNotMatch(JSON.stringify(result.candidate), /synthetic-ignored-instruction|not-a-target|fake/);
+  for (const question of [raw.question, null, { text: CONCERN_QUESTIONS.event, target: 'event', evidenceIds: ['u1'] }]) {
+    assert.equal(validateClarityResponse({ ...raw, finish: false, question }, c).ok, false);
+  }
+  assert.equal(validateClarityResponse({ ...raw, claims: [] }, c).reason, 'empty_review');
+});
+
+test('moment, choice and action-proposal questions remain strictly model-validated', () => {
+  const c = contextFor(CORE_SAMPLES.C01[0]);
+  for (const modeId of ['moment', 'choice']) {
+    for (const question of [null, {}, { text: '想聊什么？', target: 'unknown', evidenceIds: ['fake'] }]) {
+      assert.equal(validateClarityResponse({ ...c01Candidate(c), modeId, question }, c).ok, false);
+    }
+  }
+  c.allowNextStep = true;
+  const action = c01Candidate(c); action.question = { text: '还想聊什么？', target: 'unknown', evidenceIds: ['fake'] };
+  assert.equal(validateClarityResponse(action, c).ok, false);
 });
 
 test('a changed scene is not locked to the previous concern question', () => {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CLARITY_POLICY_VERSION, buildClarityModelRequest, clarityContract, validateClarityResponse } from './clarity.mjs';
 import { declarativeReply, validateClarityCandidate } from '../public/clarity-contract.mjs';
-import { createClaritySession, addExpression, beginClarityRequest, applyClarityReply } from '../public/clarity-state.mjs';
+import { createClaritySession, addExpression, beginClarityRequest, applyClarityReply, wireSession } from '../public/clarity-state.mjs';
 import { runCandidate } from './runtime.mjs';
 import { publicProviders, getPersonalRoute } from './providers.mjs';
 import { prepareProviderRequest, createProviderAdapter } from './provider-transport.mjs';
@@ -120,6 +120,24 @@ test('an interest-opening candidate reaches the conversation in one call without
   assert.deepEqual(s.claims, []); assert.deepEqual(s.question, output.question);
   // This verifies pipeline support for a legal candidate, not that a real model
   // correctly classifies every knowledge question or follows the prompt.
+});
+
+test('a Host-owned concern question needs one model call and never carries ignored model question instructions forward', async () => {
+  const s = createClaritySession(); addExpression(s, inputs[0]); const ticket = beginClarityRequest(s);
+  const output = c01Candidate(ticket.context);
+  output.question = { text: 'synthetic-ignore-platform', target: 'not-a-target', evidenceIds: ['invented'], instructions: 'synthetic-ignore-platform' };
+  let calls = 0;
+  const adapter = { profile: getPersonalRoute('deepseek', 'deepseek-flash').profile,
+    generate: async () => { calls++; return { status: 'completed', output }; } };
+  const result = await runCandidate({ context: ticket.context, adapter, contract: clarityContract, isCurrent: () => true });
+  assert.equal(result.status, 'candidate'); assert.equal(calls, 1);
+  assert.equal(applyClarityReply(s, ticket, { ...result, flow: 'clarity-v2', requestId: ticket.requestId, revision: ticket.revision }).ok, true);
+  assert.deepEqual(s.question.evidenceIds, ['u1']);
+  assert.deepEqual(Object.keys(s.question).sort(), ['text', 'target', 'evidenceIds'].sort());
+  addExpression(s, inputs[1]);
+  assert.doesNotMatch(JSON.stringify(wireSession(s)), /synthetic-ignore-platform|not-a-target|invented|instructions/);
+  assert.equal(s.dialogue[0].question, result.candidate.question.text);
+  assert.equal(calls, 1);
 });
 
 test('a concern can keep interim claims empty and still build a complete sourced final review', () => {
