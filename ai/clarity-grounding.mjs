@@ -1,6 +1,6 @@
 import { expressionParts } from './clarity-turn.mjs';
 
-export const CLARITY_GROUNDING_VERSION = 'clarity-grounding-3';
+export const CLARITY_GROUNDING_VERSION = 'clarity-grounding-4';
 const emotions = '失落|生气|愤怒|难过|委屈|焦虑|害怕|担心|开心|轻松|烦躁|烦|紧张|内疚|羞愧|疲惫';
 const correction = new RegExp(`^(?:我)?不是(${emotions})[，,]\\s*是(${emotions})([。.!！]?)$`, 'u');
 
@@ -36,14 +36,20 @@ export function groundingPlan(context) {
 }
 
 function outsideQuotes(text, transform) {
-  let result = '', part = '', quoted = '', end = null;
+  let result = '', part = '', quoted = '';
+  const ends = [];
   const pairs = { '“': '”', '「': '」', '『': '』', '"': '"' };
   for (const ch of text) {
-    if (end) { quoted += ch; if (ch === end) { result += quoted; quoted = ''; end = null; } }
-    else if (pairs[ch]) { result += transform(part); part = ''; quoted = ch; end = pairs[ch]; }
+    if (ends.length) {
+      quoted += ch;
+      if (ch === ends.at(-1)) ends.pop();
+      else if (pairs[ch]) ends.push(pairs[ch]);
+      if (!ends.length) { result += quoted; quoted = ''; }
+    }
+    else if (pairs[ch]) { result += transform(part); part = ''; quoted = ch; ends.push(pairs[ch]); }
     else part += ch;
   }
-  return result + (end ? quoted : transform(part));
+  return result + (ends.length ? quoted : transform(part));
 }
 
 function normalizeCorrection(text, fixes) {
@@ -90,7 +96,11 @@ export function groundClarityCandidate(candidate, context) {
         claim.evidenceIds = [...new Set(selected.map(s => s.sourceId))];
         claim.derivation = 'stated';
       }
-    } else if (repeatsDenied(claim.text)) return { ok: false, reason: 'correction_not_applied' };
+    }
+    // Exact source quotation and prefix reconstruction must obey the same
+    // existing correction check as analysis; a once-valid old quote is not a
+    // reason to restore a feeling the person explicitly corrected later.
+    if (repeatsDenied(claim.text)) return { ok: false, reason: 'correction_not_applied' };
   }
   if ([value.reply, value.goal, value.title].some(repeatsDenied)) return { ok: false, reason: 'correction_not_applied' };
   return { ok: true, candidate: value };

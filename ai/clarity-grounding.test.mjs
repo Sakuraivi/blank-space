@@ -13,6 +13,40 @@ function finish(text, evidenceIds = ['u1']) {
   return { modeId:'concern', goal:'理清等待中的期待', title:'这次的安排', reply:'这里可以把经过和自己的期待分开留下。', question:null, finish:true,
     claims:[{type:'event', text, evidenceIds, derivation:'stated', supersedes:[]}] };
 }
+
+test('a final event cannot restore an own-emotion sentence explicitly corrected later', () => {
+  const c=context('我很失落。','不是失落，是生气。');
+  assert.equal(validateClarityResponse(finish('我很失落。'),c).reason,'correction_not_applied');
+});
+
+test('event prefix reconstruction cannot reintroduce an explicitly denied feeling', () => {
+  const c=context('我很失落。','不是失落，是生气。');
+  assert.equal(validateClarityResponse(finish('模型改写了这次经过。'),c).reason,'correction_not_applied');
+});
+
+test('the event correction guard preserves the positive correction and quoted third-party emotion', () => {
+  const c=context('她说“我很失落。”','不是失落，是生气。');
+  assert.equal(validateClarityResponse(finish('她说“我很失落。”'),c).ok,true);
+  const current=validateClarityResponse(finish('不是失落，是生气。',['u2']),c);
+  assert.equal(current.ok,true);assert.equal(current.candidate.claims[0].text,'生气。');
+});
+
+test('nested third-party quotations keep their emotion outside the own-emotion guard', () => {
+  const quote='她说“老师说“先等等。”我很失落。”',c=context(quote,'不是失落，是生气。');
+  const result=validateClarityResponse(finish(quote),c);
+  assert.equal(result.ok,true);assert.equal(result.candidate.claims[0].text,quote);
+});
+
+test('an actual own-emotion sentence after a nested quotation is still checked', () => {
+  const value='她说“老师说“先等等。””我很失落。',c=context(value,'不是失落，是生气。');
+  assert.equal(validateClarityResponse(finish(value),c).reason,'correction_not_applied');
+});
+
+test('explicit correction words inside a nested quotation are not rewritten as the person correction', () => {
+  const quote='她说“老师说“先等等。”不是失落，是生气。”',c=context(quote,'不是失落，是生气。');
+  const result=validateClarityResponse(finish(quote,['u1','u2']),c);
+  assert.equal(result.ok,true);assert.equal(result.candidate.claims[0].text,quote);
+});
 test('full source sentences preserve episode qualifiers, quoted speech and decimal numbers', () => {
   const text = '这次她说加班，发了个抱歉表情。上一次是家里有事。她说“抱歉。下周再看”，我还在等。费用是1.5元。';
   assert.deepEqual(materialSentences(text), ['这次她说加班，发了个抱歉表情。','上一次是家里有事。','她说“抱歉。下周再看”，我还在等。','费用是1.5元。']);
