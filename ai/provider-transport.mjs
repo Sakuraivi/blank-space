@@ -30,7 +30,9 @@ export function prepareProviderRequest(request, route) {
       // Unknown IDs may name models from other vendors on the same platform.
       const legacyQwen = ['qwen-plus', 'qwen-flash'].includes(route.modelId);
       body[legacyQwen ? 'max_tokens' : 'max_completion_tokens'] = route.maxOutputTokens;
-      if (legacyQwen || route.modelId === 'qwen3.8-flash') body.enable_thinking = false;
+      // Documented hybrid-thinking aliases. Keep unknown/custom IDs generic.
+      // https://help.aliyun.com/en/model-studio/deep-thinking (2026-10-31)
+      if (legacyQwen || ['qwen3.8-flash', 'qwen3.8-max', 'qwen3.8-max-0902'].includes(route.modelId)) body.enable_thinking = false;
     } else if (route.providerId === 'openai') {
       body.max_completion_tokens = route.maxOutputTokens;
       body.store = false;

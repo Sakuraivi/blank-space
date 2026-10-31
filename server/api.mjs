@@ -1,4 +1,5 @@
 import { buildContext, buildModelRequest } from '../ai/contract.mjs';
+import { buildClarityContext, buildClarityModelRequest, clarityContract } from '../ai/clarity.mjs';
 import { runCandidate } from '../ai/runtime.mjs';
 import { getRoute, getPersonalRoute, publicProviders, PRICE_VALID_UNTIL } from '../ai/providers.mjs';
 import { createProviderAdapter, prepareProviderRequest } from '../ai/provider-transport.mjs';
@@ -150,6 +151,8 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     }
     if (path !== '/api/ai/generate' || request.method !== 'POST') return fallback('not_found', 404);
     const body = await readJson(request);
+    if (body.flow !== undefined && body.flow !== 'clarity-v2') return fallback('invalid_flow');
+    const isClarity = body.flow === 'clarity-v2';
     if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
     if (body.configVersion !== PUBLIC_CONFIG_VERSION || body.consentVersion !== CONSENT_VERSION) return fallback('consent_changed', 409);
     if (!['default', 'personal'].includes(body.sourceMode)) return fallback('invalid_source');
@@ -170,8 +173,8 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (!validId(body.requestId) || !validId(body.session?.id) || !['reflect', 'review'].includes(body.stage) || !Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.allowNextStep !== 'boolean') return fallback('invalid_request');
     let context, requestData;
     try {
-      context = buildContext({ session: body.session, revision: body.revision, stage: body.stage, questionsAsked: body.session.turns?.length ?? 0, allowNextStep: body.allowNextStep });
-      requestData = buildModelRequest(context, route.profile);
+      context = (isClarity ? buildClarityContext : buildContext)({ session: body.session, revision: body.revision, stage: body.stage, questionsAsked: body.session.turns?.length ?? 0, allowNextStep: body.allowNextStep });
+      requestData = (isClarity ? buildClarityModelRequest : buildModelRequest)(context, route.profile);
       prepareProviderRequest(requestData, route);
     } catch { return fallback('input_too_large_or_invalid'); }
     if (request.signal.aborted) return fallback('inactive', 409);
@@ -180,7 +183,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     const ledger = createLedger(env.DB, source?.type === 'organizer' ? { sharedLimits: source.sharedLimits } : {});
     const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId,
       ...(source?.type === 'organizer' ? { defaultRevision: source.revision } : {}) };
-    const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute }));
+    const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) }));
     if (source && !sameSource(source, (await currentDefault(env, now)).source)) return fallback('config_changed', 409);
     const reservation = await ledger.reserve({ requestId: body.requestId, sessionId: body.session.id,
       digest: requestDigest, configVersion: body.configVersion,
@@ -201,6 +204,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       } };
       result = await runCandidate({ context,
         adapter,
+        ...(isClarity ? { contract: clarityContract } : {}),
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
@@ -215,7 +219,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       return fallback('config_changed', 409);
     }
     recordAiResult({ requestId: body.requestId, stage: body.stage, status: result.status, reason: result.reason, ...responseRoute });
-    return response({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute });
+    return response({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) });
   } catch (error) {
     if (['input_too_large', 'invalid_content_type', 'invalid_body'].includes(error?.message) || error instanceof SyntaxError) return fallback('invalid_body', 400);
     return fallback('service_unavailable', 503);

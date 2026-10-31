@@ -2,10 +2,10 @@ import { buildModelRequest, validateCandidate } from './contract.mjs';
 
 // No network, credential, rendering or persistence ownership in this module.
 // Adapter supplies transport. Caller owns revision and lifecycle checks.
-export async function runCandidate({ context, adapter, signal, isCurrent, timeoutMs = 15000 }) {
+export async function runCandidate({ context, adapter, signal, isCurrent, timeoutMs = 15000, contract = { buildModelRequest, validateCandidate } }) {
   if (typeof isCurrent !== 'function' || !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new TypeError('invalid_runtime_options');
   const snapshot = structuredClone(context);
-  const request = buildModelRequest(snapshot, adapter?.profile);
+  const request = contract.buildModelRequest(snapshot, adapter?.profile);
   if (typeof adapter?.generate !== 'function') throw new TypeError('invalid_adapter');
   const current = () => {
     if (signal?.aborted) return false;
@@ -33,7 +33,7 @@ export async function runCandidate({ context, adapter, signal, isCurrent, timeou
     if (!current() || result.type === 'aborted') return { status: 'discarded', reason: 'inactive', candidate: null };
     if (result.type !== 'response') return { status: 'fallback', reason: result.type, candidate: null };
     if (result.value?.status !== 'completed') return { status: 'fallback', reason: 'incomplete_response', candidate: null };
-    const checked = validateCandidate(result.value.output, snapshot);
+    const checked = contract.validateCandidate(result.value.output, snapshot);
     if (!checked.ok) return { status: 'fallback', reason: checked.reason, candidate: null };
     return { status: 'candidate', candidate: checked.candidate, policyVersion: request.policyVersion, schemaVersion: request.schemaVersion };
   } finally {
