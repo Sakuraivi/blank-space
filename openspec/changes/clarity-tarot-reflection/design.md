@@ -200,7 +200,7 @@ Write --> One question at a time --> Short review --> Confirm + save
 
 #### 2026-11-01 增量：首次原话记录在浏览器完成
 
-已发现的M03失败发生在模型输出格式校验之前，原有“校验后保留原话”无法避免失败。因此将明确原话要求的首次表达分流放在浏览器`submitExpression`的AI可用性判断和路由绑定之前。仅全新会话、末尾独立的明确record指令且没有歧义时适用；只有不分析/停止要求不等于原话记录选择。句中转述、引用、嵌套/不平衡引号、非末尾控制或正文中间独立控制保持原路径。
+已发现的M03失败发生在模型输出格式校验之前，原有“校验后保留原话”无法避免失败。因此将明确原话要求的首次表达分流放在浏览器`submitExpression`的AI可用性判断和路由绑定之前。仅全新会话、末尾独立的明确record指令且没有歧义时适用；只有不分析/停止要求不等于原话记录选择。记录要求位于转述/引号内、嵌套/不平衡引号、非末尾控制或正文中间独立控制保持原路径；正文中的合法引用仍原样保留。
 
 `public/clarity-expression.mjs`共享既有`expressionParts`语法，AI路径保持历史行为；本地`parseVerbatimExpression`另以保守原文span识别后缀，正文用原始prefix截取，不用会改变尾标点的重建结果。`keepClarityVerbatim`只产生本人原话review，无AI消息、claims或request ticket，callCount保持0，route为空。普通输入仍走原有AI分流，Key/默认服务/模型策略不改。按钮与已有说明在同一位置随输入切换，不增加入口或必经确认。AI状态加载时，本地记录按钮可用。
 

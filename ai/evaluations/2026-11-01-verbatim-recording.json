@@ -1,0 +1,188 @@
+{
+  "synthetic": true,
+  "localDate": "2026-11-01",
+  "collectedAt": "2026-10-31T19:13:30.685Z",
+  "entry": "https://blank.sakura.observer/clarity",
+  "sourceCommit": "9950696",
+  "versionId": "4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886",
+  "rollbackVersionId": "734f8f1e-a3b6-4083-9cbb-6422f6358ff6",
+  "aiPolicyVersion": "clarity-warm-19",
+  "turnVersion": "clarity-turn-7",
+  "implemented": "Explicit unambiguous first-expression recording runs locally before AI availability/routing; no model result is needed or fabricated.",
+  "checks": {
+    "targetedTestsPassed": 138,
+    "targetedTestsTotal": 138,
+    "workerdFocusedPassed": 1,
+    "workerBuild": true,
+    "openSpecStrict": true,
+    "independentReview": true,
+    "legacyFullRegressionRun": false,
+    "productionHttpChecks": 10,
+    "productionBrowserSaveRefreshReopen": true,
+    "localBrowserSaveRefreshReopen": true,
+    "loadingButtonEnabledAfterExplicitInput": true,
+    "unavailableServiceLocalReview": true,
+    "generationRequests": 0,
+    "paidModelCalls": 0,
+    "allNetworkRequestsZero": false
+  },
+  "input": "今天自己做的面很好吃，我很开心。只想留住这一句，不需要分析或建议。",
+  "expected": "今天自己做的面很好吃，我很开心。",
+  "sourceOnlyStateRoundTrip": {
+    "record": {
+      "formatVersion": 2,
+      "id": "51462215-3df9-4d24-ba0d-38a968fe738c",
+      "modeId": "moment",
+      "createdAt": "2026-10-31T19:13:30.683Z",
+      "confirmed": true,
+      "review": {
+        "title": "想留下的一句话",
+        "blocks": [
+          {
+            "id": "context",
+            "type": "text",
+            "group": "main",
+            "label": "我写下的",
+            "text": "今天自己做的面很好吃，我很开心。"
+          }
+        ]
+      }
+    },
+    "exportedText": "想留下的一句话\n2026/11/1\n\n我写下的\n今天自己做的面很好吃，我很开心。",
+    "callCount": 0,
+    "hasAssistantMessage": false,
+    "claimCount": 0,
+    "legacyStoreUnchanged": true
+  },
+  "verification": {
+    "checkedAt": "2026-10-31T19:08:14.572Z",
+    "sourceCommit": "9950696",
+    "policyVersion": "clarity-warm-19",
+    "turnVersion": "clarity-turn-7",
+    "versionId": "4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886",
+    "rollbackVersionId": "734f8f1e-a3b6-4083-9cbb-6422f6358ff6",
+    "generationRequests": 0,
+    "results": [
+      {
+        "path": "/clarity",
+        "status": 200
+      },
+      {
+        "path": "/clarity-expression.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "9499ef55264abb23b6fca3efcd6aa64833fb09e59813c7f258467da6448c26b8"
+      },
+      {
+        "path": "/clarity-state.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "6228078001c4a6fc15a2da78aa680fc48ff4ab2d1165b6f953e721efceb58285"
+      },
+      {
+        "path": "/clarity-app.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "0e5663fea3f310862aecf335cd19e54e23aef008fcdb45a6ae06a68900753032"
+      },
+      {
+        "path": "/clarity-wait.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "9a3928d016bdae500e2558f65d03aa552a983e5f46ae234f3e9f8eb7a43e9492"
+      },
+      {
+        "path": "/clarity-contract.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "0155f8ff2a0247af22a294e917e5d2a68a3cbfc801721533676a65072f605213"
+      },
+      {
+        "path": "/",
+        "status": 200
+      },
+      {
+        "path": "/admin",
+        "status": 200
+      },
+      {
+        "path": "/api/organizer/status",
+        "status": 401
+      },
+      {
+        "path": "/api/ai/status",
+        "status": 200,
+        "defaultProfileUnchanged": true,
+        "configurationOnly": true
+      }
+    ]
+  },
+  "network": {
+    "synthetic": true,
+    "capturedAt": "2026-10-31T19:10:44.358Z",
+    "method": "playwright_cli_requests",
+    "apiAndHostingBeaconEntries": [
+      "19. [GET] https://blank.sakura.observer/api/ai/status => [200] ",
+      "20. [POST] https://blank.sakura.observer/cdn-cgi/rum? => [204] ",
+      "41. [GET] https://blank.sakura.observer/api/ai/status => [200] ",
+      "42. [POST] https://blank.sakura.observer/cdn-cgi/rum? => [204] "
+    ],
+    "hasGenerationRequest": false,
+    "note": "Only request URL/status metadata; no headers, cookies, API keys or body capture."
+  },
+  "captured": {
+    "localReview": {
+      "path": ".playwright-cli/page-2026-10-31T19-01-54-021Z.yml",
+      "sha256": "a983cf5d610d4e132d25fcaeec143382411b498cec8bc6da93e6361c84ce6371",
+      "text": "- generic [ref=e1]:\n  - paragraph [ref=e2]: 联调演示：使用虚构的朋友取消约定样例，回复不是由真实模型生成。\n  - link \"跳到主要内容\" [ref=e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=e4]:\n    - button \"留白，返回首页\" [ref=e5] [cursor=pointer]:\n      - generic [ref=e11]: 留白\n    - navigation \"主导航\" [ref=e12]:\n      - button \"我的记录\" [ref=e13] [cursor=pointer]\n      - button \"AI 设置\" [ref=e14] [cursor=pointer]\n  - main [active] [ref=e15]:\n    - article [ref=e29]:\n      - generic [ref=e30]:\n        - generic [ref=e31]: 这次的整理\n        - button \"查看前文\" [ref=e32] [cursor=pointer]\n      - heading \"想留下的一句话\" [level=1] [ref=e33]\n      - generic [ref=e34]:\n        - heading \"我写下的\" [level=3] [ref=e35]\n        - paragraph [ref=e36]: 今天自己做的面很好吃，我很开心。\n      - button \"确认并保存\" [ref=e37] [cursor=pointer]\n      - button \"修改\" [ref=e39] [cursor=pointer]\n  - contentinfo [ref=e25]:\n    - button \"关于留白与隐私\" [ref=e26] [cursor=pointer]\n    - link \"组织者管理\" [ref=e27] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "localSaved": {
+      "path": ".playwright-cli/page-2026-10-31T19-02-03-683Z.yml",
+      "sha256": "e0cbca62ca8b4ab59b145d23b8cdfda73f1eb0d89645d5c63789412b199dddb5",
+      "text": "- generic [active] [ref=e1]:\n  - paragraph [ref=e2]: 联调演示：使用虚构的朋友取消约定样例，回复不是由真实模型生成。\n  - link \"跳到主要内容\" [ref=e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=e4]:\n    - button \"留白，返回首页\" [ref=e5] [cursor=pointer]:\n      - generic [ref=e11]: 留白\n    - navigation \"主导航\" [ref=e12]:\n      - button \"我的记录\" [ref=e13] [cursor=pointer]\n      - button \"AI 设置\" [ref=e14] [cursor=pointer]\n  - main [ref=e15]:\n    - article [ref=e40]:\n      - generic [ref=e41]:\n        - generic [ref=e42]: 这次的整理\n        - button \"查看前文\" [ref=e43] [cursor=pointer]\n      - heading \"想留下的一句话\" [level=1] [ref=e44]\n      - generic [ref=e45]:\n        - heading \"我写下的\" [level=3] [ref=e46]\n        - paragraph [ref=e47]: 今天自己做的面很好吃，我很开心。\n      - status [ref=e48]: 已保存在这台设备。\n      - button \"修改\" [ref=e50] [cursor=pointer]\n      - group [ref=e51]:\n        - generic \"导出或继续整理\" [ref=e52] [cursor=pointer]\n  - contentinfo [ref=e25]:\n    - button \"关于留白与隐私\" [ref=e26] [cursor=pointer]\n    - link \"组织者管理\" [ref=e27] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "localReopened": {
+      "path": ".playwright-cli/page-2026-10-31T19-02-36-319Z.yml",
+      "sha256": "e8aaa8863f59b659be03a301cc7a34f652d2c86a0f781f2a170760464914ded7",
+      "text": "- generic [ref=f1e1]:\n  - paragraph [ref=f1e2]: 联调演示：使用虚构的朋友取消约定样例，回复不是由真实模型生成。\n  - link \"跳到主要内容\" [ref=f1e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f1e4]:\n    - button \"留白，返回首页\" [ref=f1e5] [cursor=pointer]:\n      - generic [ref=f1e11]: 留白\n    - navigation \"主导航\" [ref=f1e12]:\n      - button \"我的记录\" [active] [ref=f1e13] [cursor=pointer]\n      - button \"AI 设置\" [ref=f1e14] [cursor=pointer]\n  - main [ref=f1e15]:\n    - article [ref=f1e40]:\n      - generic [ref=f1e41]: 这次的整理\n      - heading \"想留下的一句话\" [level=1] [ref=f1e43]\n      - generic [ref=f1e44]:\n        - heading \"我写下的\" [level=3] [ref=f1e45]\n        - paragraph [ref=f1e46]: 今天自己做的面很好吃，我很开心。\n      - status [ref=f1e47]: 已保存在这台设备。\n      - button \"修改\" [ref=f1e49] [cursor=pointer]\n      - group [ref=f1e50]:\n        - generic \"导出或继续整理\" [ref=f1e51] [cursor=pointer]\n  - contentinfo [ref=f1e25]:\n    - button \"关于留白与隐私\" [ref=f1e26] [cursor=pointer]\n    - link \"组织者管理\" [ref=f1e27] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "localUnavailableService": {
+      "path": ".playwright-cli/page-2026-10-31T19-05-21-241Z.yml",
+      "sha256": "41d4529e5e291fdaad50d9ea595045412f5623d508ec1a58a77cd7acede11efd",
+      "text": "- generic [ref=f2e1]:\n  - paragraph [ref=f2e2]: 联调演示：使用虚构的朋友取消约定样例，回复不是由真实模型生成。\n  - link \"跳到主要内容\" [ref=f2e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f2e4]:\n    - button \"留白，返回首页\" [ref=f2e5] [cursor=pointer]:\n      - generic [ref=f2e11]: 留白\n    - navigation \"主导航\" [ref=f2e12]:\n      - button \"我的记录\" [ref=f2e13] [cursor=pointer]\n      - button \"AI 设置\" [ref=f2e14] [cursor=pointer]\n  - main [active] [ref=f2e15]:\n    - article [ref=f2e38]:\n      - generic [ref=f2e39]:\n        - generic [ref=f2e40]: 这次的整理\n        - button \"查看前文\" [ref=f2e41] [cursor=pointer]\n      - heading \"想留下的一句话\" [level=1] [ref=f2e42]\n      - generic [ref=f2e43]:\n        - heading \"我写下的\" [level=3] [ref=f2e44]\n        - paragraph [ref=f2e45]: 路边的小花今天开了。\n      - button \"确认并保存\" [ref=f2e46] [cursor=pointer]\n      - button \"修改\" [ref=f2e48] [cursor=pointer]\n  - contentinfo [ref=f2e25]:\n    - button \"关于留白与隐私\" [ref=f2e26] [cursor=pointer]\n    - link \"组织者管理\" [ref=f2e27] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "productionReview": {
+      "path": ".playwright-cli/page-2026-10-31T19-08-42-178Z.yml",
+      "sha256": "5b08bc430894a073b3eebdb9cb1eff26ef6345cc4abcb4cf374880405e3b2221",
+      "text": "- generic [ref=f3e1]:\n  - link \"跳到主要内容\" [ref=f3e2] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f3e3]:\n    - button \"留白，返回首页\" [ref=f3e4] [cursor=pointer]:\n      - generic [ref=f3e16]: 留白\n    - navigation \"主导航\" [ref=f3e10]:\n      - button \"我的记录\" [ref=f3e11] [cursor=pointer]\n      - button \"AI 设置\" [ref=f3e12] [cursor=pointer]\n  - main [active] [ref=f3e17]:\n    - article [ref=f3e28]:\n      - generic [ref=f3e29]:\n        - generic [ref=f3e30]: 这次的整理\n        - button \"查看前文\" [ref=f3e31] [cursor=pointer]\n      - heading \"想留下的一句话\" [level=1] [ref=f3e32]\n      - generic [ref=f3e33]:\n        - heading \"我写下的\" [level=3] [ref=f3e34]\n        - paragraph [ref=f3e35]: 今天自己做的面很好吃，我很开心。\n      - button \"确认并保存\" [ref=f3e36] [cursor=pointer]\n      - button \"修改\" [ref=f3e38] [cursor=pointer]\n  - contentinfo [ref=f3e13]:\n    - button \"关于留白与隐私\" [ref=f3e14] [cursor=pointer]\n    - link \"组织者管理\" [ref=f3e15] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "productionSaved": {
+      "path": ".playwright-cli/page-2026-10-31T19-08-49-345Z.yml",
+      "sha256": "276b0bd29b4a8a7346ff95fbc8f1f6e44a5b07d5abe8249d12c48c152def67e9",
+      "text": "- generic [active] [ref=f3e1]:\n  - link \"跳到主要内容\" [ref=f3e2] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f3e3]:\n    - button \"留白，返回首页\" [ref=f3e4] [cursor=pointer]:\n      - generic [ref=f3e16]: 留白\n    - navigation \"主导航\" [ref=f3e10]:\n      - button \"我的记录\" [ref=f3e11] [cursor=pointer]\n      - button \"AI 设置\" [ref=f3e12] [cursor=pointer]\n  - main [ref=f3e17]:\n    - article [ref=f3e39]:\n      - generic [ref=f3e40]:\n        - generic [ref=f3e41]: 这次的整理\n        - button \"查看前文\" [ref=f3e42] [cursor=pointer]\n      - heading \"想留下的一句话\" [level=1] [ref=f3e43]\n      - generic [ref=f3e44]:\n        - heading \"我写下的\" [level=3] [ref=f3e45]\n        - paragraph [ref=f3e46]: 今天自己做的面很好吃，我很开心。\n      - status [ref=f3e47]: 已保存在这台设备。\n      - button \"修改\" [ref=f3e49] [cursor=pointer]\n      - group [ref=f3e50]:\n        - generic \"导出或继续整理\" [ref=f3e51] [cursor=pointer]\n  - contentinfo [ref=f3e13]:\n    - button \"关于留白与隐私\" [ref=f3e14] [cursor=pointer]\n    - link \"组织者管理\" [ref=f3e15] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "productionReopened": {
+      "path": ".playwright-cli/page-2026-10-31T19-09-06-423Z.yml",
+      "sha256": "f04d888ed4ff6ff1836e6bc3e1d4cb24aa07fb8c9dca08652aef032d54752e5e",
+      "text": "- generic [ref=f4e1]:\n  - link \"跳到主要内容\" [ref=f4e2] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f4e3]:\n    - button \"留白，返回首页\" [ref=f4e4] [cursor=pointer]:\n      - generic [ref=f4e10]: 留白\n    - navigation \"主导航\" [ref=f4e11]:\n      - button \"我的记录\" [active] [ref=f4e12] [cursor=pointer]\n      - button \"AI 设置\" [ref=f4e13] [cursor=pointer]\n  - main [ref=f4e14]:\n    - article [ref=f4e48]:\n      - generic [ref=f4e49]: 这次的整理\n      - heading \"想留下的一句话\" [level=1] [ref=f4e51]\n      - generic [ref=f4e52]:\n        - heading \"我写下的\" [level=3] [ref=f4e53]\n        - paragraph [ref=f4e54]: 今天自己做的面很好吃，我很开心。\n      - status [ref=f4e55]: 已保存在这台设备。\n      - button \"修改\" [ref=f4e57] [cursor=pointer]\n      - group [ref=f4e58]:\n        - generic \"导出或继续整理\" [ref=f4e59] [cursor=pointer]\n  - contentinfo [ref=f4e24]:\n    - button \"关于留白与隐私\" [ref=f4e25] [cursor=pointer]\n    - link \"组织者管理\" [ref=f4e26] [cursor=pointer]:\n      - /url: /admin"
+    },
+    "productionEmptyRequest": {
+      "path": ".playwright-cli/page-2026-10-31T19-09-46-116Z.yml",
+      "sha256": "8f3ba000b497ccb30f2fc863ec8e0c7d9bbb217a484872c775970957eb588646",
+      "text": "- generic [ref=f4e1]:\n  - link \"跳到主要内容\" [ref=f4e2] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=f4e3]:\n    - button \"留白，返回首页\" [ref=f4e4] [cursor=pointer]:\n      - generic [ref=f4e10]: 留白\n    - navigation \"主导航\" [ref=f4e11]:\n      - button \"我的记录\" [ref=f4e12] [cursor=pointer]\n      - button \"AI 设置\" [ref=f4e13] [cursor=pointer]\n  - main [ref=f4e14]:\n    - article [ref=f4e70]:\n      - heading \"最近，有什么想聊的？\" [level=1] [ref=f4e72]\n      - generic [ref=f4e74]:\n        - generic [ref=f4e75]: 零散的一两句，也可以。\n        - textbox \"零散的一两句，也可以。\" [active] [ref=f4e76]: 只想保留原话。\n        - paragraph [ref=f4e77]: 会原样留下，不发送给 AI。\n        - button \"只记这句话\" [ref=f4e78] [cursor=pointer]\n      - alert [ref=f4e79]: 先写下想留下的话。\n  - contentinfo [ref=f4e24]:\n    - button \"关于留白与隐私\" [ref=f4e25] [cursor=pointer]\n    - link \"组织者管理\" [ref=f4e26] [cursor=pointer]:\n      - /url: /admin"
+    }
+  },
+  "observations": [
+    "本地fixture仅用于提供可用的AI状态；本路径未调用fixture生成器，modelCalls=0。不是模型生成通过的证据。",
+    "延迟AI状态请求期间，普通按钮禁用；输入明确原话命令后按钮启用。状态请求超时后重渲染使一次CLI引用过期，重新观察后点击成功，正文未丢。未声称在加载结束前完成保存。",
+    "线上独立浏览器会话实际完成输入、确认、刷新、从我的记录找回；只用合成文本，未读取用户已有浏览器资料或Key。",
+    "线上网络记录仍含AI状态GET和Cloudflare性能beacon；生成接口请求为零，不声称完全无网络。",
+    "本地favicon.ico一次404不涉及功能；线上重载后的控制台无错误。"
+  ],
+  "limits": [
+    "只覆盖全新会话的明确末尾原话要求；只有不分析、引用/转述中的记录要求、未清晰分隔的命令与叙述、歧义语法、多轮或已有保护内容不自动触发；正文中的合法引用仍原样保留。",
+    "本地输入仍受4000字符限制；原AI的240/480候选限制和严格校验不变。",
+    "没有对默认模型发起新的内容评估，未解决初始猜测/程度/条件遗漏，也不证明全部AI模型或完整三场景质量通过。",
+    "本轮未重新验证图片下载或5人无指导体验；导出文字通过状态模块验证。整体OpenSpec仍4/10。"
+  ]
+}
