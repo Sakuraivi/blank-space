@@ -1,6 +1,6 @@
 # 验证记录
 
-## 组织者后台与成品样式联合发布（in progress）
+## 组织者后台与成品样式联合发布（已发布）
 
 日期：2026-10-31。契约：[organizer-admin](openspec/changes/organizer-admin/design.md)。用户明确要求跳过回归，本轮没有运行全量或旧回归，不以以前测试数声明新版本回归通过。
 
@@ -11,9 +11,10 @@
 - 390px后台实测页面宽375无横向溢出，Key字段为空；默认视口已恢复。工作区图 `outputs/liubai-organizer-console-local.jpg` 与 `outputs/liubai-organizer-mobile.jpg`。
 - 按样式侧聊联合发布要求，移入已审核的letter-label/CSS与pngExport差异；侧聊原记录为 `work/letter-heading-side/REVIEW.md`，仅两个限定样式文件，不含其他warm-reflection-policy未完成工作。本轮未重跑其旧回归。
 - 独立worktree基于65e1540；0002/0003仅新增组织者配置、会话和限速表，已应用生产。运行Secrets仅补缺失的admin口令hash与AES master，通过stdin设置，本机私有文件交付登录材料，未写入Git或输出口令。生产共享Key未填写、未自动启用。
-- standalone dry-run构建92.42KiB/gzip22.84KiB通过；预发布公共状态仍默认未开放、共享16次/¥0.80。正式部署和认证/资产核对待补录。
+- standalone dry-run构建92.42KiB/gzip22.84KiB通过；精确源码提交 `6fe0e2a` 已发布到既有Worker，版本 `82ffecb6-96f0-4f54-a034-9bb3083aa3c2`，保留原D1、verified及正式域名绑定。2026-10-31 05:56:06 UTC线上13项最小核对通过：后台200、匿名/伪造身份401、真实管理口令登录、安全Cookie、保护状态、未配置Key、null监控默认、无秘密回显、退出及旧会话重放拒绝、公开状态与资产一致。5个JS/CSS资产逐字节匹配；admin HTML仅剔除已定位的Cloudflare自动统计beacon后匹配，未忽略其他差异。
+- 正式共享仍2次历史调用、¥0.10累计预留；无organizer配置时的legacy公开兼容余额仍16次/¥0.80，新后台首次保存可按null不限额生效。未填共享Key、未自动启用、未调用真实模型。证据 `work/liubai/organizer-production-evidence.json`，页面截图 `outputs/liubai-organizer-login-live.jpg`；登录资料在仓库外私有目录，由本机链接交付。
 
-实现、最小权限/配置检查及构建 `completed`；正式发布核对 `in progress`。下一步：发布后交付/admin入口和本机口令文件，由组织者自行填真实共享Key并保存启用。
+实现、最小权限/配置检查、构建及正式发布核对均 `completed`。下一步：组织者用本机资料登录/admin，自行填写真实共享Key并保存启用；次数与金额上限可留空。本轮验证不替代全量回归或真实供应商账户兼容性验收。
 
 ## 百炼接入（已发布）
 
