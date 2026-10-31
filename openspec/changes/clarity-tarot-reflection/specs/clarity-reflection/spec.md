@@ -126,6 +126,22 @@
 - **WHEN** 模型调用失败或额度用尽
 - **THEN** 系统说明真实状况并提供保留已有内容的路径，不把固定示例伪装成生成结果
 
+### Requirement: Bounded candidate formatting
+
+系统 SHALL 只在有文档依据的精确模型别名上启用严格结构化输出，约束字段、条数、已有来源ID及收尾形式；未知自选模型保留通用协议。供应商结构化输出 SHALL 不替代平台来源、长度、状态及内容验收，不提高调用上限，不自动重试。
+
+#### Scenario: Supported structured output
+- **WHEN** 新版契约调用已适配的结构化模型
+- **THEN** 请求保留输入及输出容量上限；收尾不含新问题，未授权行动不出现在可选类型中，响应仍经过平台校验
+
+#### Scenario: Four valid concern parts
+- **WHEN** 收尾恰有event、feeling、insight、unknown各一条且逐项校验通过
+- **THEN** 系统可将event与feeling原文合并并保留全部来源及替换关系；合并后仍受三条、单段及总长度限制，不截断或补写
+
+#### Scenario: Missing evidence
+- **WHEN** 某段来源缺失、来源虚构或输出有禁止字段
+- **THEN** 系统拒绝候选，不通过格式整理补造来源；用户原稿仍在，不自动追加付费修复
+
 ### Requirement: Accessible and evidence-backed delivery
 
 系统 SHALL 在窄屏与键盘操作中提供可读正文、可见焦点和不被遮挡的主要动作，并尊重减少动态偏好。交付说明 SHALL 区分设计样例、结构测试、真实模型结果及用户反馈；不得用其中一类证据替代另一类。

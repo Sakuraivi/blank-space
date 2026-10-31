@@ -13,14 +13,17 @@ export function createClarityEvaluation(fetchImpl = fetch, { followup = false, c
   const condensed = [inputs[0], inputs[1], correction].join('\n');
   const allowed = new Set([...inputs, correction, condensed]);
   const file = reportPath ?? resolve(import.meta.dirname, coreSuite ? '../work/clarity-evaluation-core-v2.json' : '../work/clarity-evaluation-c01.json');
-  const prior = coreSuite ? JSON.parse(readFileSync(priorReportPath ?? resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-c01.json'), 'utf8')) : null;
+  const latestSnapshot = resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-core-structured.json');
+  const prior = coreSuite ? JSON.parse(readFileSync(priorReportPath ?? (existsSync(latestSnapshot) ? latestSnapshot : resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-c01.json')), 'utf8')) : null;
   const baselineSpend = prior ? evaluationSpend(prior) : 0;
   const report = (followup || coreSuite) && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : { sample: coreSuite ? 'Core scenario suite, synthetic only' : 'C01 synthetic', policyVersion: CLARITY_POLICY_VERSION, schemaVersion: CLARITY_SCHEMA_VERSION,
     startedAt: new Date().toISOString(), provider: 'bailian', model: 'qwen3.8-max', maxCalls: 4, budgetCny: 1,
     priceSource: 'https://help.aliyun.com/zh/model-studio/qwen3-8-max', inputCnyPerMillion: 12, outputCnyPerMillion: 36,
     perCallReservationCny: .229, calls: [] };
   if (followup) report.maxCalls = 6;
-  if (coreSuite) { report.maxCalls = 14; report.baselineSpendCny = baselineSpend; }
+  // A resumed ledger already includes its calls. A newer committed snapshot is
+  // a baseline only when starting a fresh ledger, never added twice on restart.
+  if (coreSuite) { report.maxCalls = 24; report.baselineSpendCny ??= baselineSpend; }
   // 13,000 input + 2,010 output tokens = ¥0.22836; no explicit cache creation.
   const persist = () => { mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, JSON.stringify(report, null, 2)); };
   persist();

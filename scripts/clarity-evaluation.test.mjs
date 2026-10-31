@@ -39,3 +39,15 @@ test('real usage replaces reservation; foreign input and endpoints never dispatc
   assert.equal(dispatches, 2);
   assert.ok(Math.abs(evaluationSpend(JSON.parse(readFileSync(config.reportPath))) - .6812) < 1e-8);
 });
+
+test('a committed snapshot is not double-counted on resume and survives a fresh ledger', async t => {
+  const config = setup(t, .1);
+  const fetcher = async () => Response.json({ choices: [], usage: { prompt_tokens: 1000, completion_tokens: 100 } });
+  await createClarityEvaluation(fetcher, config)(endpoint, options());
+  const snapshot = readFileSync(config.reportPath, 'utf8'); writeFileSync(config.priorReportPath, snapshot);
+  createClarityEvaluation(fetcher, config);
+  assert.ok(Math.abs(evaluationSpend(JSON.parse(readFileSync(config.reportPath))) - .1156) < 1e-8);
+  const fresh = { ...config, reportPath: join(dirname(config.reportPath), 'fresh.json') };
+  await createClarityEvaluation(fetcher, fresh)(endpoint, options());
+  assert.ok(Math.abs(evaluationSpend(JSON.parse(readFileSync(fresh.reportPath))) - .1312) < 1e-8);
+});

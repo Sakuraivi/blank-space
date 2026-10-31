@@ -1,4 +1,5 @@
 import { isTrustedRoute } from './providers.mjs';
+import { supportsClaritySchema } from './clarity-schema.mjs';
 
 export const MAX_RESPONSE_BYTES = 128 * 1024;
 export const MAX_ERROR_BYTES = 4096;
@@ -51,6 +52,10 @@ export function prepareProviderRequest(request, route) {
     body.max_tokens = route.maxOutputTokens;
   }
   if (route.transportMode !== 'generic-chat') body.response_format = { type: 'json_object' };
+  if (request.schemaVersion === 'liubai-clarity-1' && request.output?.format === 'json_schema' &&
+      supportsClaritySchema(route.providerId, route.modelId)) {
+    body.response_format = { type: 'json_schema', json_schema: { name: 'liubai_clarity', strict: true, schema: request.output.schema } };
+  }
   const serialized = JSON.stringify(body);
   const byteLength = encoder.encode(serialized).byteLength;
   if (byteLength > route.maxRequestBytes) throw new RangeError('input_too_large');

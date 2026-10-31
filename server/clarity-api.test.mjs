@@ -9,17 +9,17 @@ import { c01Candidate, inputs } from '../ai/fixtures/clarity-c01.mjs';
 const origin = 'https://clarity.test', fakeKey = 'synthetic-test-key-not-a-secret';
 const schema = readdirSync(new URL('../drizzle/', import.meta.url)).filter(n => n.endsWith('.sql')).sort().map(n => readFileSync(new URL(`../drizzle/${n}`, import.meta.url), 'utf8')).join('\n');
 function fixture(t) {
-  const db = new DatabaseSync(':memory:'); db.exec(schema); t.after(() => db.close()); let calls = 0, legacy = false;
+  const db = new DatabaseSync(':memory:'); db.exec(schema); t.after(() => db.close()); let calls = 0, legacy = false, transform = value => value;
   const env = { DB: { prepare(sql) { let args = []; return { bind(...v) { args = v; return this; }, async first() { return db.prepare(sql).get(...args) ?? null; }, async run() { return { meta: { changes: Number(db.prepare(sql).run(...args).changes) } }; } }; } }, LIUBAI_DEFAULT_DEEPSEEK_KEY: fakeKey };
   const call = async body => {
     const response = await handleApi(new Request(`${origin}/api/ai/generate`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), env, { now: () => Date.parse('2026-10-31T00:00:00Z'), fetchImpl: async (url, options) => {
       calls++; assert.equal(url, 'https://api.deepseek.com/chat/completions'); assert.match(options.headers.Authorization, /Bearer/);
       const request = JSON.parse(options.body), context = JSON.parse(request.messages[1].content);
       const output = legacy ? { reflection: { text: '今天的散步很开心。', evidenceIds: ['u_story'] }, hypothesis: null, question: null, nextStep: null } : c01Candidate(context);
-      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(output) } }], usage: { prompt_tokens: 1000, completion_tokens: 300, total_tokens: 1300 } });
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(transform(output)) } }], usage: { prompt_tokens: 1000, completion_tokens: 300, total_tokens: 1300 } });
     } }); return { status: response.status, body: await response.json() };
   };
-  return { db, env, call, calls: () => calls, legacy: () => { legacy = true; } };
+  return { db, env, call, calls: () => calls, legacy: () => { legacy = true; }, transform: fn => { transform = fn; } };
 }
 function input(overrides = {}) {
   const s = createClaritySession(); addExpression(s, inputs[0]); const t = beginClarityRequest(s);
@@ -52,4 +52,21 @@ test('absence of flow still dispatches the legacy v1 contract', async t => {
   const body = input({ session: s }); delete body.flow;
   const result = await f.call(body); assert.equal(result.body.status, 'candidate', JSON.stringify(result));
   assert.equal(result.body.flow, undefined); assert.ok(result.body.candidate.reflection); assert.equal(f.calls(), 1);
+});
+
+test('API folds four valid concern parts but never invents missing evidence', async t => {
+  const f = fixture(t);
+  const finished = value => ({ ...value, finish: true, question: null, claims: [
+    { type: 'event', text: '约朋友两次被取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'feeling', text: '想到还要不要再约就烦。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'insight', text: '两次取消还不能证实对方不愿意见面。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
+    { type: 'unknown', text: '对方的真实想法仍未知。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
+  ] });
+  f.transform(finished);
+  const result = await f.call(input({ stage: 'review' }));
+  assert.equal(result.body.status, 'candidate'); assert.deepEqual(result.body.candidate.claims.map(c => c.type), ['event', 'insight', 'unknown']);
+  assert.match(result.body.candidate.claims[0].text, /还要不要再约/);
+  f.transform(value => { const bad = finished(value); bad.claims[3].evidenceIds = []; return bad; });
+  const refused = await f.call(input({ stage: 'review' }));
+  assert.notEqual(refused.body.status, 'candidate'); assert.equal(f.calls(), 2);
 });

@@ -9,7 +9,7 @@ import { runCandidate } from './runtime.mjs';
 import { createSession } from '../public/core.mjs';
 
 const apiKey = 'fake-test-key-only-never-real';
-const routes = publicProviders().filter(p => !p.personalOnly).map(p => getRoute(p.id, p.defaultModelId));
+const routes = publicProviders().map(p => getRoute(p.id, p.defaultModelId)).filter(Boolean);
 const transportRoutes = [...routes, getPersonalRoute('bailian', 'qwen3.8-flash')];
 const routeFor = provider => transportRoutes.find(r => r.providerId === provider);
 const candidate = { reflection: { text: '你说散步很开心。', evidenceIds: ['u_story'] }, hypothesis: null, question: null, nextStep: null };
