@@ -2,6 +2,8 @@
 
 状态：隔离harness及固定真实批次 completed；三次v3受控收尾完成，完整对话首轮失败；完整内容门槛 not met，生产不变，整体4/10。以下先保留运行前冻结的方法，实际结果见末节。
 
+后续场景与语义强度修复的独立批次见[guided-retention-v4-evaluation.md](guided-retention-v4-evaluation.md)，不将新批次的完整运行或新失败回写成本报告成功。
+
 ## 冻结范围与请求
 
 v3收尾策略已在`ef21350`冻结，本轮不按实测结果改提示词、换样例或追加重试。复用四个已知合成案例（GROUP、FREQUENCY、CORRECTED_FEELING、FULL_DIALOGUE）作回归，不称新holdout或盲测。前三个各一次受控收尾；完整案例三次warm-19交流、一次v3收尾，共最多7次模型请求。中间结束、失败或实际Host问题不符则停止该例，不预填后续回答。
