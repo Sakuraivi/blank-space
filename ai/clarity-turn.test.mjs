@@ -7,6 +7,17 @@ import { CORE_SAMPLES } from './fixtures/clarity-samples.mjs';
 import { c01Candidate } from './fixtures/clarity-c01.mjs';
 
 function contextFor(text) { const s = createClaritySession(); addExpression(s, text); return beginClarityRequest(s).context; }
+
+test('a request to start chatting opens one question instead of becoming a memory', () => {
+  const c=contextFor('你在干嘛，陪我聊聊');
+  const raw={...c01Candidate(c),modeId:'moment',question:null,finish:true,claims:[{type:'event',text:'你在干嘛，陪我聊聊',evidenceIds:['u1'],derivation:'stated',supersedes:[]}]};
+  const result=validateClarityResponse(raw,c);
+  assert.equal(result.ok,true); assert.equal(result.candidate.finish,false);
+  assert.equal(result.candidate.reply,'我在，慢慢说就好。'); assert.equal(result.candidate.claims.length,0);
+  assert.equal(result.candidate.question.text,'你想先从哪件小事说起？');
+  const quote=contextFor('她说“陪我聊聊”，我很开心。');
+  assert.equal(validateClarityResponse({...raw,claims:[{...raw.claims[0],text:quote.statements[0].text}]},quote).candidate.modeId,'moment');
+});
 test('C01 advances actual gap questions and ends at the concrete expectation', () => {
   const s = createClaritySession(), targets = [];
   for (const text of CORE_SAMPLES.C01) {

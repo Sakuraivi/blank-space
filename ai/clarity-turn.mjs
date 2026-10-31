@@ -1,6 +1,6 @@
 // Application-owned conversational controls. Cues decide what to ask next;
 // they never establish facts, feelings, or third-party intentions as true.
-export const CLARITY_TURN_VERSION = 'clarity-turn-4';
+export const CLARITY_TURN_VERSION = 'clarity-turn-6';
 export const CONCERN_QUESTIONS = Object.freeze({
   event: '能说说最近一次发生时，具体是什么情形吗？',
   interpretation: '这件事里，最让你介意的是什么？',
@@ -57,6 +57,11 @@ export function clarityTurn(context) {
 
 export function routeClarityCandidate(candidate, context) {
   const plan = clarityTurn(context), value = structuredClone(candidate);
+  const opener = /^(?:(?:你在(?:干)?嘛|陪我聊(?:一)?聊|想找人聊(?:一)?聊|聊聊吧|陪我说说话)[，,。！!？?\s]*)+$/u;
+  if (context.stage === 'reflect' && context.statements.length === 1 && !context.dialogue.length && opener.test(context.statements[0].text.trim())) {
+    return { ok:true,candidate:{ ...value,modeId:'concern',goal:'先说一件想聊的事',title:'慢慢说',reply:'我在，慢慢说就好。',
+      question:{text:'你想先从哪件小事说起？',target:'event',evidenceIds:[context.statements[0].id]},claims:[],finish:false } };
+  }
   if (((plan.recordOnly && value.modeId === 'moment') || plan.stopOnly || plan.sparseUnknown) && !context.allowNextStep) {
     const selected = plan.sparseUnknown ? plan.materials.slice(0, -1) : plan.stopOnly ? plan.materials : plan.materials.slice(-1);
     const content = selected.map(s => s.text).join('\n');
