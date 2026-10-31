@@ -1,0 +1,704 @@
+{
+  "synthetic": true,
+  "method": "offline_grounding_function_replay",
+  "collectedAt": "2026-10-31T19:54:59.735Z",
+  "before": {
+    "sourceCommit": "9950696",
+    "groundingVersion": "clarity-grounding-3",
+    "sourceSha256": "ea213cbdcc0b172b0b19d715d8443faccd0d0de96ff160ed1e2c4c168321c261"
+  },
+  "after": {
+    "sourceCommit": "7f7df4f",
+    "groundingVersion": "clarity-grounding-4"
+  },
+  "mainTargetedTests": 144,
+  "mainTargetedTestsPassed": 144,
+  "legacyFullRegressionRun": false,
+  "independentReview": true,
+  "workerBuild": true,
+  "paidModelCalls": 0,
+  "results": [
+    {
+      "id": "old_own_emotion",
+      "first": "我很失落。",
+      "text": "我很失落。",
+      "expectedOK": false,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "我很失落。",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "我很失落。",
+            "evidenceIds": [
+              "u1"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "我很失落。",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": false,
+        "reason": "correction_not_applied"
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": false,
+      "isModelOutput": false
+    },
+    {
+      "id": "prefix_reconstruction",
+      "first": "我很失落。",
+      "text": "模型改写的经过。",
+      "expectedOK": false,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "我很失落。",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "模型改写的经过。",
+            "evidenceIds": [
+              "u1"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "我很失落。\n生气。",
+              "evidenceIds": [
+                "u1",
+                "u2"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": false,
+        "reason": "correction_not_applied"
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": false,
+      "isModelOutput": false
+    },
+    {
+      "id": "nested_third_party",
+      "first": "她说“老师说“先等等。”我很失落。”",
+      "expectedOK": true,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "她说“老师说“先等等。”我很失落。”",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "她说“老师说“先等等。”我很失落。”",
+            "evidenceIds": [
+              "u1"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“老师说“先等等。”我很失落。”",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“老师说“先等等。”我很失落。”",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": true,
+      "isModelOutput": false
+    },
+    {
+      "id": "own_after_nested_quote",
+      "first": "她说“老师说“先等等。””我很失落。",
+      "expectedOK": false,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "她说“老师说“先等等。””我很失落。",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "她说“老师说“先等等。””我很失落。",
+            "evidenceIds": [
+              "u1"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“老师说“先等等。””我很失落。",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": false,
+        "reason": "correction_not_applied"
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": false,
+      "isModelOutput": false
+    },
+    {
+      "id": "correction_words_inside_nested_quote",
+      "first": "她说“老师说“先等等。”不是失落，是生气。”",
+      "ids": [
+        "u1",
+        "u2"
+      ],
+      "expectedOK": true,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "她说“老师说“先等等。”不是失落，是生气。”",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "她说“老师说“先等等。”不是失落，是生气。”",
+            "evidenceIds": [
+              "u1",
+              "u2"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“老师说“先等等。”不是失落，是生气。”\n生气。",
+              "evidenceIds": [
+                "u1",
+                "u2"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“老师说“先等等。”不是失落，是生气。”",
+              "evidenceIds": [
+                "u1",
+                "u2"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": false,
+      "isModelOutput": false
+    },
+    {
+      "id": "positive_correction",
+      "first": "我很失落。",
+      "text": "不是失落，是生气。",
+      "ids": [
+        "u2"
+      ],
+      "expectedOK": true,
+      "expectedText": "生气。",
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "我很失落。",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "不是失落，是生气。",
+            "evidenceIds": [
+              "u2"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "生气。",
+              "evidenceIds": [
+                "u2"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "生气。",
+              "evidenceIds": [
+                "u2"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": true,
+      "isModelOutput": false
+    },
+    {
+      "id": "ordinary_third_party_quote",
+      "first": "她说“我很失落。”",
+      "expectedOK": true,
+      "context": {
+        "sessionId": "synthetic_correction_guard",
+        "revision": 2,
+        "stage": "review",
+        "allowNextStep": false,
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "statements": [
+          {
+            "id": "u1",
+            "text": "她说“我很失落。”",
+            "kind": "expression"
+          },
+          {
+            "id": "u2",
+            "text": "不是失落，是生气。",
+            "kind": "correction"
+          }
+        ],
+        "dialogue": [],
+        "claims": []
+      },
+      "input": {
+        "modeId": "concern",
+        "goal": "保留最新感受",
+        "title": "这次的表达",
+        "reply": "根据原话核对这次表达。",
+        "question": null,
+        "finish": true,
+        "claims": [
+          {
+            "type": "event",
+            "text": "她说“我很失落。”",
+            "evidenceIds": [
+              "u1"
+            ],
+            "derivation": "stated",
+            "supersedes": []
+          }
+        ]
+      },
+      "before": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“我很失落。”",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "after": {
+        "ok": true,
+        "candidate": {
+          "modeId": "concern",
+          "goal": "保留最新感受",
+          "title": "这次的表达",
+          "reply": "根据原话核对这次表达。",
+          "question": null,
+          "finish": true,
+          "claims": [
+            {
+              "type": "event",
+              "text": "她说“我很失落。”",
+              "evidenceIds": [
+                "u1"
+              ],
+              "derivation": "stated",
+              "supersedes": []
+            }
+          ]
+        }
+      },
+      "expectedAfterMatched": true,
+      "beforeMatchedDesired": true,
+      "isModelOutput": false
+    }
+  ],
+  "release": {
+    "checkedAt": "2026-10-31T19:53:03.445Z",
+    "sourceCommit": "7f7df4f",
+    "versionId": "d49f5c96-b8a0-4195-8404-b65561c73524",
+    "rollbackVersionId": "4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886",
+    "aiPolicyVersion": "clarity-warm-19",
+    "groundingVersion": "clarity-grounding-4",
+    "turnVersion": "clarity-turn-7",
+    "generationRequests": 0,
+    "buildContainsExperiment": false,
+    "results": [
+      {
+        "path": "/clarity",
+        "status": 200
+      },
+      {
+        "path": "/clarity-expression.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "9499ef55264abb23b6fca3efcd6aa64833fb09e59813c7f258467da6448c26b8"
+      },
+      {
+        "path": "/clarity-state.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "6228078001c4a6fc15a2da78aa680fc48ff4ab2d1165b6f953e721efceb58285"
+      },
+      {
+        "path": "/clarity-app.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "0e5663fea3f310862aecf335cd19e54e23aef008fcdb45a6ae06a68900753032"
+      },
+      {
+        "path": "/clarity-wait.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "9a3928d016bdae500e2558f65d03aa552a983e5f46ae234f3e9f8eb7a43e9492"
+      },
+      {
+        "path": "/clarity-contract.mjs",
+        "status": 200,
+        "matchesSource": true,
+        "sha256": "0155f8ff2a0247af22a294e917e5d2a68a3cbfc801721533676a65072f605213"
+      },
+      {
+        "path": "/",
+        "status": 200
+      },
+      {
+        "path": "/admin",
+        "status": 200
+      },
+      {
+        "path": "/api/organizer/status",
+        "status": 401
+      },
+      {
+        "path": "/api/ai/status",
+        "status": 200,
+        "defaultProfileUnchanged": true,
+        "configurationOnly": true
+      }
+    ]
+  },
+  "limits": [
+    "重放的是已知合成候选的grounding函数，不是新模型调用或真人体验。",
+    "未扩展引号种类、情绪词表或本人感受匹配模式；同义改写、复杂撤回仍需语义评审。",
+    "新的句级选择协议未集成或部署，UI及原话本地路径保持原版。"
+  ]
+}

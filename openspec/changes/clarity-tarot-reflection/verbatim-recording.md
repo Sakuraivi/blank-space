@@ -1,5 +1,7 @@
 # 首次原话记录交付（2026-11-01）
 
+本文保留首次原话路径的交付快照；后续发布状态见[beta-release.md](beta-release.md)。本地原话功能继续保留，原验证证据不改写为新的模型评估。
+
 状态：首次原话路径 completed，已发布至[内测入口](https://blank.sakura.observer/clarity)。内容质量整体仍 in progress，首次5人无指导测试仍 not started；OpenSpec保持4/10项完整完成，不勾选整个3.1或4.1。
 
 ## 行为与边界

@@ -1,10 +1,12 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
-当前源码`9950696`，Worker版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`；AI提示策略仍为`clarity-warm-19`，共享语法模块`clarity-turn-7`。已发布首次明确原话要求的本地保存路径，线上浏览器确认保存/刷新找回且生成请求为0，138项新版定向及10项发布HTTP检查通过，见[verbatim-recording.md](verbatim-recording.md)。可回退版本`734f8f1e-a3b6-4083-9cbb-6422f6358ff6`会撤销本地原话修复。
+当前生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；AI提示策略仍为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。句级引用协议只完成离线底座，未进入生产，见[material-selection-experiment.md](material-selection-experiment.md)。可回退版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销本次纠正修复。
+
+此前`9950696`发布的首次明确原话要求本地保存路径继续保留，线上浏览器保存/刷新找回及零生成请求的历史证据见[verbatim-recording.md](verbatim-recording.md)。本轮未重复浏览器/PNG验证；5项前端JS SHA仍一致，字体和界面无变更。
 
 warm-20和warm-21已因真实固定内容评估未通过而回退，实验代码保存在`codex/clarity-content-experiments-20261101`，不能据局部进步扩大测试。当前版本保留同批内容合并、旧候选不复活和受保护记录不丢失的修复；首次原话路径不代表其他AI内容质量已达标。
 
-此前50次真实调用、123项定向检查、逐例评分、数值用量及回退原因见[content-retention-evaluation.md](content-retention-evaluation.md)。本轮付费模型调用为0；默认Key/型号/revision、口令、DNS、数据库结构和旧记录均未更改。下文为此前发布历史，当前状态以上述版本为准。
+此前50次真实调用、123项定向检查、逐例评分、数值用量及回退原因见[content-retention-evaluation.md](content-retention-evaluation.md)。本轮付费模型调用为0；38项句级引用离线检查、39原句/54请求容量均不等于模型内容评估通过。默认Key/型号/revision、口令、DNS、数据库结构和旧记录均未更改。下文为此前发布历史，当前状态以上述版本为准。
 
 ## 此前线上内测交付（warm-18历史）
 
