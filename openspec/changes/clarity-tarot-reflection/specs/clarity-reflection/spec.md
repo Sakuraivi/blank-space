@@ -266,6 +266,14 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 在隔离环境用固定合成材料验证真实v3输出
 - **THEN** 使用独立版本label、签名域及请求/会话ID，不能接受v2续步或与其幂等身份冲突；原生JSON直接编译并与API候选对照，围栏或旧协议不映射救活；Worker与客户端分别apply并检查可见正文及内存保存，语义与首次用户体验单独判定，实验入口不进入生产
 
+#### Scenario: Scene uncertainty is separated from question provenance
+- **WHEN** 隔离reflect策略处理具体经历、兴趣、片刻或选择的首轮表达
+- **THEN** 场景由材料及当前意愿判断，不因第三方意图未知就默认片刻，不由fixture或关键词路由强制困扰；所有模式的问题仍须引用非空真实原话，修正来源不等于证明场景或问句正确
+
+#### Scenario: Analysis preserves the user's degree and unresolved object
+- **WHEN** 用户只否定极端说法，或仍在弄清是否如此、哪个选项、程度或原因
+- **THEN** 模型分析不得把非禁止加强为肯定意愿/许可，也不得把未决对象偷换为原因；原话保留或引用合法不能抵消title/reply/analysis的语义偏移，旧版本真实失败保持可追溯
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。
