@@ -1,6 +1,8 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
-最新时长/v5隔离验证：最终源码`ead9bad`，初版guard冻结`eeeb351`后core未变；最终容量精简发生在读取新材料后、真实输出前，不称严格盲测。12次客户端attempt中11次实际模型调用全部candidate，1例复杂限定源unsupported、零模型/无账本行；完整四轮228字原话可见并内存保存读回，另7首轮probe。10份个人原形检查通过、1份知识N/A、0份live拒绝；旧“两小时”错误单独离线回放被新检查拒绝。本轮内容4 pass/4 partial/1未评估，仍有中途原意收窄、定向追问与标题歧义，发布门槛not met。55项新定向及相关26/14/29/42项、构建/严格规范/独立审阅通过；输入24292/输出1610/总25902 tokens与11精确账本一致，金额未知。预览已停，生产4项HTTP及100%旧版本核对不变；未部署或修改Key/预算/UI，整体4/10。详见[duration-source-v5-evaluation.md](duration-source-v5-evaluation.md)。
+最新忠实对话/v6隔离验证：策略`caac5f0`先于新四例读取冻结，运行源码`c0c40f5`；16个attempt中15次真实模型调用/candidate，完整四轮228字原话可见并内存保存读回，11首轮probe（新4）及1前置unsupported零模型。9 pass/3 partial/1未评估，旧排他解释与标题结果偏移本轮改善；FULL仍未连起学习时间与怕尴尬的两难，旧choice仍预置二选一，新电影题只复述未先回答，内容发布门槛not met。17项新定向（含真实handleApi+内存DB/stub provider）及相关55/26/14/29/42项、两种构建dry-run/严格规范/独立审阅通过。15精确账本输入33733/输出2170/总35903tokens，金额未知；预览已停，生产HTTP与100%旧版本不变，未部署或改Key/预算/UI。整体4/10；下一步先离线验证小范围语义审校，识别遗漏两难、预设提问与未答题面，暂不增加生产付费调用。详见[faithful-dialogue-v6-evaluation.md](faithful-dialogue-v6-evaluation.md)。
+
+此前时长/v5隔离验证：最终源码`ead9bad`，初版guard冻结`eeeb351`后core未变；最终容量精简发生在读取新材料后、真实输出前，不称严格盲测。12次客户端attempt中11次实际模型调用全部candidate，1例复杂限定源unsupported、零模型/无账本行；完整四轮228字原话可见并内存保存读回，另7首轮probe。10份个人原形检查通过、1份知识N/A、0份live拒绝；旧“两小时”错误单独离线回放被新检查拒绝。本轮内容4 pass/4 partial/1未评估，仍有中途原意收窄、定向追问与标题歧义，发布门槛not met。55项新定向及相关26/14/29/42项、构建/严格规范/独立审阅通过；输入24292/输出1610/总25902 tokens与11精确账本一致，金额未知。预览已停，生产4项HTTP及100%旧版本核对不变；未部署或修改Key/预算/UI，整体4/10。详见[duration-source-v5-evaluation.md](duration-source-v5-evaluation.md)。
 
 此前guided/v4隔离验证：策略先冻结`6a9bcfb`，运行源码`0e3a815`；11次真实请求全部candidate，4份内存保存、4个新首轮probe，已知完整四轮也运行到保存。已知三份受控收尾的旧漂移修复；完整链路中途把两次各半小时说成“两小时”，内容hard fail，新首轮2 pass/2 partial。26项新定向、旧14/29/42项相关检查、构建/严格规范/独立审阅通过；输入18829/输出1773tokens与精确11ID账本一致、金额未知。未重试/部署，预览已停，生产HTTP及100%部署版本只读核对不变，整体4/10。详见[guided-retention-v4-evaluation.md](guided-retention-v4-evaluation.md)。
 

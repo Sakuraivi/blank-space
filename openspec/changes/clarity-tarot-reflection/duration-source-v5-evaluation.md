@@ -1,5 +1,7 @@
 # 受控个人复盘的时长原形检查
 
+后续忠实承接与开放追问的v6切片见[faithful-dialogue-v6-evaluation.md](faithful-dialogue-v6-evaluation.md)。本页保留v5当批结果；后续原生输出不改写本批语义结论，旧raw的离线拦截也不冒称为live拒绝。
+
 状态：时长检查、隔离策略、harness与固定真实批次 completed；内容发布门槛 not met，1.1/4.1 in progress、5人无指导体验 not started；未发布，整体4/10。旧“两小时”错误已验证能被新检查离线拒绝，新批次没有在线触发拒绝。不把有限词形检查称为完整事实或心理验证。
 
 ## 责任边界
