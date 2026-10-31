@@ -16,9 +16,9 @@ const notice = text => { document.querySelector('#notice').textContent = text; }
 function focusMain() { main.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function resizeFields() { document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; el.style.height = `${Math.max(132, el.scrollHeight + 3)}px`; }); }
 function clearKeyFields() { document.querySelectorAll('[data-key]').forEach(el => { el.value = ''; }); }
-function openModal(title, body) { previousFocus = document.activeElement; clearKeyFields(); document.querySelector('#modal-title').textContent = title; modalBody.innerHTML = body; if (!modal.open) modal.showModal(); resizeFields(); }
+function openModal(title, body, variant = '') { previousFocus = document.activeElement; clearKeyFields(); modal.dataset.variant = variant; document.querySelector('#modal-title').textContent = title; modalBody.innerHTML = body; if (!modal.open) modal.showModal(); resizeFields(); }
 function closeModal() { settingsGeneration++; settings = null; modalAction = null; clearKeyFields(); modal.close(); previousFocus?.isConnected && previousFocus.focus(); }
-function ask(title, text, action) { openModal(title, `<p>${e(text)}</p><div class="actions">${button('取消', 'close')}${button('确认', 'confirm', true)}</div>`); modalAction = action; }
+function ask(title, text, action, { cancelLabel = '取消', confirmLabel = '确认' } = {}) { openModal(title, `<p>${e(text)}</p><div class="dialog-actions">${button(e(cancelLabel), 'close')}${button(e(confirmLabel), 'confirm', true)}</div>`, 'confirm'); modalAction = action; }
 function abortRequest() { controller?.abort(); controller = null; if (session.pending) invalidateClarity(session); }
 function cancelRequest() { abortRequest(); session.failure = 'inactive'; localError = '已停止等待，文字还在。已发出的请求仍可能计费。'; render(); }
 
@@ -32,7 +32,7 @@ function render() {
   } else if (view === 'edit') {
     main.innerHTML = `<article class="paper"><h1>改成你的意思</h1><label for="review-title">记录名字</label><input id="review-title" maxlength="200" value="${e(editDraft.title)}">${editDraft.blocks.map((b, i) => `<section>${field(b.type === 'text' ? b.text : b.rows.map(r => `${r.option}：${r.benefit}；${r.cost}；${r.unknown}`).join('\n'), e(b.label), `edit-${i}`, 20000)}${button('移除这段', `remove:${b.id}`)}</section>`).join('')}${editDraft.removed.length ? button('恢复刚才移除的段落', 'restore') : ''}${button('自己写一段', 'add-note')}${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}${button('完成修改', 'apply-edit', true)}${button('取消修改', 'cancel-edit')}</article>`;
   } else if (session.stage === 'express') {
-    main.innerHTML = `<article class="paper"><h1>最近，有什么想聊的？</h1><form id="expression-form">${field(draft, '零散的一两句，也可以。')}${status.loading ? '<p class="small">正在准备陪伴服务…</p>' : usable() ? `<p class="small">点击“开始聊聊”，会把本次文字发送给 AI。${preference.selection().sourceMode === 'personal' ? '费用由你的服务商账户承担。' : ''}</p>` : '<p class="small">陪伴服务暂未就绪，可以先把这件事记下来。</p>'}<button class="primary" ${status.loading ? 'disabled' : ''}>${usable() ? '开始聊聊' : '只记下来'}</button></form>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
+    main.innerHTML = `<article class="paper welcome-paper"><div class="welcome"><h1>最近，<span>有什么想聊的？</span></h1><img src="/assets/cozy-room.svg" width="720" height="560" alt="" aria-hidden="true"></div><form id="expression-form">${field(draft, '零散的一两句，也可以。')}${status.loading ? '<p class="small">正在准备陪伴服务…</p>' : usable() ? `<p class="small">点击“开始聊聊”，会把本次文字发送给 AI。${preference.selection().sourceMode === 'personal' ? '费用由你的服务商账户承担。' : ''}</p>` : '<p class="small">陪伴服务暂未就绪，可以先把这件事记下来。</p>'}<button class="primary" ${status.loading ? 'disabled' : ''}>${usable() ? '开始聊聊' : '只记下来'}</button></form>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
   } else if (session.stage === 'exploring') {
     const last = session.statements.at(-1), reply = session.messages.findLast(m => m.role === 'assistant');
     const quote = last.text.length <= 160 ? `<p>${e(last.text)}</p>` : `<p>${e(last.text.slice(0, 100))}…</p><details><summary>展开原话</summary><p>${e(last.text)}</p></details>`;
@@ -201,7 +201,7 @@ document.addEventListener('click', async event => {
   try {
     if (action === 'close') closeModal();
     else if (action === 'confirm') { const fn = modalAction; closeModal(); fn?.(); }
-    else if (action === 'home' || action === 'end') { if (session.dirty || draft.trim()) ask('这次先到这里？', '尚未保存的内容会从本页清除。已保存的记录会保留。', reset); else reset(); }
+    else if (action === 'home' || action === 'end') { if (session.dirty || draft.trim()) ask('这次先到这里？', '尚未保存的内容会从本页清除。已保存的记录会保留。', reset, { cancelLabel: session.stage === 'express' ? '继续写' : session.stage === 'exploring' ? '继续聊聊' : '继续整理', confirmLabel: '结束本次' }); else reset(); }
     else if (action === 'settings') await showSettings();
     else if (action === 'clear-key') { preference.clear(); closeModal(); render(); notice('本页的个人 Key 已清除。'); }
     else if (action === 'cancel') cancelRequest();
@@ -219,8 +219,8 @@ document.addEventListener('click', async event => {
     else if (action === 'apply-edit') applyEdits();
     else if (action === 'save') { if (session.stale && document.querySelector('#review-rechecked')?.checked) acknowledgeClarityReview(session); const result = saveClarityRecord(session, localStorage); localError = result.ok ? '' : ({ review_stale: '请先核对或修改这份整理，再勾选已重新核对。', empty_review: '至少保留一段内容，可以修改并恢复之前的段落。', records_full: '本机已有30份记录，请先删除部分记录。' }[result.reason] ?? '这次没有保存成功。内容仍在本页，可以重试。'); render(); }
     else if (action === 'records') showRecords();
-    else if (action === 'open') { const load = () => { const record = readRecordEntries(localStorage).find(x => x.record?.id === id)?.record; if (!record) return; abortRequest(); session = { ...createClaritySession(), ...record, stage: 'kept', complete: true }; route = null; draft = ''; view = 'main'; closeModal(); render(); }; if (session.dirty || draft.trim()) ask('打开另一份记录？', '本次尚未保存的内容会被清除。', load); else load(); }
-    else if (action === 'delete') ask('删除这份记录？', '仅删除本浏览器中的这一份记录。已导出的文件会保留。', () => { const entries = readRecordEntries(localStorage); localStorage.setItem(RECORD_STORE, JSON.stringify(entries.filter(x => x.raw?.id !== id).map(x => x.raw))); showRecords(); });
+    else if (action === 'open') { const load = () => { const record = readRecordEntries(localStorage).find(x => x.record?.id === id)?.record; if (!record) return; abortRequest(); session = { ...createClaritySession(), ...record, stage: 'kept', complete: true }; route = null; draft = ''; view = 'main'; closeModal(); render(); }; if (session.dirty || draft.trim()) ask('打开另一份记录？', '本次尚未保存的内容会被清除。', load, { cancelLabel: '留在这里', confirmLabel: '打开记录' }); else load(); }
+    else if (action === 'delete') ask('删除这份记录？', '仅删除本浏览器中的这一份记录。已导出的文件会保留。', () => { const entries = readRecordEntries(localStorage); localStorage.setItem(RECORD_STORE, JSON.stringify(entries.filter(x => x.raw?.id !== id).map(x => x.raw))); showRecords(); }, { cancelLabel: '保留记录', confirmLabel: '删除记录' });
     else if (action === 'export-text') { download(new Blob([recordText(savedRecord(), { details: document.querySelector('#export-details')?.checked })], { type: 'text/plain;charset=utf-8' }), '留白.txt'); }
     else if (action === 'export-image') { target.disabled = true; try { await exportImage(document.querySelector('#export-details')?.checked); } finally { target.disabled = false; } }
     else if (action === 'request-action') { if (!route) { notice('这份记录来自本机。开始一次新的对话后可以请 AI 帮忙。'); return; } addExpression(session, '请根据刚才的期待，帮我想一句可以怎么说。', { kind: 'request' }); session.stage = 'reviewing'; await sendToAi({ action: true }); }

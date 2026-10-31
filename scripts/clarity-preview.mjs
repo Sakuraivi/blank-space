@@ -11,7 +11,8 @@ import { createClarityEvaluation } from './clarity-evaluation.mjs';
 const root = resolve(import.meta.dirname, '..'), assets = resolve(root, 'public');
 const replay = process.argv.includes('--replay-c01') ? JSON.parse(readFileSync(resolve(root, 'ai/evaluations/2026-10-31-c01.json'), 'utf8')) : null;
 const fixture = process.argv.includes('--fixture') || !!replay;
-const evaluationFetch = process.argv.includes('--evaluate-c01') && !fixture ? createClarityEvaluation(fetch, { followup: process.argv.includes('--followup') }) : null;
+const evaluationFetch = !fixture && (process.argv.includes('--evaluate-c01') || process.argv.includes('--evaluate-core'))
+  ? createClarityEvaluation(fetch, { followup: process.argv.includes('--followup'), coreSuite: process.argv.includes('--evaluate-core') }) : null;
 const port = Number(process.env.LIUBAI_PREVIEW_PORT ?? (fixture ? 4193 : 4192));
 const sqlite = new DatabaseSync(':memory:');
 for (const file of readdirSync(resolve(root, 'drizzle')).filter(n => n.endsWith('.sql')).sort()) sqlite.exec(readFileSync(resolve(root, 'drizzle', file), 'utf8'));

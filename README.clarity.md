@@ -12,6 +12,10 @@ npm run test:clarity         # 仅新版定向检查，不是旧版全量回归
 
 `node scripts/clarity-preview.mjs --replay-c01` 会在 4193 回放已经存档的真实模型响应，页面有明显说明，无外部模型调用。需按 `ai/evaluations/2026-10-31-c01.json` 前四次请求中的合成文字输入，第三次包含“不是失落，是生气”。它用于验证合并与显示，不用于证明当前模型质量。
 
+受控评估用 `node scripts/clarity-preview.mjs --evaluate-core`，只接收 `ai/fixtures/clarity-samples.mjs` 的完整前缀输入以及指定百炼模型。历史开销与本批记录累计计入¥1，未知用量按最坏预留保留，重启不清零。本批最多14次调用；结束后重启普通开发模式，避免样本白名单挡住自由体验。评估器边界检查：`node --test scripts/clarity-evaluation.test.mjs`，使用模拟网络，不计费。
+
+本地服务器没有热更新：查看代码变化需要新开预览或刷新；刷新会清除该页临时Key和未保存对话。本轮UI在单独预览页检查，保留原有配置页。第一版品牌色、小屋和信封标识已恢复，确认弹窗采用明确动作名及自适应并排按钮。
+
 主要边界：
 
 - `public/clarity-contract.mjs`：共享输入/候选校验；证据只能引用用户材料；模型不能生成 app ID、确认状态或自定义网络目标。
