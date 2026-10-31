@@ -1,6 +1,6 @@
 # 小范围语义审校实验
 
-状态：私有协议与10项定向检查 completed、独立源码审阅通过，隔离harness in progress，真实审校 not started。沿用`clarity-tarot-reflection`的质量评估任务；1.1/4.1 in progress、4.2 not started，整体4/10。生产、界面、字体与组织者配置不变。
+状态：私有协议与10项定向检查 completed、独立源码审阅通过，隔离harness与20项新定向检查 completed，真实审校 not started。沿用`clarity-tarot-reflection`的质量评估任务；1.1/4.1 in progress、4.2 not started，整体4/10。生产、界面、字体与组织者配置不变。
 
 ## Responsibility and scope
 
@@ -24,4 +24,10 @@ Host固定范围：review只查missing_dilemma_link，需候选已收尾；refle
 
 ## Pre-run evidence
 
-core10项检查通过，包括原候选不变、task范围、全部UTF16匹配、私有completed无用户candidate、未知/改述引用拒绝、合法假控告不被认证、恶意来源隔离、pre-await快照、取消/晚响应无重试。已知8份真实候选严格校验与可信transport通过，最终最大7491B/12000B；当前新6例正文未读。独立源码审阅及严格规范校验通过；已修复非字符串task经JS键强制转换绕过scope的漏洞并补反例，此时新6例未读、真实审校调用0。harness/实际API离线集成、构建与真实14例评估待记录。
+core10项检查通过，包括原候选不变、task范围、全部UTF16匹配、私有completed无用户candidate、未知/改述引用拒绝、合法假控告不被认证、恶意来源隔离、pre-await快照、取消/晚响应无重试。已知8份真实候选严格校验与可信transport通过，最终最大7491B/12000B；当时新6例正文未读。独立源码审阅及严格规范校验通过；已修复非字符串task经JS键强制转换绕过scope的漏洞并补反例，此时真实审校调用0。
+
+策略冻结于`e3ef58e34f7c84ab9023f245d389398aae2ff3ce`后root才读新6例并映射最终fixture，原独立文件SHA256 `fe36fd068cc29525caf9548d887267ec1e93342671d4c542b798f9723cab5633`。正文/候选/期望未改，未根据新例调词。14个严格input准备通过，known最大7491B、fresh最大4895B。
+
+core10+harness10共20项通过，包括真实handleApi+内存SQLite/合成加密配置/stub provider的14行finished/completed、0candidate/started，不调用应用状态。另17项相邻对话检查、生产Worker构建dry-run、严格规范通过；没有旧版全量回归。独立harness审阅发现响应捕获中止/无独立截止的问题，补初始及订阅后abort检查、最多10秒独立读取截止、空chunk界限与失败时取消原body，防止后续adapter继续读挂住的body；3项新增边界测试及实际API账本fallback通过，仍无真实模型调用。
+
+默认服务只读status200仍为百炼DeepSeek0813/revision3。审校completed在原通用diagnostics中归other，实验必须按独立label/requestId和精确账本分开记录，不混作用户candidate成功率。最终独立源码复核通过；实验Worker dry-run复查187.75KiB/gzip45.25KiB通过。现在待最终源码冻结，再做真实14例及语义误报/漏报评审，运行前记录保留。
