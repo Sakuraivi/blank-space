@@ -15,12 +15,40 @@ const json = (value, status = 200) => Response.json(value, { status, headers: { 
 const failure = (reason, status) => json({ synthetic: true, status: 'rejected', reason }, status);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const route = getPersonalRoute(MATERIAL_LIVE_ROUTE.providerId, MATERIAL_LIVE_ROUTE.modelId);
+const EMPTY_BODY_TIMEOUT_MS = 250;
 const tokenCount = value => Number.isSafeInteger(value) && value >= 0;
 const knownUsage = usage => {
   if (!usage || typeof usage !== 'object') return null;
   return Object.fromEntries(['prompt_tokens', 'completion_tokens', 'total_tokens', 'prompt_cache_hit_tokens', 'prompt_cache_miss_tokens']
     .filter(key => tokenCount(usage[key])).map(key => [key, usage[key]]));
 };
+
+async function hasStrictlyEmptyBody(request) {
+  if (request.signal.aborted) return false;
+  if (request.body === null) return true;
+  let reader, timer, abort;
+  try {
+    reader = request.body.getReader();
+    const interrupted = new Promise(resolve => {
+      abort = () => resolve({ interrupted: true });
+      request.signal.addEventListener('abort', abort, { once: true });
+      timer = setTimeout(abort, EMPTY_BODY_TIMEOUT_MS);
+    });
+    // A proxy can represent a bodyless POST as an already-closed stream. Read
+    // only once: a non-final chunk (including an empty chunk) is not accepted.
+    // Content-Length is deliberately not consulted and no bytes are retained.
+    const first = reader.read().then(value => ({ value }), () => ({ interrupted: true }));
+    const result = await Promise.race([first, interrupted]);
+    return !request.signal.aborted && !result.interrupted && result.value?.done === true &&
+      (result.value.value === undefined || result.value.value?.byteLength === 0);
+  } catch { return false; }
+  finally {
+    clearTimeout(timer); if (abort) request.signal.removeEventListener('abort', abort);
+    // A hostile/tee stream's cancel promise may never settle. Do not let it
+    // delay rejection; reader.read already has an explicit rejection handler.
+    if (reader) { reader.cancel().catch(() => {}); reader.releaseLock(); }
+  }
+}
 
 async function captureSuccessfulBody(response) {
   // Never capture provider error prose, headers or reasoning fields. Bound the
@@ -61,7 +89,8 @@ export function createMaterialEvaluationWorker({ handleApiImpl = handleApi, prep
   fetchImpl = globalThis.fetch, now = () => Date.now() } = {}) {
   return Object.freeze({ async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.search || url.hash || request.body !== null || ['authorization', 'cookie', 'x-api-key', 'api-key'].some(key => request.headers.has(key))) return failure('invalid_preview_request', 400);
+    if (url.search || url.hash || ['authorization', 'cookie', 'x-api-key', 'api-key'].some(key => request.headers.has(key)) ||
+      !await hasStrictlyEmptyBody(request)) return failure('invalid_preview_request', 400);
     if (url.pathname === '/health' && request.method === 'GET') {
       const active = runWindow(env, now());
       return active ? json({ label: MATERIAL_LIVE_LABEL, ...active }) : failure('preview_expired_or_unconfigured', 410);

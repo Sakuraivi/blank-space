@@ -100,6 +100,36 @@ test('worker refuses wrong default model/revision before preparation or paid dis
   }
 });
 
+test('proxy-style already-closed empty POST stream is accepted without trusting Content-Length', async () => {
+  const calls = [], requests = [];
+  const worker = createMaterialEvaluationWorker({ now: () => START, handleApiImpl: fakeApi({ calls }), fetchImpl: upstream({ requests }) });
+  const proxied = request(undefined, { body: new ReadableStream({ start(controller) { controller.close(); } }), duplex: 'half',
+    headers: { 'X-Liubai-Evaluation-Run': RUN } });
+  assert.notEqual(proxied.body, null);
+  const evidence = await (await worker.fetch(proxied, environment())).json();
+  assert.equal(evidence.api.result.status, 'candidate'); assert.equal(requests.length, 1); assert.equal(calls.length, 2);
+});
+
+test('nonempty, empty non-final, hanging or aborted streams reject in bounded time with zero API/upstream calls', { timeout: 2000 }, async () => {
+  let apiCalls = 0, upstreamCalls = 0;
+  const worker = createMaterialEvaluationWorker({ now: () => START,
+    handleApiImpl: async () => { apiCalls++; throw Error('unexpected_api'); }, fetchImpl: async () => { upstreamCalls++; throw Error('unexpected_upstream'); } });
+  const nonempty = request(undefined, { body: new ReadableStream({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('BODY_SECRET_MUST_NOT_ESCAPE')); controller.close();
+  } }), duplex: 'half', headers: { 'X-Liubai-Evaluation-Run': RUN, 'Content-Length': '0' } });
+  const nonFinalEmpty = request(undefined, { body: new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array()); controller.close(); } }), duplex: 'half' });
+  const hanging = request(undefined, { body: new ReadableStream({ cancel() { return new Promise(() => {}); } }), duplex: 'half' });
+  const controller = new AbortController();
+  const aborted = request(undefined, { body: new ReadableStream(), duplex: 'half', signal: controller.signal });
+  controller.abort();
+  const started = Date.now();
+  for (const req of [nonempty, nonFinalEmpty, hanging, aborted]) {
+    const response = await worker.fetch(req, environment());
+    assert.equal(response.status, 400); assert.doesNotMatch(await response.text(), /BODY_SECRET/);
+  }
+  assert.ok(Date.now() - started < 1500); assert.equal(apiCalls, 0); assert.equal(upstreamCalls, 0);
+});
+
 test('exact guarded transport captures only synthetic content and numeric usage; repeated case retains ledger identity', async () => {
   const requests = [], calls = [];
   const worker = createMaterialEvaluationWorker({ now: () => START, handleApiImpl: fakeApi({ calls }), fetchImpl: upstream({ requests }) });
