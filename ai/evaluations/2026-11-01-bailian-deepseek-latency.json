@@ -1,0 +1,319 @@
+{
+  "syntheticOnly": true,
+  "checkedOnLocalDate": "2026-11-01",
+  "sourceCommit": "8ef9788",
+  "workerVersion": "c82ee6fc-b49d-4570-8429-e674762368f3",
+  "route": {
+    "sourceMode": "default",
+    "providerId": "bailian",
+    "modelId": "deepseek-v4-pro-0813",
+    "defaultRevision": 3
+  },
+  "transport": {
+    "enable_thinking": false,
+    "max_completion_tokens": 2000,
+    "stream": false
+  },
+  "latencyEvidence": "Node HTTPS request through production origin, including response body. Not browser first-token time, an A/B comparison, or a latency guarantee.",
+  "usage": null,
+  "usageNote": "The public generation API does not expose token usage; no fee estimate is asserted by this smoke report.",
+  "topic": {
+    "input": "你知道下村阳子吗？",
+    "policyVersion": "clarity-warm-15",
+    "elapsedMs": 7563,
+    "serverTiming": "prepare;dur=1359, model;dur=4981, finalize;dur=657, total;dur=6997",
+    "requestId": "8c1571cb-ecbc-4848-9bbb-5a3018ab5f7d",
+    "candidate": {
+      "modeId": "moment",
+      "goal": "承接兴趣开场，了解想聊的方面",
+      "reply": "知道一些，她是日本作曲家，做过不少游戏配乐。",
+      "question": {
+        "text": "你想聊她的哪一方面？",
+        "target": "unknown",
+        "evidenceIds": [
+          "u1"
+        ]
+      },
+      "claims": [],
+      "finish": false,
+      "title": "想聊下村阳子"
+    }
+  },
+  "concern": {
+    "fixture": "ai/fixtures/clarity-c01.mjs",
+    "policyVersion": "clarity-warm-18",
+    "complete": true,
+    "calls": [
+      {
+        "index": 1,
+        "requestId": "91326b1f-c42d-4699-a586-b8b3dd265a7d",
+        "status": 200,
+        "elapsedMs": 6600,
+        "serverTiming": "prepare;dur=1221, model;dur=3839, finalize;dur=699, total;dur=5759",
+        "body": {
+          "status": "candidate",
+          "candidate": {
+            "modeId": "concern",
+            "goal": "理清两次被取消带来的困扰",
+            "reply": "两次约好都在当天取消，确实让人心里悬着：既会想是不是对方不想见，又怕自己太在意。眼下卡在还要不要再约上，挺消耗的。",
+            "question": {
+              "text": "能说说最近一次发生时，具体是什么情形吗？",
+              "target": "event",
+              "evidenceIds": [
+                "u1"
+              ]
+            },
+            "claims": [
+              {
+                "type": "event",
+                "text": "最近约了两次朋友，她都在当天取消。",
+                "evidenceIds": [
+                  "u1"
+                ],
+                "derivation": "stated",
+                "supersedes": []
+              }
+            ],
+            "finish": false,
+            "title": "被朋友两次临时取消"
+          },
+          "policyVersion": "clarity-warm-18",
+          "schemaVersion": "liubai-clarity-1",
+          "requestId": "91326b1f-c42d-4699-a586-b8b3dd265a7d",
+          "revision": 1,
+          "route": {
+            "sourceMode": "default",
+            "providerId": "bailian",
+            "modelId": "deepseek-v4-pro-0813",
+            "defaultRevision": 3
+          },
+          "flow": "clarity-v2"
+        }
+      },
+      {
+        "index": 2,
+        "requestId": "403e4eb3-0d5e-4432-bcd7-89ad5e5b6250",
+        "status": 200,
+        "elapsedMs": 6984,
+        "serverTiming": "prepare;dur=996, model;dur=4558, finalize;dur=825, total;dur=6379",
+        "body": {
+          "status": "candidate",
+          "candidate": {
+            "modeId": "concern",
+            "goal": "理清两次被取消带来的困扰",
+            "reply": "两次都专门空出周六，却都在当天被取消，后面也没再说下次什么时候，确实会让人悬着。",
+            "question": {
+              "text": "这件事里，最让你介意的是什么？",
+              "target": "interpretation",
+              "evidenceIds": [
+                "u2"
+              ]
+            },
+            "claims": [
+              {
+                "type": "event",
+                "text": "两次约朋友都在当天被取消，后来都没说下次什么时候。",
+                "evidenceIds": [
+                  "u1",
+                  "u2"
+                ],
+                "derivation": "stated",
+                "supersedes": [
+                  "c1_1_0"
+                ]
+              }
+            ],
+            "finish": false,
+            "title": "两次约定当天被取消"
+          },
+          "policyVersion": "clarity-warm-18",
+          "schemaVersion": "liubai-clarity-1",
+          "requestId": "403e4eb3-0d5e-4432-bcd7-89ad5e5b6250",
+          "revision": 2,
+          "route": {
+            "sourceMode": "default",
+            "providerId": "bailian",
+            "modelId": "deepseek-v4-pro-0813",
+            "defaultRevision": 3
+          },
+          "flow": "clarity-v2"
+        }
+      },
+      {
+        "index": 3,
+        "requestId": "156e5ce9-64b4-4f79-be88-5883a9b28f72",
+        "status": 200,
+        "elapsedMs": 6662,
+        "serverTiming": "prepare;dur=997, model;dur=4453, finalize;dur=621, total;dur=6071",
+        "body": {
+          "status": "candidate",
+          "candidate": {
+            "modeId": "concern",
+            "goal": "理清两次被取消带来的困扰",
+            "reply": "你空出了两个周六，也能理解临时有事，但对方没提下次，等待就落回你一个人身上。知道不等于不难受，难受也不等于要逼她。",
+            "question": {
+              "text": "你希望接下来有什么具体的不同？",
+              "target": "need",
+              "evidenceIds": [
+                "u3"
+              ]
+            },
+            "claims": [
+              {
+                "type": "feeling",
+                "text": "两次被当天取消后，一想到还要不要再约她，就很烦。",
+                "evidenceIds": [
+                  "u1"
+                ],
+                "derivation": "stated",
+                "supersedes": []
+              }
+            ],
+            "finish": false,
+            "title": "两次被取消后的等待"
+          },
+          "policyVersion": "clarity-warm-18",
+          "schemaVersion": "liubai-clarity-1",
+          "requestId": "156e5ce9-64b4-4f79-be88-5883a9b28f72",
+          "revision": 3,
+          "route": {
+            "sourceMode": "default",
+            "providerId": "bailian",
+            "modelId": "deepseek-v4-pro-0813",
+            "defaultRevision": 3
+          },
+          "flow": "clarity-v2"
+        }
+      },
+      {
+        "index": 4,
+        "requestId": "3b122696-ddf6-41ec-855d-f1454acc300f",
+        "status": 200,
+        "elapsedMs": 8014,
+        "serverTiming": "prepare;dur=997, model;dur=5751, finalize;dur=794, total;dur=7542",
+        "body": {
+          "status": "candidate",
+          "candidate": {
+            "modeId": "concern",
+            "goal": "理清两次被取消带来的困扰",
+            "reply": "两次都专门空出周六，又被当天取消，确实会烦。你在意的不是对方没空，而是没有后续交代，这让你不确定该继续等还是直接问。",
+            "question": null,
+            "claims": [
+              {
+                "type": "event",
+                "text": "最近约了两次朋友，她都在当天取消。",
+                "evidenceIds": [
+                  "u1"
+                ],
+                "derivation": "stated",
+                "supersedes": []
+              },
+              {
+                "type": "insight",
+                "text": "更难受的是，她都没有主动说下次什么时候，好像只有我在等。\n\n取消了的话，希望她能主动提一个新时间；如果她现在没空，也直接说。",
+                "evidenceIds": [
+                  "u3",
+                  "u4"
+                ],
+                "derivation": "stated",
+                "supersedes": []
+              },
+              {
+                "type": "unknown",
+                "text": "她两次当天取消，是不是不想见面，还没有得到她的明确说法。",
+                "evidenceIds": [
+                  "u1",
+                  "u2"
+                ],
+                "derivation": "inferred",
+                "supersedes": [
+                  "c2_2_0",
+                  "c3_3_0"
+                ]
+              }
+            ],
+            "finish": true,
+            "title": "两次被当天取消后的等待"
+          },
+          "policyVersion": "clarity-warm-18",
+          "schemaVersion": "liubai-clarity-1",
+          "requestId": "3b122696-ddf6-41ec-855d-f1454acc300f",
+          "revision": 4,
+          "route": {
+            "sourceMode": "default",
+            "providerId": "bailian",
+            "modelId": "deepseek-v4-pro-0813",
+            "defaultRevision": 3
+          },
+          "flow": "clarity-v2"
+        }
+      }
+    ],
+    "confirmedReview": {
+      "title": "两次被当天取消后的等待",
+      "blocks": [
+        {
+          "id": "context",
+          "type": "text",
+          "group": "main",
+          "label": "你说过的",
+          "text": "最近约了两次朋友，她都在当天取消。"
+        },
+        {
+          "id": "insight",
+          "type": "text",
+          "group": "main",
+          "label": "这次分清了",
+          "text": "更难受的是，她都没有主动说下次什么时候，好像只有我在等。\n\n取消了的话，希望她能主动提一个新时间；如果她现在没空，也直接说。"
+        },
+        {
+          "id": "unknown",
+          "type": "text",
+          "group": "main",
+          "label": "还留着的问号",
+          "text": "她两次当天取消，是不是不想见面，还没有得到她的明确说法。"
+        }
+      ]
+    },
+    "recordStore": "liubai.clarity.records.v2",
+    "stateStorageRoundTrip": true,
+    "storageBoundary": "In-memory storage adapter and serialization round-trip. Not real localStorage, browser refresh, or PNG verification."
+  },
+  "knownContentGaps": [
+    "Final context retained the cancellations but omitted the two Saturdays invested.",
+    "The concern about appearing to pressure the friend was absent from the final review.",
+    "A concrete expectation and the unknown third-party intent were retained; this is not a complete content-quality acceptance pass."
+  ],
+  "pending": [
+    "Real browser save/refresh/PNG check",
+    "Complete fixed scenario and content quality evaluation",
+    "Five first-time unassisted user checks"
+  ],
+  "previousSyntheticFailures": [
+    {
+      "policyVersion": "clarity-warm-15",
+      "stage": 3,
+      "reason": "invalid_claim",
+      "requestId": "049e7892-949c-4e1a-adb7-bb40b8119443"
+    },
+    {
+      "policyVersion": "clarity-warm-16",
+      "stage": 4,
+      "reason": "invalid_shape",
+      "requestId": "b8633486-8534-46f6-8b78-c2cedd4505ac"
+    },
+    {
+      "policyVersion": "clarity-warm-16",
+      "stage": 4,
+      "reason": "invalid_shape",
+      "category": "shape_claims",
+      "requestId": "23d38146-af84-4840-8840-5b8fa7025919"
+    },
+    {
+      "policyVersion": "clarity-warm-17",
+      "stage": 3,
+      "reason": "invalid_question",
+      "requestId": "b54525f1-8a99-4c8f-b617-6592b4f5ce51"
+    }
+  ]
+}
