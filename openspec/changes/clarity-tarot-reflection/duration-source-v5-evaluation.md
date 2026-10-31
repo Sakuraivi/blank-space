@@ -1,6 +1,6 @@
 # 受控个人复盘的时长原形检查
 
-状态：时长检查与隔离策略 completed（待真实模型验证）；harness not started，真实模型 not started；生产不变，整体4/10。本轮解决上一批新增“两小时”未被拦截的问题，不把有限词形检查称为完整事实或心理验证。
+状态：时长检查、隔离策略与harness completed（待真实模型验证）；真实模型 not started；生产不变，整体4/10。本轮解决上一批新增“两小时”未被拦截的问题，不把有限词形检查称为完整事实或心理验证。
 
 ## 责任边界
 
@@ -27,5 +27,17 @@ Host在固定实验入口明确调用目的personal_reflection，不根据模型
 ## 当前检查与剩余工作
 
 guard与wrapper离线19项通过（core12、wrapper7），包含真实旧错误回放、全部文字字段、规范化前检查、公开形状、源unsupported、Host purpose、profile/快照和取消晚响应。独立审阅曾发现并修复周二/周五、约好/约朋友的误识别，以及空白限定、负号、英文词形的漏检；复核通过，不能以这些反例通过推成通用语义可靠。追问与收尾的追加指令已按既有Host计划分开，reflect已要求停止时也不再追加问题，明确说出的原因仍照实保留。新4例正文尚未读取，尚未运行真实模型。
+
+### 容量修订与冻结口径
+
+初版guard/策略先冻结于`eeeb351`，之后root才读新4例。harness暴露第3步超过真实可信route的12000B请求边界；当时真实模型调用仍0。未放宽route、复制伪route或删输入，而是合并重复说明、精简reflect输出契约段并显式升为source-checked reflect/review策略-2。原7字段、全部枚举/来源/长度/finish要求、问题来源段和运行validator保留，guard core与初冻结版本无diff。
+
+这次容量修订发生在新材料已读之后，最终策略不能被称为完全在新数据之前冻结，也不是统计盲测。它没有依据真实模型输出调词，后续须先重新冻结源码再运行一次固定批次。保留初版容量失败，不改写它为通过。
+
+source-checked-2固定fake历史的完整四步请求10096/10825/11338/6906B，最大11338B，原12000上限不变。此证据只覆盖固定历史；真实新增claims或更长goal仍可能超限，必须调用前如实拒绝，不静默截断。新qualified源因非邻接限定按初版guard明确unsupported，零model，不改guard迎合该例。
+
+新55项检查（core12、wrapper8、Worker10、client25含反例子项）通过；其中客户端只把独立核对过的零调用证据计作sourceUnsupported，自相矛盾的dispatch/status/elapsed/probeComplete不计入完成数。输出拒绝也核对API flow/requestId/revision/route，不能借相同reason移接其他请求的拒绝。guard拒绝输出不apply、不补固定后续答案、不自动重试；sourceUnsupported是未支持，不是内容成功。
+
+旧v4相关26项、v3相关14项、v2集合29项及原保留链路42项通过，独立Worker构建dry-run、严格OpenSpec和独立源码审阅通过；没有执行旧版全量回归。当前仍无真实模型调用，须提交最终源码后才运行固定批次。
 
 实际结果后续追加。1.1/4.1 in progress、5人无指导体验not started，无需用户重新配置Key。

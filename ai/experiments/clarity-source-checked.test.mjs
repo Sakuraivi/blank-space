@@ -43,6 +43,14 @@ test('native review and compiled Host material are both checked while only origi
   assert.equal(result.candidate.claims[0].text,p.ledger.retainedText);
 });
 
+test('post-compilation check rejects a model-derived old goal that is not a user duration source',async()=>{
+  const c={...ctx(),stage:'review',goal:'梳理两小时的等待'},p=await prepareSourceCheckedReviewRun(c,profile());
+  const value={reply:'先保留已经说出的经过。',title:'这次等待',claims:[]};
+  assert.equal(p.checkDuration(value).ok,true); // The private review has no goal field.
+  assert.equal(p.validateSelection(value,c).reason,'duration_source_mismatch');
+  assert.equal((await p.run({adapter:adapter(value),isCurrent:()=>true,timeoutMs:1000})).status,'fallback');
+});
+
 test('reflect with an existing Host finish plan adds no new continuation question',async()=>{
   const c=ctx('今天等了半小时。只留原话，不用分析。'),p=await prepareSourceCheckedReflectRun(c,profile());
   assert.equal(JSON.parse(p.requestData.input.content).turnPlan.finish,true);
