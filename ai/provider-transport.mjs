@@ -25,7 +25,13 @@ export function prepareProviderRequest(request, route) {
     // A custom ID does not prove support for vendor/model-specific options.
     // The common platform instruction still requires JSON, and the same
     // candidate validator checks the result before it can reach the UI.
-    if (route.providerId === 'openai') {
+    if (route.providerId === 'bailian') {
+      // These exact aliases are documented non-thinking Qwen configurations.
+      // Unknown IDs may name models from other vendors on the same platform.
+      const legacyQwen = ['qwen-plus', 'qwen-flash'].includes(route.modelId);
+      body[legacyQwen ? 'max_tokens' : 'max_completion_tokens'] = route.maxOutputTokens;
+      if (legacyQwen || route.modelId === 'qwen3.8-flash') body.enable_thinking = false;
+    } else if (route.providerId === 'openai') {
       body.max_completion_tokens = route.maxOutputTokens;
       body.store = false;
     } else body.max_tokens = route.maxOutputTokens;
@@ -111,7 +117,7 @@ async function providerFailure(response, route, signal) {
     402: 'provider_balance_low', 403: 'provider_access_denied',
     404: 'provider_model_unavailable', 422: 'provider_request_rejected', 429: 'provider_rate_limited',
   })[status] ?? 'provider_unavailable';
-  if (!['kimi', 'glm', 'openai'].includes(route.providerId) || ![400, 403, 404, 429].includes(status)) {
+  if (!['kimi', 'glm', 'openai', 'bailian'].includes(route.providerId) || ![400, 403, 404, 429].includes(status)) {
     await response.body?.cancel().catch(() => {});
     return { status: 'failed', reason };
   }
@@ -126,6 +132,7 @@ async function providerFailure(response, route, signal) {
     if (status === 400 && ['1211', '1221', '1222'].includes(String(error?.code))) reason = 'provider_model_unavailable';
   }
   if (route.providerId === 'openai' && status === 429 && (error?.code === 'insufficient_quota' || error?.type === 'insufficient_quota')) reason = 'provider_balance_low';
+  if (route.providerId === 'bailian' && ((status === 403 && error?.code === 'AllocationQuota.FreeTierOnly') || (status === 400 && error?.code === 'Arrearage'))) reason = 'provider_balance_low';
   return { status: 'failed', reason };
 }
 

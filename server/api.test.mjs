@@ -609,7 +609,8 @@ const ROUTES = [
 test('public catalog and default profile accurately describe the configured provider without inference', async t => {
   const f = fixture(t);
   const blank = (await f.call('/api/ai/status')).body;
-  assert.deepEqual(blank.providers.map(p => p.id), ROUTES.map(r => r[0]));
+  assert.deepEqual(blank.providers.map(p => p.id), [...ROUTES.map(r => r[0]), 'bailian']);
+  assert.equal(blank.providers.find(p => p.id === 'bailian').personalOnly, true);
   assert.equal(blank.defaultProfile, null);
   for (const [providerId, modelId] of ROUTES) {
     f.env.LIUBAI_DEFAULT_PROVIDER = providerId;
@@ -836,4 +837,108 @@ test('custom personal output still requires evidence and its token overrun canno
   const next = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'shared-after-custom-overrun' }) });
   assert.equal(next.body.status, 'candidate');
   assert.equal((await f.call('/api/ai/status')).body.remainingCalls, 17);
+});
+
+test('Bailian preset and other vendor models share the system policy, consent and personal-only idempotent ledger path', async t => {
+  const f = fixture(t); await f.configure();
+  const endpoint = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+  const policy = new Set(); let calls = 0;
+  for (const [index, modelId] of ['qwen3.8-flash', 'glm-5.3', 'kimi-k3'].entries()) {
+    const body = input({ requestId: `bailian-personal-${index}`, providerId: 'bailian', modelId, personalApiKey: PERSONAL_KEY, systemPrompt: 'PRIVATE_OVERRIDE_IGNORE_POLICY' });
+    for (const change of [{ configVersion: 'old-contract' }, { consentVersion: 'old-consent' }]) {
+      const rejected = await f.call('/api/ai/generate', { method: 'POST', body: { ...body, ...change } });
+      assert.equal(rejected.body.reason, 'consent_changed');
+    }
+    const options = { fetchImpl: async (url, request) => {
+      calls++;
+      assert.equal(url, endpoint);
+      assert.equal(request.redirect, 'manual');
+      assert.equal(request.headers.Authorization, `Bearer ${PERSONAL_KEY}`);
+      const payload = JSON.parse(request.body);
+      assert.equal(payload.model, modelId);
+      assert.equal(payload.max_completion_tokens, 2000);
+      assert.equal(payload.max_tokens, undefined);
+      assert.equal(payload.enable_thinking, modelId === 'qwen3.8-flash' ? false : undefined);
+      assert.equal(payload.messages[0].role, 'system');
+      assert.match(payload.messages[0].content, /留白/);
+      assert.match(payload.messages[0].content, /JSON/);
+      assert.match(payload.messages[0].content, /纠正/);
+      assert.match(payload.messages[1].content, /liubai_user_data/);
+      policy.add(payload.messages[0].content);
+      for (const option of ['response_format', 'thinking', 'reasoning_effort', 'store', 'prompt_cache_options']) assert.equal(payload[option], undefined);
+      assert.doesNotMatch(request.body, /PRIVATE_OVERRIDE|personal-fake-key|fake-deepseek-key/);
+      return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(CANDIDATE), reasoning_content: 'PRIVATE_THINKING' } }], usage: { prompt_tokens: 100, completion_tokens: 1500, total_tokens: 1600, completion_tokens_details: { reasoning_tokens: 1400 } } }));
+    } };
+    const result = await f.call('/api/ai/generate', { method: 'POST', body, options });
+    assert.equal(result.body.status, 'candidate');
+    assert.deepEqual(result.body.candidate, CANDIDATE);
+    assert.deepEqual(result.body.route, { sourceMode: 'personal', providerId: 'bailian', modelId });
+    assert.equal(result.body.requestId, body.requestId);
+    assert.equal(result.body.revision, body.revision);
+    assert.doesNotMatch(JSON.stringify(result.body), /PRIVATE_THINKING|personal-fake-key/);
+    assert.equal((await f.call('/api/ai/generate', { method: 'POST', body, options })).body.reason, 'duplicate_request');
+    assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: { ...body, modelId: modelId + '-changed' }, options })).body.reason, 'request_conflict');
+  }
+  assert.equal(calls, 3);
+  assert.equal(policy.size, 1);
+  const rows = f.sqlite.prepare('SELECT * FROM pilot_requests').all();
+  assert.equal(rows.length, 3);
+  assert.ok(rows.every(row => row.provider_id === 'bailian' && row.source_mode === 'personal' && row.reserved_micros === 0 && row.price_version === 'personal-unpriced-v1' && row.completion_tokens === 1500 && row.total_tokens === 1600));
+  assert.doesNotMatch(JSON.stringify(rows), /fake-key|散步|PRIVATE/);
+  const status = (await f.call('/api/ai/status')).body;
+  assert.equal(status.remainingCalls, 18);
+  assert.equal(status.remainingBudgetCny, 0.9);
+});
+
+test('Bailian configured as default or without its personal key never reserves, dispatches or borrows another credential', async t => {
+  const f = fixture(t); await f.configure();
+  f.env.LIUBAI_DEFAULT_PROVIDER = 'bailian';
+  f.env.LIUBAI_DEFAULT_BAILIAN_KEY = 'fake-bailian-server-key-only-tests';
+  f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  for (const modelId of ['qwen3.8-flash', 'glm-5.3']) {
+    f.env.LIUBAI_DEFAULT_MODEL = modelId;
+    const status = (await f.call('/api/ai/status')).body;
+    assert.equal(status.defaultAvailable, false);
+    assert.equal(status.defaultEnabled, false);
+    assert.equal(status.defaultProfile, null);
+    assert.equal(status.enabled, true);
+    const denied = await f.call('/api/ai/generate', { method: 'POST', body: input({ providerId: 'bailian', modelId }) });
+    assert.equal(denied.body.reason, 'unsupported_model');
+  }
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input() })).body.reason, 'default_unavailable');
+  assert.equal((await f.call('/api/ai/generate', { method: 'POST', body: input({ sourceMode: 'personal', providerId: 'bailian', modelId: 'qwen3.8-flash' }) })).body.reason, 'missing_personal_key');
+  for (const change of [{ modelId: 'https://attacker.invalid/model' }, { modelId: 'bad model' }, { endpoint: 'https://attacker.invalid' }]) {
+    const denied = await f.call('/api/ai/generate', { method: 'POST', body: input({ providerId: 'bailian', modelId: 'qwen3.8-flash', personalApiKey: PERSONAL_KEY, ...change }) });
+    assert.ok(['unsupported_model', 'invalid_request'].includes(denied.body.reason));
+  }
+  assert.equal(f.calls(), 0);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n, 0);
+  assert.equal((await f.call('/api/ai/status')).body.remainingBudgetCny, 0.9);
+});
+
+test('Bailian invalid candidates, quota errors and token overrun retain the common validator without stopping shared service', async t => {
+  const f = fixture(t); f.env.LIUBAI_DEFAULT_DEEPSEEK_KEY = ENV_KEY;
+  let calls = 0;
+  const invalid = { ...CANDIDATE, reflection: { text: '无依据内容。', evidenceIds: ['nonexistent'] } };
+  const responses = [
+    () => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{PRIVATE_INVALID_JSON' } }] })),
+    () => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(invalid) } }] })),
+    () => complete({ prompt_tokens: 100, completion_tokens: 2001, total_tokens: 2101 }),
+    () => new Response(JSON.stringify({ error: { code: 'AllocationQuota.FreeTierOnly', message: `PRIVATE_ERROR ${PERSONAL_KEY}` } }), { status: 403 }),
+  ];
+  for (const [index, makeResponse] of responses.entries()) {
+    const result = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: `bailian-invalid-${index}`, providerId: 'bailian', modelId: 'qwen3.8-flash', personalApiKey: PERSONAL_KEY }), options: { fetchImpl: async () => { calls++; return makeResponse(); } } });
+    assert.equal(result.body.status, 'fallback');
+    assert.equal(result.body.candidate, null);
+    if (index === 2) assert.equal(result.body.reason, 'usage_out_of_bounds');
+    if (index === 3) assert.equal(result.body.reason, 'provider_balance_low');
+    assert.doesNotMatch(JSON.stringify(result.body), /PRIVATE|fake-key|无依据内容/);
+    assert.equal((await f.call('/api/ai/status')).body.defaultEnabled, true);
+  }
+  assert.equal(calls, 4);
+  const shared = await f.call('/api/ai/generate', { method: 'POST', body: input({ requestId: 'shared-after-bailian-failures' }) });
+  assert.equal(shared.body.status, 'candidate');
+  assert.equal(f.calls(), 1);
+  assert.equal((await f.call('/api/ai/status')).body.remainingCalls, 17);
+  assert.equal((await f.call('/api/ai/status')).body.remainingBudgetCny, 0.85);
 });

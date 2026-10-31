@@ -1,5 +1,19 @@
 # 验证记录
 
+## 百炼接入（发布 in progress）
+
+日期：2026-10-31（Asia/Shanghai）。契约：[add-bailian-provider](openspec/changes/add-bailian-provider/design.md)。本节为新增第五家，不改下方迁移历史。
+
+- 个人目录新增 `bailian`，界面仅“阿里云百炼”，预设 `qwen3.8-flash`，支持合法自填模型Code。固定官方北京标准DashScope端点，百炼共享路由始终不存在；全部百炼个人route费率null、预留0、personal-unpriced-v1。未改变旧四家参数、共享预算或数据库schema。
+- 百炼只有精确qwen3.8-flash/qwen-plus/qwen-flash关闭思考；两个旧别名用max_tokens2000，其余百炼用max_completion_tokens2000。不会给glm-5.3、kimi-k3或未知ID盲注关闭参数。403 FreeTierOnly、400 Arrearage按有限error.code映射既有余额/额度不足提示，不回显原错误体。
+- 全量 **186/186通过**，包含原179项及本轮新增后端6项、前端1项。Workerd矩阵涵盖4共享、5通用个人和百炼preset/glm-5.3/kimi-k3的成功与302；百炼default无出站。API检查system场景指令、候选/evidence校验、实际同意、幂等、个人错误不熔断共享，源码独立审查未发现P1/P2或契约缺口。
+- 本地4187隔离fixture完成预选Qwen3.8 Flash及自填glm-5.3两次完整候选流程，同意均显示百炼收件方与个人付款、原文续接保留；请求metadata为system+JSON、max_completion_tokens2000，只有预选Qwen关闭思考。两行账本均personal、finished/candidate、reserved0，fixture共享仍18次/¥0.90，不冒充生产余额。
+- 本地跨厂商切换清空新Key与模型，取消重开恢复百炼glm-5.3；刷新后临时Key及应用选择清除，不再显示移除Key按钮。原生键盘End/Enter选择百炼后焦点仍在原select。未修改app中的select稳定修复。
+- 390px页面宽375，无横向溢出，footer位于707–771px/844px视口内；自填字段与提交操作可用，随后恢复默认视口。工作区截图 `outputs/liubai-bailian-settings-local.jpg`、`outputs/liubai-bailian-candidate-local.jpg`、`outputs/liubai-bailian-settings-mobile.jpg`。非真机或系统原生弹层的完整人工验收。
+- 发布前匿名生产基线2026-10-31 04:58:47 UTC：enabled true，multi-flex-v1/multi-provider-v1，默认未配置，共享16次/¥0.80，四家目录。发布使用原Worker/D1及verified/正式域名绑定，不读取真实Key、不推理、不改变运行秘密或额度。构建及正式部署结果待本节补录。
+
+实现与本地验收 `completed`；发布及正式页面核对 `in progress`。下一步：部署并核对五家目录、资产哈希和共享基线，再由用户在本页填写百炼Key验证实际模型权限。
+
 ## 本轮：灵活模型、独立托管与服务商选择修复（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本节仅追加本轮证据；下方版本9及更早发布记录保留为历史事实。契约：[personal-model-flexibility](openspec/changes/personal-model-flexibility/design.md)。

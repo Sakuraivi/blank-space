@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getRoute, getPersonalRoute, isTrustedRoute, publicProviders, PRICE_VALID_UNTIL } from './providers.mjs';
 
-test('public catalog exposes four complete selections without private endpoints or mutable objects', () => {
+test('public catalog exposes five complete selections without private endpoints or mutable objects', () => {
   const catalog = publicProviders();
-  assert.deepEqual(catalog.map(p => p.id), ['deepseek', 'kimi', 'glm', 'openai']);
+  assert.deepEqual(catalog.map(p => p.id), ['deepseek', 'kimi', 'glm', 'openai', 'bailian']);
   assert.ok(Object.isFrozen(catalog));
   for (const provider of catalog) {
-    assert.deepEqual(Object.keys(provider).sort(), ['allowCustomModels', 'defaultModelId', 'id', 'keyHelp', 'label', 'models']);
+    assert.deepEqual(Object.keys(provider).sort(), ['allowCustomModels', 'defaultModelId', 'id', 'keyHelp', 'label', 'models', ...(provider.id === 'bailian' ? ['personalOnly'] : [])].sort());
     assert.equal(provider.allowCustomModels, true);
     assert.equal(provider.models.length, 1);
     assert.equal(provider.models[0].id, provider.defaultModelId);
@@ -24,7 +24,7 @@ test('personal model IDs get only server-issued fixed-provider routes and no sha
     const route = getPersonalRoute(provider.id, modelId);
     assert.ok(isTrustedRoute(route));
     assert.ok(Object.isFrozen(route) && Object.isFrozen(route.profile));
-    assert.equal(route.endpoint, getRoute(provider.id, provider.defaultModelId).endpoint);
+    assert.equal(route.endpoint, getPersonalRoute(provider.id, provider.defaultModelId).endpoint);
     assert.equal(route.modelId, modelId);
     assert.equal(route.transportMode, 'generic-chat');
     assert.equal(route.profile.instructionChannel, 'system');
@@ -34,14 +34,14 @@ test('personal model IDs get only server-issued fixed-provider routes and no sha
     assert.equal(route.priceVersion, 'personal-unpriced-v1');
     assert.equal(getRoute(provider.id, modelId), null);
     assert.equal(isTrustedRoute({ ...route }), false);
-    assert.equal(getPersonalRoute(provider.id, provider.defaultModelId), getRoute(provider.id, provider.defaultModelId));
+    if (!provider.personalOnly) assert.equal(getPersonalRoute(provider.id, provider.defaultModelId), getRoute(provider.id, provider.defaultModelId));
   }
   for (const id of ['', ' spaced ', 'bad\nmodel', 'https://attacker.invalid/model', 'model?key=private', 'a'.repeat(101), null, {}]) assert.equal(getPersonalRoute('openai', id), null);
   assert.equal(getPersonalRoute('__proto__', 'valid-model'), null);
 });
 
-test('unknown provider/model pairs and cross-provider model selection never grant a route', () => {
-  for (const provider of publicProviders()) {
+test('unknown provider/model pairs and cross-provider model selection never grant a shared route', () => {
+  for (const provider of publicProviders().filter(p => !p.personalOnly)) {
     const route = getRoute(provider.id, provider.defaultModelId);
     assert.ok(Object.isFrozen(route) && Object.isFrozen(route.profile));
     assert.equal(route, getRoute(provider.id, provider.defaultModelId));
@@ -57,7 +57,7 @@ test('unknown provider/model pairs and cross-provider model selection never gran
 
 test('shared per-model reservation covers documented conservative request/completion bounds', () => {
   assert.equal(PRICE_VALID_UNTIL, Date.parse('2026-11-06T00:00:00+08:00'));
-  for (const provider of publicProviders()) {
+  for (const provider of publicProviders().filter(p => !p.personalOnly)) {
     const route = getRoute(provider.id, provider.defaultModelId);
     assert.equal(route.maxRequestBytes, 12000);
     assert.equal(route.maxPromptTokens, 13000);
@@ -69,4 +69,30 @@ test('shared per-model reservation covers documented conservative request/comple
   }
   assert.equal(getRoute('openai', 'gpt-6-luna').inputRateCnyPerMillion, 1.25);
   assert.equal(getRoute('glm', 'glm-4.7-flash').outputRateCnyPerMillion, 0);
+});
+
+test('Bailian preset and custom models remain personal-only, fixed-endpoint and unpriced', () => {
+  const provider = publicProviders().find(p => p.id === 'bailian');
+  assert.equal(provider.label, '阿里云百炼');
+  assert.equal(provider.personalOnly, true);
+  assert.equal(provider.defaultModelId, 'qwen3.8-flash');
+  for (const modelId of ['qwen3.8-flash', 'qwen-plus', 'qwen-flash', 'glm-5.3', 'kimi-k3', 'ft:private-model:team:review-1']) {
+    assert.equal(getRoute('bailian', modelId), null);
+    const route = getPersonalRoute('bailian', modelId);
+    assert.equal(isTrustedRoute(route), true);
+    assert.equal(isTrustedRoute({ ...route }), false);
+    assert.equal(route.endpoint, 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
+    assert.equal(route.providerLabel, '阿里云百炼');
+    assert.equal(route.transportMode, 'generic-chat');
+    assert.equal(route.profile.instructionChannel, 'system');
+    assert.equal(route.maxOutputTokens, 2000);
+    assert.equal(route.reserveMicros, 0);
+    assert.equal(route.inputRateCnyPerMillion, null);
+    assert.equal(route.outputRateCnyPerMillion, null);
+    assert.equal(route.priceVersion, 'personal-unpriced-v1');
+  }
+  for (const invalid of ['', 'https://attacker.invalid/model', 'bad model', 'bad\nmodel', 'a'.repeat(101), null, {}]) {
+    assert.equal(getRoute('bailian', invalid), null);
+    assert.equal(getPersonalRoute('bailian', invalid), null);
+  }
 });

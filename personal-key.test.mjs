@@ -63,12 +63,16 @@ test('retaining an existing key requires the identical profile and explicit unch
   assert.equal(preference.forRequest().personalApiKey, key);
 });
 
-test('each supported personal provider can apply a custom model atomically without exposing or borrowing credentials', () => {
+test('each supported personal provider can apply preset and custom models atomically without exposing or borrowing credentials', () => {
   const flexible = [
     ['deepseek', 'deepseek-flash'], ['kimi', 'kimi-k3.1-pro'], ['glm', 'glm-4.7-flash'], ['openai', 'gpt-6-luna'],
+    ['bailian', 'qwen3.8-flash'],
   ].map(([id, model]) => ({ id, label: id, allowCustomModels: true, defaultModelId: model, models: [{ id: model, label: model }] }));
   for (const provider of flexible) {
     const preference = createPersonalKeyPreference();
+    const preset = { sourceMode: 'personal', providerId: provider.id, modelId: provider.defaultModelId, apiKey: key };
+    assert.equal(preference.apply(preset, flexible).ok, true);
+    assert.equal(preference.apply({ ...preset, apiKey: '', retainExisting: true }, flexible).ok, true);
     const custom = { sourceMode: 'personal', providerId: provider.id, modelId: 'my-model:reflection/v2', apiKey: key };
     assert.equal(preference.apply(custom, flexible).ok, true);
     const before = preference.forRequest();

@@ -1,5 +1,13 @@
 # 留白 AI 接入契约
 
+## 当前增量：百炼个人模型与独立托管
+
+当前实现使用用户自管Cloudflare Worker/D1；规范部署入口为 [STANDALONE.md](../STANDALONE.md)，正式发布终态见 [QA.md](../QA.md)。下方版本5及更早章节是历史记录，不代表当前仍走Sites、只支持四家或禁止个人自填模型。
+
+个人目录新增“阿里云百炼”，预设 `qwen3.8-flash`，也支持自填百炼模型Code；使用百炼Key时即使模型名含DeepSeek/Kimi/GLM，实际接收方仍是百炼。按用户要求界面不增加地域括号。后台固定北京标准DashScope Chat端点，其余地域或套餐Key没有自动适配。百炼不进入默认共享路由，全部个人请求预留0、价格未知，不能据此声称免费。
+
+五家共用system场景提示词与候选/evidence校验、自填ID及Key生命周期，旧四家默认目录和参数不变；配置 `multi-flex-v1`、同意 `multi-provider-v1`。参数与接入依据见 [provider-sources.md](provider-sources.md)，本轮契约见 [add-bailian-provider](../openspec/changes/add-bailian-provider/design.md)。preset和自填模型已用假Key及假响应验证；真实账户权限、模型语义与费用仍待使用者本页验证。
+
 ## 多服务商：版本5已发布
 
 DeepSeek、Kimi、GLM、OpenAI已作为版本5发布，[正式AI设置](https://blank.sakura.observer/?settings=ai)已在浏览器显示四家选项和通用「API Key」，无需登录。以下版本3/2内容保留历史事实；当前设计与验收见 [multi-provider-ai](../openspec/changes/multi-provider-ai/design.md)，官方核验依据见 [provider-sources.md](provider-sources.md)。

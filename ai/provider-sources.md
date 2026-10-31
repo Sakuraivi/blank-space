@@ -1,5 +1,15 @@
 # 多服务商接入依据
 
+## 百炼增量依据（2026-10-31）
+
+新增个人目录 `bailian`，界面仅显示“阿里云百炼”，预选 `qwen3.8-flash`，也支持合法的自填模型Code；不将百炼加入默认共享模型目录，不猜测用户免费额度或模型费率。
+
+- [北京接入信息](https://help.aliyun.com/zh/model-studio/beijing-access-information)及[OpenAI兼容说明](https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope)：原标准域名仍支持，北京Key只配对应地域。先使用固定 `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions`，不让访客提交地址或Workspace域名。地域属于后台配置，按用户要求服务商名称不显示地域括号。
+- [Chat参数](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions)及[思考模式](https://help.aliyun.com/zh/model-studio/deep-thinking)：HTTP扩展字段放顶层；仅精确 `qwen3.8-flash`、`qwen-plus`、`qwen-flash` 关闭思考。新模型及未知模型使用完整输出的 `max_completion_tokens:2000`，两个旧Qwen别名采用 `max_tokens:2000` 且关闭思考；不同时设置两种上限。其他模型不盲注 `enable_thinking:false`，例如GLM5.3不能关闭，Kimi3官方资料有差异。未知模型的实际兼容性仍需账户验证。
+- [错误码](https://help.aliyun.com/zh/model-studio/error-code)及[免费额度规则](https://help.aliyun.com/zh/model-studio/new-free-quota)：只将403的 `AllocationQuota.FreeTierOnly`、400的 `Arrearage` 归为现有账户额度/余额不足提示；其他权限失败保持原分类。只读有限error.code，原错误体、Key和用户材料不回显或入日志。
+
+百炼走同一system场景规则、JSON候选/evidence校验、manual拒重定向和Key生命周期；个人共享预留为0不代表实际免费。保留配置 `multi-flex-v1` 与同意 `multi-provider-v1`，原四家仍兼容。以下2026-10-30内容是原四家固定共享模型的依据，不把其费率、专有参数或成功声明套用于百炼。真实Key、真实推理质量与实际账单不由模拟测试替代。
+
 核验日期：2026-10-30（Asia/Shanghai）。模型与价格可能变化，目录的有效窗截至北京时间 **2026-11-06 00:00**；服务端到期拒绝推理。下列记录是接口依据，不是四家真实账户已成功调用或复盘质量通过的证据。本轮协议测试均拦截出站、使用假 Key。
 
 ## 首批固定路由

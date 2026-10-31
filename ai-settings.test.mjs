@@ -6,7 +6,8 @@ import { createPersonalKeyPreference } from './public/personal-key.mjs';
 const providers = [
   ['deepseek', 'DeepSeek', 'deepseek-flash'], ['kimi', 'Kimi', 'kimi-k3.1-pro'],
   ['glm', 'GLM', 'glm-4.7-flash'], ['openai', 'OpenAI', 'gpt-6-luna'],
-].map(([id, label, model]) => ({ id, label, defaultModelId: model, allowCustomModels: true, keyHelp: `${label} 官方 API Key`, models: [{ id: model, label: model, note: `${label} 试用边界` }] }));
+  ['bailian', '阿里云百炼', 'qwen3.8-flash'],
+].map(([id, label, model]) => ({ id, label, defaultModelId: model, allowCustomModels: true, personalOnly: id === 'bailian', keyHelp: `${label} ${id === 'bailian' ? '标准' : '官方'} API Key`, models: [{ id: model, label: model, note: `${label} 试用边界` }] }));
 const status = changes => normalizeAiStatus({ enabled: true, personalKeySupported: true, configVersion: AI_CONFIG_VERSION, consentVersion: 'multi-provider-v1', providers, defaultProfile: { providerId: 'deepseek', modelId: 'deepseek-flash' }, defaultAvailable: true, defaultEnabled: true, remainingCalls: 16, remainingBudgetCny: 0.8, ...changes });
 const route = (provider = providers[0], sourceMode = 'personal') => ({ sourceMode, providerId: provider.id, modelId: provider.defaultModelId });
 
@@ -15,7 +16,7 @@ test('catalog rejects old consent/configuration and unknown provider/model route
   assert.equal(status({ configVersion: 'public-v1' }).enabled, false);
   assert.equal(status({ configVersion: 'multi-v1' }).enabled, false);
   const current = status({ providers: [...providers, { ...providers[0], id: 'proxy' }], defaultProfile: { providerId: 'kimi', modelId: 'deepseek-flash' } });
-  assert.equal(current.providers.length, 4);
+  assert.equal(current.providers.length, 5);
   assert.equal(current.defaultAvailable, false);
   assert.equal(current.defaultProfile, null);
   assert.equal(aiSelectionProfile({ sourceMode: 'personal', providerId: 'proxy', modelId: 'deepseek-flash' }, current), null);
@@ -24,9 +25,14 @@ test('catalog rejects old consent/configuration and unknown provider/model route
   assert.equal(aiSelectionProfile({ sourceMode: 'personal', providerId: 'kimi', modelId: 'deepseek-flash' }, fixed), null);
 });
 
-test('all four personal sources accept custom model IDs only when the server advertises the capability', () => {
+test('all five personal sources accept presets and capability-gated custom models with their actual provider identity', () => {
   const current = status();
   for (const provider of providers) {
+    const preset = aiSelectionProfile(route(provider), current);
+    assert.equal(preset.modelId, provider.defaultModelId);
+    assert.equal(preset.providerLabel, provider.label);
+    assert.equal(preset.keyHelp, provider.keyHelp);
+    assert.equal(canUseAiSelection(route(provider), current, true), true);
     const selected = { sourceMode: 'personal', providerId: provider.id, modelId: 'my-text-model:v2' };
     assert.equal(findAiProfile(current.providers, provider.id, selected.modelId), null);
     const profile = aiSelectionProfile(selected, current);
@@ -41,6 +47,31 @@ test('all four personal sources accept custom model IDs only when the server adv
       assert.equal(aiSelectionProfile(selected, disabled), null);
     }
   }
+});
+
+test('Bailian is personal-only even when its capability flag is missing or false; the previous defaults remain supported', () => {
+  for (const personalOnly of [undefined, false, true, 'true', null]) {
+    const current = status({
+      providers: providers.map(provider => provider.id === 'bailian' ? { ...provider, personalOnly } : provider),
+      defaultProfile: { providerId: 'bailian', modelId: 'qwen3.8-flash' },
+    });
+    assert.equal(current.providers.find(provider => provider.id === 'bailian').personalOnly, true);
+    assert.equal(current.defaultProfile, null);
+    assert.equal(current.defaultAvailable, false);
+    assert.equal(current.defaultEnabled, false);
+    assert.equal(canUseAiSelection({ sourceMode: 'default' }, current, false), false);
+    assert.equal(aiSelectionProfile({ sourceMode: 'personal', providerId: 'bailian', modelId: 'qwen3.8-flash' }, current).providerLabel, '阿里云百炼');
+  }
+  const forbidden = { sourceMode: 'default', providerId: 'bailian', modelId: 'qwen3.8-flash' };
+  assert.equal(sameAiRoute(forbidden, { ...forbidden }), false);
+  assert.equal(aiSelectionProfile(forbidden, { ...status(), defaultProfile: forbidden }), null);
+  for (const provider of providers.filter(value => value.id !== 'bailian')) {
+    const current = status({ defaultProfile: { providerId: provider.id, modelId: provider.defaultModelId } });
+    assert.equal(current.defaultProfile.providerId, provider.id);
+    assert.equal(current.defaultEnabled, true);
+  }
+  const restricted = status({ providers: providers.map(provider => ({ ...provider, personalOnly: true })) });
+  assert.equal(restricted.defaultProfile, null);
 });
 
 test('custom capability never widens the server default profile', () => {
@@ -69,30 +100,34 @@ test('custom IDs and route comparisons use the server model alphabet rather than
 
 test('reopening a custom selection restores its model but editing model or provider does not authorize old-key reuse', () => {
   const current = status();
-  const preference = createPersonalKeyPreference();
-  const selected = { sourceMode: 'personal', providerId: 'openai', modelId: 'ft:text-model:reflection' };
-  assert.equal(preference.apply({ ...selected, apiKey: 'synthetic-custom-model-key' }, current.providers).ok, true);
-  const draft = createAiSettingsDraft(preference.selection(), current);
-  assert.equal(draft.modelMode, 'custom');
-  assert.equal(draft.modelId, selected.modelId);
-  assert.equal(draft.retainExisting, true);
-  assert.equal(Object.hasOwn(draft, 'apiKey'), false);
-  const changed = changeAiSettingsModel(draft, providers[3].defaultModelId, current);
-  assert.equal(changed.modelMode, 'preset');
-  assert.equal(changed.retainExisting, false);
-  assert.equal(preference.apply({ ...changed, apiKey: '' }, current.providers).reason, 'missing_personal_key');
-  const manual = changeAiSettingsModel(changed, CUSTOM_MODEL_OPTION, current);
-  assert.equal(manual.modelMode, 'custom');
-  assert.equal(manual.modelId, '');
-  assert.equal(manual.retainExisting, false);
-  assert.equal(preference.apply({ ...manual, apiKey: 'synthetic-new-model-key' }, current.providers).reason, 'unsupported_model');
-  const otherProvider = changeAiSettingsProvider(draft, 'kimi', current);
-  assert.equal(otherProvider.modelMode, 'preset');
-  assert.equal(otherProvider.modelId, providers[1].defaultModelId);
-  assert.equal(otherProvider.retainExisting, false);
-  assert.deepEqual(preference.selection(), selected);
-  const invalid = changeAiSettingsModel(draft, 'missing-option', current);
-  assert.equal(invalid.modelId, '');
+  for (const provider of providers) {
+    const preference = createPersonalKeyPreference();
+    const selected = { sourceMode: 'personal', providerId: provider.id, modelId: 'ft:text-model:reflection' };
+    assert.equal(preference.apply({ ...selected, apiKey: 'synthetic-custom-model-key' }, current.providers).ok, true);
+    const draft = createAiSettingsDraft(preference.selection(), current);
+    assert.equal(draft.modelMode, 'custom');
+    assert.equal(draft.modelId, selected.modelId);
+    assert.equal(draft.retainExisting, true);
+    assert.equal(Object.hasOwn(draft, 'apiKey'), false);
+    const changed = changeAiSettingsModel(draft, provider.defaultModelId, current);
+    assert.equal(changed.modelMode, 'preset');
+    assert.equal(changed.retainExisting, false);
+    assert.equal(preference.apply({ ...changed, apiKey: '' }, current.providers).reason, 'missing_personal_key');
+    const manual = changeAiSettingsModel(changed, CUSTOM_MODEL_OPTION, current);
+    assert.equal(manual.modelMode, 'custom');
+    assert.equal(manual.modelId, '');
+    assert.equal(manual.retainExisting, false);
+    assert.equal(preference.apply({ ...manual, apiKey: 'synthetic-new-model-key' }, current.providers).reason, 'unsupported_model');
+    const other = providers.find(value => value.id !== provider.id);
+    const otherProvider = changeAiSettingsProvider(draft, other.id, current);
+    assert.equal(otherProvider.modelMode, 'preset');
+    assert.equal(otherProvider.modelId, other.defaultModelId);
+    assert.equal(otherProvider.retainExisting, false);
+    assert.deepEqual(preference.selection(), selected);
+    const invalid = changeAiSettingsModel(draft, 'missing-option', current);
+    assert.equal(invalid.modelId, '');
+    assert.equal(createAiSettingsDraft(preference.selection(), current).modelId, selected.modelId);
+  }
 });
 
 test('personal eligibility remains independent of exhausted or missing shared default', () => {

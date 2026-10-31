@@ -9,8 +9,9 @@ import { runCandidate } from './runtime.mjs';
 import { createSession } from '../public/core.mjs';
 
 const apiKey = 'fake-test-key-only-never-real';
-const routes = publicProviders().map(p => getRoute(p.id, p.defaultModelId));
-const routeFor = provider => routes.find(r => r.providerId === provider);
+const routes = publicProviders().filter(p => !p.personalOnly).map(p => getRoute(p.id, p.defaultModelId));
+const transportRoutes = [...routes, getPersonalRoute('bailian', 'qwen3.8-flash')];
+const routeFor = provider => transportRoutes.find(r => r.providerId === provider);
 const candidate = { reflection: { text: '你说散步很开心。', evidenceIds: ['u_story'] }, hypothesis: null, question: null, nextStep: null };
 const context = () => { const s = createSession(); s.story = '散步很开心。'; return buildContext({ session: s, revision: 1 }); };
 const request = route => structuredClone(buildModelRequest(context(), route.profile));
@@ -50,7 +51,7 @@ test('four providers map the same platform policy to only their supported reques
 
 test('request validation rejects mismatched routes, channels and UTF-8 overflow before any fetch', async () => {
   let calls = 0;
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => { calls++; return response(completion()); } });
     const base = request(route);
     const room = route.maxRequestBytes - prepareProviderRequest(base, route).byteLength;
@@ -74,9 +75,9 @@ test('custom personal IDs use the common policy and generic chat options without
     instructions.add(prepared.messages[0].content);
     assert.equal(prepared.messages[0].role, 'system');
     assert.match(prepared.messages[0].content, /JSON/);
-    for (const option of ['reasoning_effort', 'thinking', 'prompt_cache_options', 'response_format', 'service_tier']) assert.equal(prepared[option], undefined);
+    for (const option of ['reasoning_effort', 'thinking', 'enable_thinking', 'prompt_cache_options', 'response_format', 'service_tier']) assert.equal(prepared[option], undefined);
     assert.equal(prepared.model, 'future-text-model');
-    assert.equal(prepared[provider.id === 'openai' ? 'max_completion_tokens' : 'max_tokens'], route.maxOutputTokens);
+    assert.equal(prepared[['openai', 'bailian'].includes(provider.id) ? 'max_completion_tokens' : 'max_tokens'], route.maxOutputTokens);
     if (provider.id === 'openai') assert.equal(prepared.store, false);
     assert.throws(() => prepareProviderRequest(request(route), { ...route, endpoint: 'https://attacker.invalid' }), /invalid_route/);
     let calls = 0;
@@ -93,8 +94,27 @@ test('custom personal IDs use the common policy and generic chat options without
   assert.equal(instructions.size, 1);
 });
 
+test('Bailian uses exact Qwen capabilities and bounds unknown vendor models without invented options', () => {
+  const instructions = new Set();
+  for (const modelId of ['qwen3.8-flash', 'qwen-plus', 'qwen-flash', 'glm-5.3', 'kimi-k3', 'qwen3.8-flash-future', 'ft:private-model:team:review-1']) {
+    const route = getPersonalRoute('bailian', modelId);
+    const body = JSON.parse(prepareProviderRequest({ ...request(route), enable_thinking: true, max_completion_tokens: 999999 }, route).body);
+    instructions.add(body.messages[0].content);
+    const legacy = ['qwen-plus', 'qwen-flash'].includes(modelId);
+    assert.equal(body.model, modelId);
+    assert.equal(body.stream, false);
+    assert.equal(body.messages[0].role, 'system');
+    assert.match(body.messages[0].content, /JSON/);
+    assert.equal(body.max_completion_tokens, legacy ? undefined : 2000);
+    assert.equal(body.max_tokens, legacy ? 2000 : undefined);
+    assert.equal(body.enable_thinking, legacy || modelId === 'qwen3.8-flash' ? false : undefined);
+    for (const option of ['response_format', 'thinking', 'reasoning_effort', 'store', 'service_tier', 'prompt_cache_options']) assert.equal(body[option], undefined);
+  }
+  assert.equal(instructions.size, 1);
+});
+
 test('every transport makes one fixed authenticated request, reports numeric usage and passes the common runtime validator', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     let calls = 0, observedUsage;
     const adapter = createProviderAdapter({ route, apiKey, onUsage: usage => { observedUsage = usage; }, fetchImpl: async (url, options) => {
       calls++;
@@ -127,6 +147,12 @@ test('safe provider errors distinguish authentication, quota, permissions and ra
     ['openai', 429, { type: 'insufficient_quota' }, 'provider_balance_low'],
     ['openai', 429, { code: 'rate_limit_exceeded' }, 'provider_rate_limited'],
     ['openai', 401, {}, 'provider_auth_failed'], ['glm', 500, {}, 'provider_unavailable'],
+    ['bailian', 403, { code: 'AllocationQuota.FreeTierOnly' }, 'provider_balance_low'],
+    ['bailian', 400, { code: 'Arrearage' }, 'provider_balance_low'],
+    ['bailian', 403, { code: 'Arrearage' }, 'provider_access_denied'],
+    ['bailian', 400, { code: 'AllocationQuota.FreeTierOnly' }, 'provider_request_rejected'],
+    ['bailian', 403, { code: 'AccessDenied', message: 'AllocationQuota.FreeTierOnly' }, 'provider_access_denied'],
+    ['bailian', 401, {}, 'provider_auth_failed'], ['bailian', 429, {}, 'provider_rate_limited'],
   ];
   for (const [provider, status, error, reason] of cases) {
     const route = routeFor(provider); let calls = 0;
@@ -139,7 +165,7 @@ test('safe provider errors distinguish authentication, quota, permissions and ra
 });
 
 test('error parsing is bounded and cancelled; unrecognized or malformed bodies keep only the HTTP enum', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     let cancelled = false;
     const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('X'.repeat(MAX_ERROR_BYTES + 1))); }, cancel() { cancelled = true; } });
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => new Response(body, { status: 429 }) });
@@ -151,7 +177,7 @@ test('error parsing is bounded and cancelled; unrecognized or malformed bodies k
 });
 
 test('all manual 3xx and unexpected redirect signals are rejected once without forwarding credentials', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     for (let status = 300; status < 400; status++) {
       let calls = 0;
       const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => { calls++; return new Response(null, { status, headers: { Location: 'https://attacker.invalid/collect' } }); } });
@@ -184,7 +210,7 @@ test('Kimi reasoning stays private while its numeric completion count includes r
 });
 
 test('usage normalization rejects invalid totals but keeps billable usage when optional details are malformed', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     for (const usage of [
       { prompt_tokens: -1, completion_tokens: 30, total_tokens: 29 },
       { prompt_tokens: 100, completion_tokens: 30, total_tokens: 10 },
@@ -215,7 +241,7 @@ test('usage normalization rejects invalid totals but keeps billable usage when o
 });
 
 test('malformed optional cache or reasoning data cannot conceal an over-limit billable total', async () => {
-  for (const route of routes) for (const optional of [
+  for (const route of transportRoutes) for (const optional of [
     { prompt_tokens_details: { cached_tokens: 101 } },
     { prompt_cache_hit_tokens: 'PRIVATE' },
     { completion_tokens_details: { reasoning_tokens: Number.MAX_SAFE_INTEGER } },
@@ -232,7 +258,7 @@ test('malformed optional cache or reasoning data cannot conceal an over-limit bi
 });
 
 test('well-formed usage above either route bound fails closed and stays observable for durable stop', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     for (const usage of [
       { prompt_tokens: route.maxPromptTokens + 1, completion_tokens: 20, total_tokens: route.maxPromptTokens + 21 },
       { prompt_tokens: 100, completion_tokens: route.maxOutputTokens + 1, total_tokens: route.maxOutputTokens + 101 },
@@ -248,7 +274,7 @@ test('well-formed usage above either route bound fails closed and stays observab
 });
 
 test('known over-limit primary counters stop generation even when contradictory totals cannot be stored', async () => {
-  for (const route of routes) for (const usage of [
+  for (const route of transportRoutes) for (const usage of [
     { prompt_tokens: route.maxPromptTokens + 1, completion_tokens: 0, total_tokens: 0 },
     { prompt_tokens: 100, completion_tokens: route.maxOutputTokens + 1, total_tokens: 'PRIVATE' },
     { prompt_tokens: 2000000000, completion_tokens: 1, total_tokens: null },
@@ -271,14 +297,14 @@ test('incomplete, malformed, refusal and tool responses never become usable outp
     { choices: [{ finish_reason: 'stop', message: { content: '{}', reasoning_content: {} } }] },
     { choices: [] }, { choices: [completion().choices[0], completion().choices[0]] },
   ];
-  for (const route of routes) for (const variant of variants) {
+  for (const route of transportRoutes) for (const variant of variants) {
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => response(variant) });
     assert.equal((await adapter.generate(request(route))).status, 'failed');
   }
 });
 
 test('success response byte bound applies to declared and streamed length', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     let cancelled = false;
     const huge = new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array(MAX_RESPONSE_BYTES + 1)); }, cancel() { cancelled = true; } }));
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => huge });
@@ -290,7 +316,7 @@ test('success response byte bound applies to declared and streamed length', asyn
 });
 
 test('abort before send makes no request; abort during success/error stream closes the body', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     const pre = new AbortController(); pre.abort(); let calls = 0;
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: async () => { calls++; return response(completion()); } });
     assert.deepEqual(await adapter.generate(request(route), { signal: pre.signal }), { status: 'failed', reason: 'aborted' });
@@ -309,7 +335,7 @@ test('abort before send makes no request; abort during success/error stream clos
 });
 
 test('timeout discards an uncooperative supplier without retries or secret exception propagation', async () => {
-  for (const route of routes) {
+  for (const route of transportRoutes) {
     let calls = 0, resolveFetch;
     const waiting = new Promise(resolve => { resolveFetch = resolve; });
     const adapter = createProviderAdapter({ route, apiKey, fetchImpl: () => { calls++; return waiting; } });
@@ -340,6 +366,7 @@ test('known and custom personal routes use Workerd-compatible manual fetch and r
       export default { async fetch(incoming) {
         const params = new URL(incoming.url).searchParams;
         const route = params.get('source') === 'personal' ? getPersonalRoute(params.get('provider'), params.get('model')) : getRoute(params.get('provider'), params.get('model'));
+        if (!route) return Response.json({ status: 'failed', reason: 'unsupported_model' }, { status: 400 });
         const adapter = createProviderAdapter({ route, apiKey: ${JSON.stringify(apiKey)} });
         const request = ${JSON.stringify(request(routes[0]))};
         request.providerId = route.providerId; request.modelId = route.modelId; request.instruction.channel = route.profile.instructionChannel;
@@ -348,17 +375,31 @@ test('known and custom personal routes use Workerd-compatible manual fetch and r
     }, ...paths.map(path => ({ type: 'ESModule', path: fileURLToPath(new URL(`./${path}`, import.meta.url)), contents: readFileSync(new URL(`./${path}`, import.meta.url), 'utf8') }))],
     outboundService: async outgoing => {
       calls.push({ url: outgoing.url, authorization: outgoing.headers.get('Authorization') });
-      if (!routes.some(r => r.endpoint === outgoing.url)) return new WorkerResponse(null, { status: 418 });
+      if (!transportRoutes.some(r => r.endpoint === outgoing.url)) return new WorkerResponse(null, { status: 418 });
+      const body = await outgoing.json();
+      if (outgoing.url === routeFor('bailian').endpoint) {
+        assert.equal(body.max_completion_tokens, 2000);
+        assert.equal(body.enable_thinking, body.model === 'qwen3.8-flash' ? false : undefined);
+        assert.equal(body.messages[0].role, 'system');
+        assert.match(body.messages[0].content, /JSON/);
+        for (const option of ['max_tokens', 'response_format', 'thinking', 'store']) assert.equal(body[option], undefined);
+      }
       if (mode === 'redirect') return new WorkerResponse(null, { status: 302, headers: { Location: 'https://attacker.invalid/collect' } });
       return new WorkerResponse(JSON.stringify(completion()), { headers: { 'Content-Type': 'application/json' } });
     },
   });
   t.after(() => worker.dispose());
-  const cases = [...routes.map(route => ({ route, source: 'default' })), ...publicProviders().map(provider => ({ route: getPersonalRoute(provider.id, 'future-custom-chat-model'), source: 'personal' }))];
+  const cases = [...routes.map(route => ({ route, source: 'default' })), ...publicProviders().map(provider => ({ route: getPersonalRoute(provider.id, 'future-custom-chat-model'), source: 'personal' })),
+    ...['qwen3.8-flash', 'glm-5.3', 'kimi-k3'].map(modelId => ({ route: getPersonalRoute('bailian', modelId), source: 'personal' }))];
   for (const { route, source } of cases) for (const testMode of ['success', 'redirect']) {
     mode = testMode; calls.length = 0;
     const result = await worker.dispatchFetch(`https://worker.test/?provider=${route.providerId}&model=${route.modelId}&source=${source}`);
     assert.deepEqual(await result.json(), mode === 'success' ? { status: 'completed', output: candidate } : { status: 'failed', reason: 'provider_redirect_rejected' });
     assert.deepEqual(calls, [{ url: route.endpoint, authorization: `Bearer ${apiKey}` }]);
   }
+  calls.length = 0;
+  const denied = await worker.dispatchFetch('https://worker.test/?provider=bailian&model=qwen3.8-flash&source=default');
+  assert.equal(denied.status, 400);
+  assert.deepEqual(await denied.json(), { status: 'failed', reason: 'unsupported_model' });
+  assert.deepEqual(calls, []);
 });

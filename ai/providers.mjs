@@ -40,11 +40,18 @@ const definitions = [
     // Budget assumption: USD 1 = CNY 10, including 1.25x cache-write input.
     maxOutputTokens: 1000, inputRate: 1.25, outputRate: 5, reserveMicros: 50000,
   },
+  {
+    id: 'bailian', label: '阿里云百炼', keyHelp: '使用阿里云百炼标准 API Key；模型权限与费用由你的百炼账户承担。',
+    modelId: 'qwen3.8-flash', modelLabel: 'Qwen3.8 Flash', personalOnly: true,
+    note: '轻量复盘，关闭思考；每次完整输出最多 2000 tokens，实际效果待验证。',
+    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    maxOutputTokens: 2000,
+  },
 ];
 
 const trustedRoutes = new WeakSet();
 const issueRoute = value => { const route = freeze(value); trustedRoutes.add(route); return route; };
-const routes = definitions.map(d => issueRoute({
+const routes = definitions.filter(d => !d.personalOnly).map(d => issueRoute({
   providerId: d.id, modelId: d.modelId, providerLabel: d.label, modelLabel: d.modelLabel,
   endpoint: d.endpoint,
   profile: { providerId: d.id, modelId: d.modelId, instructionChannel: d.instructionChannel, structuredOutput: false },
@@ -56,6 +63,7 @@ const routes = definitions.map(d => issueRoute({
 const catalog = freeze(definitions.map(d => ({
   id: d.id, label: d.label, keyHelp: d.keyHelp, defaultModelId: d.modelId,
   allowCustomModels: true,
+  ...(d.personalOnly ? { personalOnly: true } : {}),
   models: [{ id: d.modelId, label: d.modelLabel, note: d.note }],
 })));
 

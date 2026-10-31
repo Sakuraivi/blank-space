@@ -34,3 +34,14 @@ test('custom personal route diagnostics never echo caller-supplied model names',
   recordAiResult({ status: 'candidate', providerId: 'openai', modelId: privateName, sourceMode: 'default' }, line => logs.push(line));
   assert.equal(JSON.parse(logs[1]).route, undefined);
 });
+
+test('Bailian personal metadata is bounded and cannot appear as a shared route', () => {
+  const logs = [];
+  for (const modelId of ['qwen3.8-flash', 'ft:PRIVATE_NAME:team:secret']) {
+    recordAiResult({ status: 'candidate', providerId: 'bailian', modelId, sourceMode: 'personal' }, line => logs.push(JSON.parse(line)));
+    assert.deepEqual(logs.at(-1).route, { providerId: 'bailian', modelId: 'custom', sourceMode: 'personal' });
+    recordAiResult({ status: 'candidate', providerId: 'bailian', modelId, sourceMode: 'default' }, line => logs.push(JSON.parse(line)));
+    assert.equal(logs.at(-1).route, undefined);
+  }
+  assert.doesNotMatch(JSON.stringify(logs), /PRIVATE_NAME|secret/);
+});
