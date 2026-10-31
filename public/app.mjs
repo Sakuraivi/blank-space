@@ -81,16 +81,31 @@ function aiCustomModelField(){
   if(draft?.modelMode!=='custom'||provider?.allowCustomModels!==true)return '';
   return `<label class="field-label" for="ai-custom-model">模型 ID</label><input id="ai-custom-model" class="ai-model-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" aria-describedby="ai-custom-model-help" placeholder="填写服务商的文本对话模型 ID" value="${e(draft.modelId)}" ${aiConfigurationLocked()?'disabled':''}><p id="ai-custom-model-help" class="gentle-note">请使用支持文本 Chat Completions 的模型，具体可用性由服务商决定。</p>`;
 }
+function aiModelOptions(){
+  const draft=aiSettingsDraft;const provider=aiStatus.providers.find(value=>value.id===draft?.providerId);const custom=draft?.modelMode==='custom';
+  return `${(provider?.models??[]).map(value=>`<option value="${e(value.id)}" ${!custom&&value.id===draft.modelId?'selected':''}>${e(value.label)}</option>`).join('')}${provider?.allowCustomModels?`<option value="${CUSTOM_MODEL_OPTION}" ${custom?'selected':''}>填写其他模型 ID</option>`:''}`;
+}
+function personalKeyHelp(provider){return `Key 仅在本页临时使用，刷新或离开即清除；调用时经留白发送给 ${provider?.label||'所选服务商'}，不保存在记录中。`;}
 function aiSettingsFields(){
   const draft=aiSettingsDraft;const locked=aiConfigurationLocked();const disabled=locked?'disabled':'';
   if(!draft)return '';
   if(draft.sourceMode==='default'){
     return `<div class="ai-default-summary"><p>${aiStatus.defaultEnabled?'费用由组织者承担，无需填写 Key。':'默认 AI 暂未开放。可以使用个人 Key，或继续轻引导。'}</p></div>`;
   }
-  const provider=aiStatus.providers.find(value=>value.id===draft.providerId);const custom=draft.modelMode==='custom';
-  return `<div class="ai-provider-grid"><div><label class="field-label" for="ai-provider">服务商</label><select class="ai-select" id="ai-provider" ${disabled}>${aiStatus.providers.map(value=>`<option value="${e(value.id)}" ${value.id===draft.providerId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div><div><label class="field-label" for="ai-model">模型</label><select class="ai-select" id="ai-model" ${disabled}>${(provider?.models??[]).map(value=>`<option value="${e(value.id)}" ${!custom&&value.id===draft.modelId?'selected':''}>${e(value.label)}</option>`).join('')}${provider?.allowCustomModels?`<option value="${CUSTOM_MODEL_OPTION}" ${custom?'selected':''}>填写其他模型 ID</option>`:''}</select></div></div><div id="ai-custom-model-field">${aiCustomModelField()}</div><div class="ai-key-heading"><label class="field-label" for="personal-key">API Key</label>${personalKey.hasKey()?`<button type="button" class="ai-key-remove" data-action="clear-personal-key" ${disabled}>移除本页 Key</button>`:''}</div><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="provider-key-help personal-key-help personal-key-cost" placeholder="${draft.retainExisting&&personalKey.hasKey()?'本页已填写；留空保留':'填写所选服务商的 API Key'}" ${disabled}><p id="provider-key-help" class="gentle-note">${e(provider?.keyHelp||'请填写所选服务商官方平台的 API Key。')}</p><p id="personal-key-help" class="gentle-note">Key 仅在本页临时使用，刷新或离开即清除；调用时经留白发送给 ${e(provider?.label||'所选服务商')}，不保存在记录中。</p><p id="personal-key-cost" class="gentle-note">费用由你的服务商账户承担，失败或超时也可能计费。</p>`;
+  const provider=aiStatus.providers.find(value=>value.id===draft.providerId);
+  return `<div class="ai-provider-grid"><div><label class="field-label" for="ai-provider">服务商</label><select class="ai-select" id="ai-provider" ${disabled}>${aiStatus.providers.map(value=>`<option value="${e(value.id)}" ${value.id===draft.providerId?'selected':''}>${e(value.label)}</option>`).join('')}</select></div><div><label class="field-label" for="ai-model">模型</label><select class="ai-select" id="ai-model" ${disabled}>${aiModelOptions()}</select></div></div><div id="ai-custom-model-field">${aiCustomModelField()}</div><div class="ai-key-heading"><label class="field-label" for="personal-key">API Key</label>${personalKey.hasKey()?`<button type="button" class="ai-key-remove" data-action="clear-personal-key" ${disabled}>移除本页 Key</button>`:''}</div><input id="personal-key" class="title-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" data-sensitive-key aria-describedby="provider-key-help personal-key-help personal-key-cost" placeholder="${draft.retainExisting&&personalKey.hasKey()?'本页已填写；留空保留':'填写所选服务商的 API Key'}" ${disabled}><p id="provider-key-help" class="gentle-note">${e(provider?.keyHelp||'请填写所选服务商官方平台的 API Key。')}</p><p id="personal-key-help" class="gentle-note">${e(personalKeyHelp(provider))}</p><p id="personal-key-cost" class="gentle-note">费用由你的服务商账户承担，失败或超时也可能计费。</p>`;
 }
 function renderAiSettingsFields(){const fields=document.querySelector('#ai-source-fields');if(fields)fields.innerHTML=aiSettingsFields();document.querySelector('#key-settings-error')?.replaceChildren();}
+function renderAiProviderFields(){
+  const provider=aiStatus.providers.find(value=>value.id===aiSettingsDraft?.providerId);
+  // Keep the active native select mounted so its popup can close normally.
+  document.querySelector('#ai-model').innerHTML=aiModelOptions();
+  document.querySelector('#ai-custom-model-field').innerHTML=aiCustomModelField();
+  document.querySelector('#personal-key').setAttribute('placeholder','填写所选服务商的 API Key');
+  document.querySelector('#provider-key-help').textContent=provider?.keyHelp||'请填写所选服务商官方平台的 API Key。';
+  document.querySelector('#personal-key-help').textContent=personalKeyHelp(provider);
+  document.querySelector('#key-settings-error')?.replaceChildren();
+}
 async function aiSettings(resumeStoryAi=false){
   const settingsState=state;
   const settingsScreen=state.screen;
@@ -276,7 +291,7 @@ document.addEventListener('change',event=>{
   if(event.target.name==='sourceMode'){
     clearSensitiveInputs();aiSettingsDraft={...aiSettingsDraft,sourceMode:event.target.value};renderAiSettingsFields();
   }else if(event.target.id==='ai-provider'){
-    clearSensitiveInputs();aiSettingsDraft=changeAiSettingsProvider(aiSettingsDraft,event.target.value,aiStatus);renderAiSettingsFields();document.querySelector('#ai-provider')?.focus();
+    clearSensitiveInputs();aiSettingsDraft=changeAiSettingsProvider(aiSettingsDraft,event.target.value,aiStatus);renderAiProviderFields();
   }else if(event.target.id==='ai-model'){
     aiSettingsDraft=changeAiSettingsModel(aiSettingsDraft,event.target.value,aiStatus);document.querySelector('#ai-custom-model-field').innerHTML=aiCustomModelField();document.querySelector('#personal-key')?.setAttribute('placeholder','填写所选服务商的 API Key');document.querySelector('#key-settings-error')?.replaceChildren();document.querySelector('#ai-custom-model')?.focus();
   }

@@ -133,6 +133,30 @@ test('editing and cancelling a draft never changes applied selection; switching 
   assert.equal(preference.selection().providerId, 'kimi');
 });
 
+test('provider round-trips reset custom models and cannot recover retained credentials for any service', () => {
+  const current = status();
+  for (const original of providers) {
+    for (const other of providers.filter(value => value.id !== original.id)) {
+      const preference = createPersonalKeyPreference();
+      const applied = { sourceMode: 'personal', providerId: original.id, modelId: 'custom-reflection:v2' };
+      assert.equal(preference.apply({ ...applied, apiKey: 'synthetic-roundtrip-key' }, current.providers).ok, true);
+      let draft = createAiSettingsDraft(preference.selection(), current);
+      draft = changeAiSettingsProvider(draft, other.id, current);
+      assert.equal(draft.providerId, other.id);
+      assert.equal(draft.modelId, other.defaultModelId);
+      assert.equal(draft.modelMode, 'preset');
+      assert.equal(draft.retainExisting, false);
+      assert.equal(preference.apply({ ...draft, apiKey: '' }, current.providers).reason, 'missing_personal_key');
+      draft = changeAiSettingsProvider(draft, original.id, current);
+      assert.equal(draft.modelId, original.defaultModelId);
+      assert.equal(draft.retainExisting, false);
+      assert.equal(preference.apply({ ...draft, apiKey: '' }, current.providers).reason, 'missing_personal_key');
+      assert.deepEqual(preference.selection(), applied);
+      assert.equal(Object.hasOwn(draft, 'apiKey'), false);
+    }
+  }
+});
+
 test('reply acceptance binds payer, service provider and model rather than only request identity', () => {
   const expected = route();
   assert.equal(sameAiRoute(expected, { ...expected }), true);
