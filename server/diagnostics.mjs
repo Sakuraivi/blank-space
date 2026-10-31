@@ -8,7 +8,7 @@ const REASONS = new Set([
   'provider_access_denied', 'provider_model_unavailable',
   'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected',
   'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds',
-  'config_changed',
+  'config_changed', 'ungrounded_event', 'correction_not_applied',
 ]);
 
 export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode }, write = console.info) {

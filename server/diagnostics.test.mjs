@@ -10,6 +10,10 @@ test('operational result logs expose only bounded metadata, never supplied prose
   assert.ok(!logs[0].includes(secret));
   recordAiResult({ requestId: 'e16f2585-d17f-43eb-b121-07e1ce18c5ed', stage: 'reflect', status: 'fallback', reason: 'provider_response_failed' }, line => logs.push(line));
   assert.equal(JSON.parse(logs[1]).reason, 'provider_response_failed');
+  for (const reason of ['ungrounded_event', 'correction_not_applied']) {
+    recordAiResult({ status:'fallback', stage:'review', reason }, line => logs.push(line));
+    assert.equal(JSON.parse(logs.at(-1)).reason,reason);
+  }
 });
 
 test('diagnostic sink failure never replaces an otherwise usable result', () => {

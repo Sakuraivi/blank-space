@@ -23,7 +23,7 @@ export function c01Candidate(context) {
     question: { text: '怎样的安排，会让你觉得不再只是自己在等？', target: 'need', evidenceIds: sources },
     claims: [claim('need', '能理解临时有事，真正难受的是没有下一次安排；想开口又怕像在逼她。', sources)] };
   return { ...base, reply: '我们把已经说清楚的期待留下，对她想法的猜测先保留为未知。', finish: true, claims: [
-    claim('event', '两次都为见面留出了周六，取消后却没有重约。你开始猜她是不是不想见你；想问清楚，又怕显得在催。计划落空和关系里的不确定，叠在了一起。', sources, previous.filter(c => ['event', 'thought', 'feeling'].includes(c.type)).map(c => c.id)),
+    claim('event', ['最近约了两次朋友，她都在当天取消。', ...(context.statements.some(s => s.text === inputs[1]) ? [inputs[1]] : [])].join('\n'), sources, previous.filter(c => ['event', 'thought', 'feeling'].includes(c.type)).map(c => c.id), 'stated'),
     claim('insight', '能体谅临时有事，也可以希望安排有回应。\n\n你期待取消后她能主动重约；如果暂时没空，明确说一声，你就不用一直为一个未定的约定留着周末。', sources, previous.filter(c => !['event', 'thought', 'feeling', 'unknown'].includes(c.type)).map(c => c.id)),
     claim('unknown', '她是否不想见你，目前仍不知道。眼下更能确认的是：她是否愿意把下一次安排说清楚。你还没有决定要不要开口，这个决定可以先留着。', sources, previous.filter(c => c.type === 'unknown').map(c => c.id)),
   ] };

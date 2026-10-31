@@ -82,7 +82,7 @@ test('strict decoding never bypasses the application validator or silently retri
 });
 test('runtime injects v2 contract, preserves source evidence, and discards stale results', async () => {
   const context = first(), route = getPersonalRoute('deepseek', 'deepseek-flash'); let active = true;
-  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, 'clarity-warm-10'); return { status: 'completed', output: c01Candidate(context) }; } };
+  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, 'clarity-warm-11'); return { status: 'completed', output: c01Candidate(context) }; } };
   const result = await runCandidate({ context, adapter, contract: clarityContract, isCurrent: () => active });
   assert.equal(result.status, 'candidate'); assert.equal(result.candidate.claims[0].evidenceIds[0], 'u1');
   const late = await runCandidate({ context, adapter: { ...adapter, generate: async () => { active = false; return { status: 'completed', output: c01Candidate(context) }; } }, contract: clarityContract, isCurrent: () => active });
@@ -100,8 +100,8 @@ test('a real-model duplicate question is removed from reply without altering the
 test('a four-part concern finish folds event and feeling without losing text or provenance', () => {
   const context = first(); context.stage = 'review';
   const value = { ...c01Candidate(context), finish: true, question: null, claims: [
-    { type: 'event', text: '两次周六的安排被取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
-    { type: 'feeling', text: '用户说主要是生气。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'event', text: '最近约了两次朋友，她都在当天取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'feeling', text: '现在一想到还要不要再约她，就很烦。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
     { type: 'insight', text: '期待一个明确的安排。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
     { type: 'unknown', text: '仍不知道对方的见面意愿。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
   ] };

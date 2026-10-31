@@ -14,7 +14,7 @@ export function createClarityEvaluation(fetchImpl = fetch, { followup = false, c
   const condensed = [inputs[0], inputs[1], correction].join('\n');
   const allowed = new Set([...inputs, correction, condensed]);
   const file = reportPath ?? resolve(import.meta.dirname, coreSuite ? '../work/clarity-evaluation-core-v2.json' : '../work/clarity-evaluation-c01.json');
-  const latestSnapshot = resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-core-turn-control.json');
+  const latestSnapshot = resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-core-grounding.json');
   const prior = coreSuite ? JSON.parse(readFileSync(priorReportPath ?? (existsSync(latestSnapshot) ? latestSnapshot : resolve(import.meta.dirname, '../ai/evaluations/2026-10-31-c01.json')), 'utf8')) : null;
   const baselineSpend = prior ? evaluationSpend(prior) : 0;
   const report = (followup || coreSuite) && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : { sample: coreSuite ? 'Core scenario suite, synthetic only' : 'C01 synthetic', policyVersion: CLARITY_POLICY_VERSION, schemaVersion: CLARITY_SCHEMA_VERSION,

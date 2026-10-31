@@ -57,8 +57,8 @@ test('absence of flow still dispatches the legacy v1 contract', async t => {
 test('API folds four valid concern parts but never invents missing evidence', async t => {
   const f = fixture(t);
   const finished = value => ({ ...value, finish: true, question: null, claims: [
-    { type: 'event', text: '约朋友两次被取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
-    { type: 'feeling', text: '想到还要不要再约就烦。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'event', text: '最近约了两次朋友，她都在当天取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
+    { type: 'feeling', text: '现在一想到还要不要再约她，就很烦。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
     { type: 'insight', text: '两次取消还不能证实对方不愿意见面。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
     { type: 'unknown', text: '对方的真实想法仍未知。', evidenceIds: ['u1'], derivation: 'inferred', supersedes: [] },
   ] });
@@ -69,4 +69,16 @@ test('API folds four valid concern parts but never invents missing evidence', as
   f.transform(value => { const bad = finished(value); bad.claims[3].evidenceIds = []; return bad; });
   const refused = await f.call(input({ stage: 'review' }));
   assert.notEqual(refused.body.status, 'candidate'); assert.equal(f.calls(), 2);
+});
+
+test('a changed occurrence scope is rejected at the API without an automatic retry', async t => {
+  const f = fixture(t);
+  f.transform(value => ({ ...value, finish:true, question:null, claims:[
+    { type:'event', text:'两次她都发了抱歉表情。', evidenceIds:['u1'], derivation:'stated', supersedes:[] },
+  ] }));
+  const result = await f.call(input({ stage:'review' }));
+  assert.equal(result.body.status,'fallback');
+  assert.equal(result.body.reason,'ungrounded_event');
+  assert.equal(result.body.candidate,null); assert.equal(f.calls(),1);
+  assert.doesNotMatch(JSON.stringify(result),new RegExp(fakeKey));
 });

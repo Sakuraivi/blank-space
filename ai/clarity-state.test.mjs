@@ -86,7 +86,7 @@ test('later feelings and thoughts cannot evict the concrete event from the repor
   s.claims.push({ id: 'new_feeling', type: 'feeling', text: '不是失落，是生气。', status: 'candidate', evidenceIds: ['u3'] },
     { id: 'new_thought', type: 'thought', text: '又怕开口显得在逼对方。', status: 'candidate', evidenceIds: ['u3'] });
   const review = state.composeClarityReview(s);
-  assert.match(review.blocks[0].text, /留出了周六/); assert.match(review.blocks[0].text, /是生气/); assert.match(review.blocks[0].text, /在逼对方/);
+  assert.match(review.blocks[0].text, /专门空出来/); assert.match(review.blocks[0].text, /是生气/); assert.match(review.blocks[0].text, /在逼对方/);
   assert.equal(review.blocks.length, 3); assert.equal(review.blocks[0].claimIds.length, 3);
 });
 test('an explicit expectation in response to a needs question routes the next request to review', () => {

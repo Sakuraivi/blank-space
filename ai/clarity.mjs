@@ -1,8 +1,9 @@
 import { CLARITY_SCHEMA_VERSION, checkClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
 import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs';
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
+import { groundingPlan, groundClarityCandidate } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-10';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-11';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.
@@ -30,7 +31,7 @@ statements才是用户材料。历史问题和claims是可能有误的候选，�
 
 【直接形成可读整理】
 finish=true时question=null，不另要一次总结调用；每段是候选，仍待用户确认。
-concern：一条event连起必要经过、明确感受、起初顾虑；一条insight说清有依据的区分和具体期待；若第三方动机仍未证实，一条unknown明确仍不知道。收尾只用event/insight/unknown，不另列feeling、thought或need。起初若在猜测别人的想法，而后来只澄清了自己的期待，这个猜测并未被证实，必须保留在unknown；期待清楚不等于知道对方的想法。不把未说过的关系状态当成事实。
+concern：event是事实摘录。从grounding.sentences按原顺序选必要的完整原句，逐字复制、以换行分隔；只引用对应sourceId，derivation=stated。不能改写、合并从句或把某一次的细节推广到两次。不要把全部表达堆进event，保留必要经过即可。insight仍用自然第一人称分析有依据的区分、两份顾虑和具体期待；unknown说明仍不知道的事。收尾只用event/insight/unknown。用户明确纠正的感受只写新感受，不保留“不是旧感受”的对照句。起初若在猜测别人的想法，而后来只澄清了自己的期待，这个猜测并未被证实，必须保留在unknown；期待清楚不等于知道对方的想法。不把未说过的关系状态当成事实。
 moment：event保留真实细节；只有用户说出意义时才加insight。只要一句就原样留一句，不追问、不扩写环境和关系、不强造问题。“不用追问/不要分析或建议/只留这一句”是交流要求，遵守但不抄进记录正文；删去这些操作要求后，保留用户真正要记住的原话。
 choice：need(个人标准)、tradeoff(具体选项保留与付出)、unknown(仍缺的信息)。不编价格、分数、胜负；用户决定暂缓就保留，不劝开始。
 成品用第一人称自然记录，不称“用户”；推断仍保留不确定，不代写已确认结论。未请求行动时，不在reply或任何claim里暗塞建议。允许行动=${context.allowNextStep}，仅在true时使用action。用户自己提出的打算可忠实记录，条件句不能改写为已决定。
@@ -45,9 +46,10 @@ claims每轮0–3条，收尾至少1条；每条<=240字、总计尽量260字内
 export function buildClarityModelRequest(context, profile) {
   checkClarityContext(context);
   if (!profile || !['system', 'developer', 'instructions'].includes(profile.instructionChannel)) throw new TypeError('unsupported_profile');
+  const { materials, controls, ...turnPlan } = clarityTurn(context);
   return { providerId: profile.providerId, modelId: profile.modelId, policyVersion: CLARITY_POLICY_VERSION,
     schemaVersion: CLARITY_SCHEMA_VERSION, instruction: { channel: profile.instructionChannel, text: clarityInstructions(context) },
-    input: { role: 'user', content: JSON.stringify({ kind: 'liubai_clarity_user_data', ...context, turnPlan: clarityTurn(context) }) },
+    input: { role: 'user', content: JSON.stringify({ kind: 'liubai_clarity_user_data', ...context, turnPlan, grounding: groundingPlan(context) }) },
     output: supportsClaritySchema(profile.providerId, profile.modelId)
       ? { format: 'json_schema', schema: clarityOutputSchema(context) } : { format: 'json_text' } };
 }
@@ -82,6 +84,8 @@ export function validateClarityResponse(value, context) {
   const checked = validateClarityFormat(value, context);
   if (!checked.ok) return checked;
   const routed = routeClarityCandidate(checked.candidate, context);
-  return routed.ok ? validateClarityCandidate(routed.candidate, context) : routed;
+  if (!routed.ok) return routed;
+  const grounded = groundClarityCandidate(routed.candidate, context);
+  return grounded.ok ? validateClarityCandidate(grounded.candidate, context) : grounded;
 }
 export const clarityContract = Object.freeze({ buildModelRequest: buildClarityModelRequest, validateCandidate: validateClarityResponse });
