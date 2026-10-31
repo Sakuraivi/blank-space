@@ -285,7 +285,6 @@
     "A concrete expectation and the unknown third-party intent were retained; this is not a complete content-quality acceptance pass."
   ],
   "pending": [
-    "Real browser save/refresh/PNG check",
     "Complete fixed scenario and content quality evaluation",
     "Five first-time unassisted user checks"
   ],
@@ -315,5 +314,14 @@
       "reason": "invalid_question",
       "requestId": "b54525f1-8a99-4c8f-b617-6592b4f5ce51"
     }
-  ]
+  ],
+  "browserVerification": {
+    "source": "user_report",
+    "date": "2026-11-01",
+    "saved": true,
+    "foundAfterRefresh": true,
+    "imageExportComplete": true,
+    "feedback": "保存、刷新找回和导出都正常",
+    "boundary": "Reported by the user after testing the production clarity entry; not an automated browser capture, first-time user study, or content-quality acceptance."
+  }
 }
