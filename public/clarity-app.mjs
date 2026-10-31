@@ -136,10 +136,10 @@ async function exportImage(details) {
   const record = savedRecord(); if (!record) return;
   // Measure and draw with the same loaded face; a slow font must not block export.
   const loaded = await Promise.race([
-    document.fonts.load('400 28px "LXGW WenKai"', recordText(record, { details })).then(faces => faces.length > 0).catch(() => false),
+    document.fonts.load('400 28px "KN Maiyuan"', recordText(record, { details })).then(faces => faces.length > 0).catch(() => false),
     new Promise(resolve => setTimeout(() => resolve(false), 2500)),
   ]);
-  const fontFamily = loaded ? '"LXGW WenKai", "KaiTi", serif' : 'system-ui, "Microsoft YaHei", sans-serif';
+  const fontFamily = loaded ? '"KN Maiyuan", "PingFang SC", "Microsoft YaHei", sans-serif' : 'system-ui, "Microsoft YaHei", sans-serif';
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); if (!ctx) throw Error();
   const width = 1000, pad = 70, lines = [];
   const add = (value, size, weight, gap = 0) => {
