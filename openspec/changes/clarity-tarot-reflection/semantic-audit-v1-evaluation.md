@@ -1,5 +1,7 @@
 # 小范围语义审校实验
 
+后续[两侧计划生成验证](relation-plan-v1-evaluation.md)完成8次生成，4窄范围pass/3partial/1不可用，未发布，也未用本审校的空结果放行。这里保留本批漏报及不接生产的结论。
+
 状态：私有协议、隔离harness、20项新定向检查及14次真实审校 completed；审校语义门槛 not met，不能自动放行。沿用`clarity-tarot-reflection`的质量评估任务；1.1/4.1 in progress、4.2 not started，整体4/10。生产、界面、字体与组织者配置不变。
 
 ## Responsibility and scope

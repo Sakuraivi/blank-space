@@ -1,6 +1,8 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
-最新语义审校隔离验证：私有策略`e3ef58e`先冻结后读新6例，运行源码`f896532`；14次真实审校全部completed私有观察，无公共candidate/state应用/用户记录写入。协议/引用可用，但6缺陷仅3检出/3漏报，8合理对照本批0误报、不可用0；两难遗漏0/2检出、隐蔽预设提问仍漏报，因此不能自动放行、未接生产，也未修复原v6内容缺陷。core10+harness10共20项及相邻17项、两种dry-run/严格规范/独立审阅通过；14精确账本全部finished/completed，输入14867/输出390/总15257tokens，金额未知。预览停止、生产4项HTTP与旧100%Worker不变，未改Key/预算/UI，整体4/10。下一步优先验证生成草稿如何完整保留两侧顾虑与条件，再形成区分；审校暂只供离线复核。详见[semantic-audit-v1-evaluation.md](semantic-audit-v1-evaluation.md)。
+最新两侧计划生成隔离验证：策略`6fbcdc2`先冻结后读新4例，源码`0f9fd97`固定8次真实生成，7份四字段raw编成公开candidate并实际应用/全部原话可见/内存保存读回，1份原生JSON围栏在provider解析失败（无compile/apply/save、未去围栏或重试）。内容4窄范围pass/3partial/1不可用，FULL仍选偏关系/期待方向、反馈强造关系、照护弱化条件并加持续压力；7个可用全选focus，不能认证理解或留空能力，发布门槛not met。16项新定向、相关16/42项、两种dry-run/严格规范/独立审阅通过；8精确账本7candidate/1fallback，输入8251/输出1631/总9882tokens，金额未知。预览停止、生产HTTP与旧100%Worker不变，未部署或改Key/预算/UI，整体4/10。下一步暂停扩结构，以相同输入/模型/旧三字段协议做生成示例的单变量对照。详见[relation-plan-v1-evaluation.md](relation-plan-v1-evaluation.md)。
+
+此前语义审校隔离验证：私有策略`e3ef58e`先冻结后读新6例，运行源码`f896532`；14次真实审校全部completed私有观察，无公共candidate/state应用/用户记录写入。协议/引用可用，但6缺陷仅3检出/3漏报，8合理对照本批0误报、不可用0；两难遗漏0/2检出、隐蔽预设提问仍漏报，因此不能自动放行、未接生产，也未修复原v6内容缺陷。core10+harness10共20项及相邻17项、两种dry-run/严格规范/独立审阅通过；14精确账本全部finished/completed，输入14867/输出390/总15257tokens，金额未知。预览停止、生产4项HTTP与旧100%Worker不变，未改Key/预算/UI，整体4/10。下一步优先验证生成草稿如何完整保留两侧顾虑与条件，再形成区分；审校暂只供离线复核。详见[semantic-audit-v1-evaluation.md](semantic-audit-v1-evaluation.md)。
 
 此前忠实对话/v6隔离验证：策略`caac5f0`先于新四例读取冻结，运行源码`c0c40f5`；16个attempt中15次真实模型调用/candidate，完整四轮228字原话可见并内存保存读回，11首轮probe（新4）及1前置unsupported零模型。9 pass/3 partial/1未评估，旧排他解释与标题结果偏移本轮改善；FULL仍未连起学习时间与怕尴尬的两难，旧choice仍预置二选一，新电影题只复述未先回答，内容发布门槛not met。17项新定向（含真实handleApi+内存DB/stub provider）及相关55/26/14/29/42项、两种构建dry-run/严格规范/独立审阅通过。15精确账本输入33733/输出2170/总35903tokens，金额未知；预览已停，生产HTTP与100%旧版本不变，未部署或改Key/预算/UI。整体4/10；下一步先离线验证小范围语义审校，识别遗漏两难、预设提问与未答题面，暂不增加生产付费调用。详见[faithful-dialogue-v6-evaluation.md](faithful-dialogue-v6-evaluation.md)。
 
