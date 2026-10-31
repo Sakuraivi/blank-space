@@ -2,6 +2,8 @@
 
 状态：v2源码、签名续步harness、冻结真实模型批次及两份独立agent_review completed；内容门槛 not met，4.1仍in progress，整体4/10。生产保持warm-19。以下先保留运行前计划，结果见文末。
 
+后续短原话ledger与v3离线增量见[retention-ledger-evaluation.md](retention-ledger-evaluation.md)。其3份显式迁移后的内存保存不改写本报告的真实模型遗漏或格式失败，也不是v3原生输出。
+
 ## 冻结的改动
 
 1. 另设liubai-material-selection-2三字段模型输出，v1九字段及乱序拒绝保持。Host负责mode/goal/finish/question及原文排序，未知/重复/非法ID不修补。

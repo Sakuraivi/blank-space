@@ -1,10 +1,12 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
-最新v2隔离实验：三字段引用集合、Host元数据及签名续步完成，冻结7次真实请求中6份候选/1份格式失败，3个案例内存保存成功，完整4轮真实链路成立。内容仍漏感受、顾虑及条件期待，未启用v2；144/73/29项相关定向、构建与独立审阅通过。源码1c5fbba，本轮输入10356/输出1212tokens与精确账本一致，金额未知，生产版本不变。详见[material-set-v2-evaluation.md](material-set-v2-evaluation.md)。
+最新离线增量：短原话ledger、v3由Host固定保留当前材料及实际状态/保存校验completed，源码`ef21350`。在原7份请求身份和完整请求核对后，3份旧已接受结果显式迁移重放，生气、尴尬顾虑及条件期待进入保存正文；原GROUP格式失败保留。新增42项定向及既有144/73/29项检查、构建、严格规范与独立审阅通过。本轮新增模型调用0，未部署；不是新模型原生输出或语义达标，整体仍4/10。详见[retention-ledger-evaluation.md](retention-ledger-evaluation.md)。
+
+此前v2隔离实验：三字段引用集合、Host元数据及签名续步完成，冻结7次真实请求中6份候选/1份格式失败，3个案例内存保存成功，完整4轮真实链路成立。内容仍漏感受、顾虑及条件期待，未启用v2；144/73/29项相关定向、构建与独立审阅通过。源码1c5fbba，本轮输入10356/输出1212tokens与精确账本一致，金额未知，生产版本不变。详见[material-set-v2-evaluation.md](material-set-v2-evaluation.md)。
 
 此前v1隔离实验：异步准备/同步Runtime编译适配完成，3次默认模型真实收尾中2次形成候选并通过内存保存、1次引用乱序被拒；内容有过度归因与空泛评价，未启用新协议。3次共2770输入/956输出tokens，金额未定价。历史边界见[material-live-evaluation.md](material-live-evaluation.md)。
 
-当前生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；AI提示策略仍为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。句级引用协议只完成离线底座，未进入生产，见[material-selection-experiment.md](material-selection-experiment.md)。可回退版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销本次纠正修复。
+当前生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；AI提示策略仍为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。句级引用与v3材料保留实验均未进入生产，分阶段证据见本页所链各实验报告。可回退版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销本次纠正修复。
 
 此前`9950696`发布的首次明确原话要求本地保存路径继续保留，线上浏览器保存/刷新找回及零生成请求的历史证据见[verbatim-recording.md](verbatim-recording.md)。本轮未重复浏览器/PNG验证；5项前端JS SHA仍一致，字体和界面无变更。
 
