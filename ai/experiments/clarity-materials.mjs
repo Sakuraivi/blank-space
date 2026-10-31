@@ -68,6 +68,24 @@ export async function buildMaterialIndex(context) {
   return indexFromSnapshot(cloneContext(context));
 }
 
+// Shared, snapshot-bound compiler for isolated protocol experiments. The v1
+// shape/order policy below is unchanged; callers must explicitly construct a
+// valid v1 candidate before using it. This never authenticates a detached raw
+// model output: the Host owns request/response association and replay checks.
+export async function prepareConcernMaterialCompiler(context) {
+  const c=freeze(cloneContext(context)),binding=fingerprint(c);
+  if(!supported(c))throw new TypeError('unsupported_material_scope');
+  const index=await indexFromSnapshot(c);
+  const matches=current=>{
+    try{return fingerprint(cloneContext(current))===binding;}catch{return false;}
+  };
+  return Object.freeze({context:c,index,matchesContext:matches,compile(value,current){
+    if(!matches(current))return fail('stale_material_index');
+    let selection;try{selection=structuredClone(value);}catch{return fail('invalid_selection');}
+    return compileWithIndex(selection,c,index);
+  }});
+}
+
 function supported(c) {
   const plan=clarityTurn(c);
   // Removing standalone control sentences from the index must not erase an

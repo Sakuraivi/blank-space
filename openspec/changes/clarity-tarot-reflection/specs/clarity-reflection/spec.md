@@ -186,7 +186,7 @@
 
 句级引用离线实验 SHALL 与生产入口隔离，索引只表示当前工作材料的精确原句、来源及UTF16范围，不把模型的事实/猜测/需要分类当成Host事实。引用 SHALL 与完整请求快照绑定；原文、来源类型、修订、问题关联或已知工作状态改变后，旧快照不得编译。摘要是身份标签，不是权限令牌；已有状态机的锁与晚响应检查继续生效。
 
-私有选择协议 SHALL 独立版本化，不能混入公开七字段响应。模型只选择原句ID，Host编译event原句并派生公开来源ID；分析与未知仍为待确认候选。虚构、重复、乱序或超容量选择、额外字段及非法替换引用 SHALL 拒绝，不能靠排序、截断、补来源或旧前缀重建改变选择。可支持的明确感受纠正只复用既有同源正向原文映射，并保留原始范围与投影范围。
+私有选择协议 SHALL 独立版本化，不能混入公开七字段响应。模型只选择原句ID，Host编译event原句并派生公开来源ID；分析与未知仍为待确认候选。在v1（liubai-material-selection-1）中，虚构、重复、乱序或超容量选择、额外字段及非法替换引用 SHALL 拒绝，不能靠排序、截断、补来源或旧前缀重建改变选择。可支持的明确感受纠正只复用既有同源正向原文映射，并保留原始范围与投影范围。v1历史拒绝记录不得被v2的新语义覆盖。
 
 该实验当前仅支持受控concern/review场景，不接管片刻、选择、行动、稀疏未知、历史独立停止/不分析要求或无法安全投影的纠正。未支持场景 SHALL 明确返回不支持，不等同生产行为被移除。引用合法 SHALL 不被宣称为语义涵盖、原猜测仍成立、条件完整或报告有用。真实模型、同步Runtime适配及公开元数据归一未验收前 SHALL 不接入生产。
 
@@ -206,7 +206,7 @@
 
 Host SHALL 在计费预留前完成异步材料快照准备及完整transport请求容量校验。准备结果 SHALL 捕获同一context/profile并绑定同步Runtime契约，调用方不能以run参数覆盖材料或校验器。公开body和env SHALL 不能开启私有实验协议；默认生产入口没有实验导入。
 
-私有九字段响应 SHALL 先由绑定编译器生成合法公开七字段候选，仅成功结果归一公开schema元数据，不泄露私有引用trace。实验请求的精确内容 SHALL 进入账本digest。准备、解密、摘要、来源复查之后且预留之前已取消的请求 SHALL 拒绝；已派发的取消可能计费，晚响应仍不得应用。
+私有v1九字段或显式v2三字段响应 SHALL 先由已选择的绑定编译器生成合法公开七字段候选，仅成功结果归一公开schema元数据，不泄露私有引用trace。不能按模型响应形状自动切换协议。实验请求的精确内容 SHALL 进入账本digest。准备、解密、摘要、来源复查之后且预留之前已取消的请求 SHALL 拒绝；已派发的取消可能计费，晚响应仍不得应用。
 
 #### Scenario: Caller changes the snapshot or model profile
 - **WHEN** await期间原context/profile被改动，或run传入另一context/contract/profile
@@ -219,6 +219,26 @@ Host SHALL 在计费预留前完成异步材料快照准备及完整transport请
 #### Scenario: Controlled live finalization evaluation
 - **WHEN** 在隔离预览使用固定H06/H03/H08合成材料各进行一次收尾
 - **THEN** 保留成功和失败的原输出与实际用量，不自动重试；协议、保存与语义分别验收，不将受控concern收尾称为场景路由、完整对话或真人体验通过
+
+### Requirement: Host-owned material sets and review metadata
+
+显式v2（liubai-material-selection-2） SHALL 只接受reply/title/claims三个模型字段。受控concern/review的mode、非空goal、question=null和finish=true SHALL 由已冻结Host上下文构造；模型不能选择这些元数据。insight/unknown保守标为inferred，不把该标签当语义正确。event原句由Host组装，模型不得提供正文；不强制凑满insight或用内心归因替代有材料支持的具体区分。
+
+v2的anchorIds SHALL 采用集合语义：先拒绝未知、重复、不可选及非法替换引用，再按原文索引顺序组装同一完整成员集合，不截断、不新增、不丢弃或按文字去重。内部trace SHALL 同时保留模型原数组序与组装序，不向公开候选或用户记录泄漏。v1仍拒绝乱序，不作自动降级或修补。
+
+三字段raw SHALL 不被宣称能独立证明快照、模型或请求归属。真实调用的归属由绑定generate Promise、Runtime与实际ticket控制；离线回放 SHALL 先核对Host记录的requestId、协议、context指纹、profile及完整请求，再调用同一绑定编译器，不能把裸raw重新绑定到任意快照后声称防重放。
+
+#### Scenario: The model returns a differently ordered reference set
+- **WHEN** v2选择相同的有效且不重复的原句ID，但数组排列不同
+- **THEN** Host组装相同完整原文并记录两种顺序；v1同一乱序输入仍被拒绝，原失败证据不改写
+
+#### Scenario: A source set accompanies a new inner explanation
+- **WHEN** 模型引用真实投入却补出未表达的需要、动机或性格，或给计划加无依据的进退评价
+- **THEN** 引用成功不能计内容通过；语义评审按全部title/reply/claims及实际保存正文判断，不靠关键词或引用数认证理解
+
+#### Scenario: Four-turn synthetic evaluation resumes
+- **WHEN** 隔离评估逐轮发送固定合成表达
+- **THEN** 后续只接受Worker签名、绑定run/case/step/expiry的上一真实state，不能让任意context或claims进入模型；每步固定requestId由原账本去重，调用前持久attempt，提前结束或问题不符就停止，不伪造历史问答
 
 ### Requirement: Recoverable review and truthful saving
 
