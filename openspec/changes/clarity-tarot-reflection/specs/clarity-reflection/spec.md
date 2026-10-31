@@ -274,6 +274,24 @@ v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续�
 - **WHEN** 用户只否定极端说法，或仍在弄清是否如此、哪个选项、程度或原因
 - **THEN** 模型分析不得把非禁止加强为肯定意愿/许可，也不得把未决对象偷换为原因；原话保留或引用合法不能抵消title/reply/analysis的语义偏移，旧版本真实失败保持可追溯
 
+### Requirement: Isolated semantic audit observations
+
+离线语义审校 SHALL 使用独立私有schema，仅对Host固定的review两难连接、reflect提问预设、首轮knowledge明确题面回应作窄范围观察。输入 SHALL 包含不可变原context、实际候选与task，候选/来源/模型版本改变时旧快照失效；不能改写被审对象、把评审答案送入模型或以用户数据切换职责。
+
+findings SHALL 引用Host文字字段与精确原话，保留全部匹配位置；Host只机械核对形状/路径/引用，不将其当语义真值。合法引用的错误控告仍可通过格式，空findings仅为未检出；失败、超时、未适用分别记不可用，不能计内容成功。观察 SHALL 不含公共用户candidate，不改state、确认、保存或自动补发，生产API/记录路径保持隔离。
+
+#### Scenario: Literal references do not prove an omission
+- **WHEN** 审校引用了合法原话与候选片段，但整体其它分析已表达相应两难
+- **THEN** 格式可被验证，语义误报仍须在独立正反例中记录，不自动拒绝或修改用户候选
+
+#### Scenario: No finding and unavailable audit remain separate
+- **WHEN** 模型返回空findings、非法引用或超时
+- **THEN** 分别记录未检出或不可用，都不认证内容合格，缺陷检出和误报由独立语义评审验证
+
+#### Scenario: Audit is not a user candidate
+- **WHEN** 私有审校Runtime完成并形成观察
+- **THEN** 返回completed/audit与独立schema，不返回可应用的公开candidate，不调用用户状态推进、保存或自动改写
+
 ### Requirement: Faithful dialogue scope and open inquiry
 
 隔离承接策略 SHALL 保留用户所述的范围、程度、对象和条件，不从愿意参与推出不介意额外负担，不从介意一项推出排除另一项。已有材料不足以形成区分时 SHALL 允许准确并列，不能要求每轮补出洞察。标题 SHALL 用具体事项定位，不能因压缩而将时间影响加强为另一个事件结果。
