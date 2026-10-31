@@ -4,6 +4,22 @@
 
 ## ADDED Requirements
 
+### Requirement: Direct and simple primary path
+
+系统 SHALL 让首次访客直接输入表达，不要求先选主题、整理模式或模型服务。默认页面 SHALL 至多有一个高强调主动作，按钮名与行为一致；对话阶段不默认展示步骤导航、分类侧栏或逐条认可按钮组。必要的首次发送说明 SHALL 保持可读。
+
+#### Scenario: First visit with default service available
+- **WHEN** 访客首次打开页面且默认服务可用
+- **THEN** 访客可直接输入并点击“开始聊聊”，无需理解厂商、主题或模式
+
+#### Scenario: First visit without default service
+- **WHEN** 默认服务不可用
+- **THEN** 系统明确说明并提供“只记下来”，个人 Key 配置保留在设置中，不强迫访客先配置
+
+#### Scenario: Simple conversation screen
+- **WHEN** 用户收到一个待回答的问题
+- **THEN** 当前屏只呈现必要回应、一个问题与输入，主按钮为“发送”；回看、提前整理和求助为次级动作
+
 ### Requirement: Goal-directed conversation
 
 系统 SHALL 以一个当前目标组织对话，每次最多提出一个主要问题，问题须对应尚未回答的信息缺口；用户已明确的目标不重复询问。系统 SHALL 允许修改目标、跳过问题和提前收尾。
@@ -18,7 +34,7 @@
 
 ### Requirement: Provisional understanding and correction
 
-系统 SHALL 将模型理解作为候选，区分用户陈述的经历、想法、感受、在意、选择和未知。关键解释必须可以认可、修改或暂不确定。用户修订 SHALL 优先于模型候选；来源标识合法不得被宣称为语义正确的保证。
+系统 SHALL 将模型理解作为候选，在内部区分用户陈述的经历、想法、感受、在意、选择和未知。用户 SHALL 能自然纠正或在最终稿修改，不必逐轮认可；最后一次总确认可确认可见主文。用户修订 SHALL 优先于模型候选；来源标识合法不得被宣称为语义正确的保证。
 
 #### Scenario: User corrects a need
 - **WHEN** 用户把“希望提前沟通”改成“更希望主动提出新时间”
@@ -30,11 +46,15 @@
 
 ### Requirement: Optional tarot perspective
 
-系统 SHALL 在关注点明确后提供可跳过的牌面视角，包含看清事情、听见在意和找到选择。牌面仅承载问题，不产生事实或预测。翻牌和切换视角 SHALL 不触发模型调用。
+系统 SHALL 通过“换个角度”提供按需牌面视角，内部包含看清事情、听见在意和找到选择。默认一次只显示一张牌、一个问题，不要求用户选视角或再确认使用。牌面仅承载问题，不产生事实或预测。揭开和切换视角 SHALL 不触发模型调用。
 
 #### Scenario: Revealing a recommended card
 - **WHEN** 用户翻开当前推荐的牌
 - **THEN** 牌面呈现当前有依据的问题，调用数保持不变，原问题不被重复计作一轮
+
+#### Scenario: Perspective switch preserves a draft
+- **WHEN** 用户已有原问题草稿后选择换个角度
+- **THEN** 原草稿仍能恢复，不能作为新问题的答案自动发送，页面不叠加两道必答问题
 
 #### Scenario: Declining cards
 - **WHEN** 用户选择不用牌面
@@ -47,6 +67,8 @@
 ### Requirement: Scenario-appropriate output
 
 系统 SHALL 根据片刻、困扰和选择组织成品。困扰及选择的正常完成样例必须呈现一个有依据的区分、取舍或待验证事项；材料不足时 SHALL 明示未决，不伪造洞察。报告不得为了填满模板重复段落或增加场景细节。
+
+默认成品 SHALL 只呈现最多三块主文，优先展示关键认识、个人期待或判断标准、仍未知的信息；用户陈述的经过与选项对照按需展开。简化不得隐藏未确认的新推断或会改变判断的限制。
 
 #### Scenario: Concern report
 - **WHEN** 用户完成朋友取消约定的完整脚本
@@ -70,7 +92,19 @@
 
 ### Requirement: Recoverable review and truthful saving
 
-系统 SHALL 提供最终草稿编辑、移除恢复、返回前文和一次总确认；未确认的推断必须被明确确认或排除后才能成为确认后的成品。保存和导出 SHALL 只包含被保留的成品内容，不自动携带原始对话、密钥或内部提示词。
+系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。
+
+#### Scenario: One confirmation and save
+- **WHEN** 用户认可短整理并点击“确认并保存”
+- **THEN** 系统直接尝试本机保存，不要求再点第二个保存按钮；只有写入成功才显示已保存
+
+#### Scenario: Local save fails
+- **WHEN** 本机存储写入失败
+- **THEN** 系统保留草稿与修改，说明未保存并提供重试，不显示成功状态
+
+#### Scenario: Material is ready
+- **WHEN** 当前回复已获得足够材料且应用检查通过
+- **THEN** 系统直接呈现短整理及“确认并保存”，不额外要求点击进入整理页；用户仍可再聊一句
 
 #### Scenario: Remove every section
 - **WHEN** 用户移除最后一节
@@ -100,9 +134,11 @@
 
 系统 SHALL 在窄屏与键盘操作中提供可读正文、可见焦点和不被遮挡的主要动作，并尊重减少动态偏好。交付说明 SHALL 区分设计样例、结构测试、真实模型结果及用户反馈；不得用其中一类证据替代另一类。
 
+默认界面 SHALL 采用一套正文/标题字体、三档基础字号（24px 问题标题、18px 正文输入及主要按钮、14px 必要辅助说明），尊重用户缩放；不得为适配首屏缩字或隐藏重要信息。信息预算作为设计目标，不裁剪用户原话或必要的不确定性。
+
 #### Scenario: Narrow screen
 - **WHEN** 用户在 390px 宽度使用对话、牌面及报告
-- **THEN** 文字及操作无横向溢出，线索摘要不遮挡输入，跳过和修改操作无需悬停
+- **THEN** 文字及操作无横向溢出，单列输入不被遮挡，求助和修改操作无需悬停；200% 字号放大后仍能完成主线
 
 #### Scenario: Synthetic preview
 - **WHEN** 固定脚本用于展示流程
