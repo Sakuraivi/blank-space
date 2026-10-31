@@ -13,7 +13,7 @@ $previewProcess = Start-Process -FilePath (Get-Command node).Source -ArgumentLis
 @{pid=$previewProcess.Id;port=$Port;root=$previewRoot} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $previewWork "preview-$Port.json")
 $healthy = $false
 for ($previewTry=0; $previewTry -lt 20; $previewTry++) {
-  try { $healthy = (Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/ai/status" -TimeoutSec 2).StatusCode -eq 200; if ($healthy) { break } } catch {}
+  try { $healthy = (Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/api/ai/status" -TimeoutSec 2).StatusCode -eq 200; if ($healthy) { break } } catch {}
   Start-Sleep -Milliseconds 200
 }
 if (!$healthy) { throw "Preview process $($previewProcess.Id) started but is not healthy. See local work logs." }
