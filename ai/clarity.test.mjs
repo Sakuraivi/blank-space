@@ -149,7 +149,7 @@ test('a real-model duplicate question is removed from reply without altering the
   assert.equal(declarativeReply('你想说什么？'), '');
 });
 
-test('a four-part concern finish folds event and feeling without losing text or provenance', () => {
+test('a four-part concern finish keeps the event separate and folds feeling with insight', () => {
   const context = first(); context.stage = 'review';
   const value = { ...c01Candidate(context), finish: true, question: null, claims: [
     { type: 'event', text: '最近约了两次朋友，她都在当天取消。', evidenceIds: ['u1'], derivation: 'stated', supersedes: [] },
@@ -161,7 +161,8 @@ test('a four-part concern finish folds event and feeling without losing text or 
   const result = validateClarityResponse(value, context);
   assert.equal(result.ok, true); assert.equal(value.claims.length, 4);
   assert.deepEqual(result.candidate.claims.map(c => c.type), ['event', 'insight', 'unknown']);
-  assert.equal(result.candidate.claims[0].text, value.claims[0].text + '\n\n' + value.claims[1].text);
+  assert.equal(result.candidate.claims[0].text, value.claims[0].text);
+  assert.equal(result.candidate.claims[1].text, value.claims[1].text + '\n\n' + value.claims[2].text);
   assert.deepEqual(result.candidate.claims[0].evidenceIds, ['u1']);
   assert.equal(result.candidate.claims[0].derivation, 'stated');
   for (const mutate of [
@@ -171,4 +172,146 @@ test('a four-part concern finish folds event and feeling without losing text or 
     v => { v.claims[1].text = '感'.repeat(240); },
     v => { v.claims.push(structuredClone(v.claims[3])); },
   ]) { const bad = structuredClone(value); mutate(bad); assert.equal(validateClarityResponse(bad, context).ok, false); }
+});
+
+function expandedConcern(count = 6) {
+  const rows = [
+    ['event', '朋友取消了见面。', 'stated'],
+    ['feeling', '我有点生气。', 'stated'],
+    ['thought', '我猜她可能不想见我。', 'inferred'],
+    ['insight', '取消和没有重新约时间是两件事。', 'inferred'],
+    ['need', '我希望有个明确安排。', 'stated'],
+    ['unknown', '仍不知道她是否愿意见面。', 'inferred'],
+  ];
+  const s = createClaritySession(); rows.forEach(([, text]) => addExpression(s, text));
+  const ticket = beginClarityRequest(s), context = ticket.context; context.stage = 'review';
+  context.claims = rows.map(([type, text, derivation], index) => ({ id: `old_${index}`, type, text, derivation, evidenceIds: [`u${index + 1}`], status: 'candidate' }));
+  const selected = count === 4 ? [0, 1, 3, 5] : count === 5 ? [0, 1, 2, 4, 5] : [0, 1, 2, 3, 4, 5];
+  const claims = selected.map(index => ({ type: rows[index][0], text: rows[index][1], derivation: rows[index][2], evidenceIds: [`u${index + 1}`], supersedes: [`old_${index}`] }));
+  return { context, session: s, ticket, value: { modeId: 'concern', goal: '把经历和期待分清', title: '这次的安排', reply: '我们把经过、期待和仍不知道的事分别留下。', question: null, claims, finish: true } };
+}
+
+for (const count of [4, 5, 6]) {
+  test(`${count} validated concern finish parts fold into the same strict three-claim wire format`, () => {
+    const { context, value } = expandedConcern(count), original = structuredClone(value);
+    const result = validateClarityResponse(value, context);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.deepEqual(value, original); assert.equal(validateClarityCandidate(result.candidate, context).ok, true);
+    assert.deepEqual(result.candidate.claims.map(claim => claim.type), ['event', 'insight', 'unknown']);
+    const [event, insight, unknown] = result.candidate.claims;
+    assert.equal(event.text, '朋友取消了见面。');
+    assert.deepEqual(event.evidenceIds, ['u1']); assert.deepEqual(event.supersedes, ['old_0']);
+    const middle = value.claims.slice(1, -1);
+    assert.equal(insight.text, middle.map(claim => claim.text).join('\n\n'));
+    assert.deepEqual(insight.evidenceIds, middle.flatMap(claim => claim.evidenceIds));
+    assert.deepEqual(insight.supersedes, middle.flatMap(claim => claim.supersedes));
+    assert.equal(insight.derivation, 'inferred'); assert.deepEqual(unknown, value.claims.at(-1));
+  });
+}
+
+test('folding preserves each group source order, source union and unchanged single-claim types', () => {
+  const { context, value } = expandedConcern(6);
+  value.claims[0].evidenceIds.push('u2');
+  value.claims = [value.claims[4], value.claims[0], value.claims[2], value.claims[1], value.claims[3], value.claims[5]];
+  const original = structuredClone(value), result = validateClarityResponse(value, context);
+  assert.equal(result.ok, true); assert.deepEqual(value, original);
+  assert.deepEqual(result.candidate.claims[0].evidenceIds, ['u1', 'u2']);
+  assert.equal(result.candidate.claims[1].text, '我希望有个明确安排。\n\n我猜她可能不想见我。\n\n我有点生气。\n\n取消和没有重新约时间是两件事。');
+  assert.deepEqual(result.candidate.claims[1].supersedes, ['old_4', 'old_2', 'old_1', 'old_3']);
+  const single = expandedConcern(6);
+  single.context.statements.push({ id: 'u7', text: '后来她没再提新时间。', kind: 'expression' });
+  const secondEvent = { type: 'event', text: '后来她没再提新时间。', evidenceIds: ['u7'], derivation: 'stated', supersedes: [] };
+  single.value.claims = [single.value.claims[0], secondEvent, single.value.claims[2], single.value.claims[5]];
+  const preserved = validateClarityResponse(single.value, single.context);
+  assert.equal(preserved.ok, true); assert.deepEqual(preserved.candidate.claims[1], single.value.claims[2]);
+  assert.equal(preserved.candidate.claims[1].type, 'thought');
+});
+
+test('every original claim and top-level field is validated before folding, including the second chunk', () => {
+  for (const mutate of [
+    value => { value.extra = 'not allowed'; },
+    value => { value.claims[4].id = 'not allowed'; },
+    value => { value.claims[4].status = 'confirmed'; },
+    value => { value.claims[4].type = 'not allowed'; },
+    value => { value.claims[4].evidenceIds = []; },
+    value => { value.claims[4].evidenceIds = ['missing']; },
+    value => { value.claims[4].derivation = 'confirmed'; },
+    value => { value.claims[4].supersedes = 'old_4'; },
+    value => { value.claims[4].supersedes = ['missing']; },
+  ]) {
+    const { context, value } = expandedConcern(); mutate(value); const original = structuredClone(value);
+    assert.equal(validateClarityResponse(value, context).ok, false); assert.deepEqual(value, original);
+  }
+});
+
+test('folding rejects replacement reuse across chunks and fully duplicated claims', () => {
+  const repeated = expandedConcern(); repeated.value.claims[4].supersedes = repeated.value.claims[0].supersedes.slice();
+  assert.deepEqual(validateClarityResponse(repeated.value, repeated.context), { ok: false, reason: 'invalid_claim', detail: 'supersedes_duplicate' });
+  const duplicate = expandedConcern(4); duplicate.value.claims.forEach(claim => { claim.supersedes = []; });
+  duplicate.value.claims.push(structuredClone(duplicate.value.claims[2]));
+  const before = structuredClone(duplicate.value);
+  assert.equal(validateClarityResponse(duplicate.value, duplicate.context).ok, false); assert.deepEqual(duplicate.value, before);
+});
+
+test('folding never truncates a long merged claim or conceals the complete original response length', () => {
+  const merged = expandedConcern(4); merged.value.claims[1].text = '感'.repeat(130); merged.value.claims[2].text = '意'.repeat(130);
+  assert.deepEqual(validateClarityResponse(merged.value, merged.context), { ok: false, reason: 'invalid_claim', detail: 'claim_text' });
+  const aggregate = expandedConcern(); aggregate.value.claims.forEach((claim, index) => { claim.text = String(index).repeat(85); });
+  assert.deepEqual(validateClarityResponse(aggregate.value, aggregate.context), { ok: false, reason: 'response_too_large' });
+});
+
+test('the extended folding path never accepts actions, other modes, unfinished replies or unsupported array shapes', () => {
+  for (const mutate of [
+    value => { value.claims[4].type = 'action'; },
+    value => { value.claims[4].type = 'option'; },
+    value => { value.claims[4].type = 'tradeoff'; },
+    value => { value.modeId = 'choice'; },
+    value => { value.modeId = 'moment'; },
+    value => { value.finish = false; },
+    value => { value.question = { text: '还想聊什么？', target: 'unknown', evidenceIds: ['u1'] }; },
+    value => { value.claims = {}; },
+    value => { value.claims = JSON.stringify(value.claims); },
+    value => { value.claims.push({ ...value.claims[5], text: '另一个未知。', supersedes: [] }); },
+  ]) {
+    const { context, value } = expandedConcern(); mutate(value); const before = structuredClone(value);
+    assert.equal(validateClarityResponse(value, context).ok, false); assert.deepEqual(value, before);
+  }
+  const action = expandedConcern(); action.context.allowNextStep = true;
+  assert.equal(validateClarityResponse(action.value, action.context).ok, false);
+});
+
+test('folded claims still check whole original sentences and keep a later feeling outside the event', () => {
+  const { context, value } = expandedConcern(4);
+  context.statements.unshift({ id: 'u0', text: '此前一段很长的经历。'.repeat(35), kind: 'expression' });
+  const result = validateClarityResponse(value, context);
+  assert.equal(result.ok, true); assert.equal(result.candidate.claims[0].text, '朋友取消了见面。');
+  assert.deepEqual(result.candidate.claims[0].evidenceIds, ['u1']);
+  assert.match(result.candidate.claims[1].text, /我有点生气。/);
+  assert.ok(result.candidate.claims[1].evidenceIds.includes('u2'));
+});
+
+test('a long event grounding rebuild cannot consume a later feeling in the final report', () => {
+  const { context, value, session, ticket } = expandedConcern(4);
+  context.statements[0].text = '我为这次见面作了' + '准备'.repeat(110) + '。';
+  context.statements[1].text = '我现在很生气，因为她没主动提出下次时间。';
+  value.claims[0].text = '我为这次见面作了很多准备。';
+  value.claims[1].text = '我现在很生气。';
+  const original = structuredClone(value);
+  const result = validateClarityResponse(value, context);
+  assert.equal(result.ok, true);
+  assert.equal(result.candidate.claims[0].text, context.statements[0].text);
+  assert.ok(result.candidate.claims[1].text.includes('我现在很生气。'));
+  assert.ok(result.candidate.claims[1].evidenceIds.includes('u2'));
+  assert.equal(applyClarityReply(session, ticket, { flow: 'clarity-v2', requestId: ticket.requestId, revision: ticket.revision, status: 'candidate', candidate: result.candidate }).ok, true);
+  assert.ok(session.review.blocks.find(block => block.id === 'insight').text.includes('我现在很生气。'));
+  assert.deepEqual(value, original);
+});
+
+test('folding multiple events refuses a grounding rebuild that would lose a selected event', () => {
+  const { context, value } = expandedConcern(4);
+  context.statements[0].text = '我为这次见面作了' + '准备'.repeat(110) + '。';
+  value.claims[0].text = '我为这次见面作了很多准备。';
+  value.claims[1] = { type: 'event', text: '后来她没再提新时间。', evidenceIds: ['u7'], derivation: 'stated', supersedes: [] };
+  context.statements.push({ id: 'u7', text: '后来她没再提新时间。', kind: 'expression' });
+  assert.deepEqual(validateClarityResponse(value, context), { ok: false, reason: 'ungrounded_event' });
 });

@@ -147,7 +147,8 @@ test('API folds four valid concern parts but never invents missing evidence', as
   f.transform(finished);
   const result = await f.call(input({ stage: 'review' }));
   assert.equal(result.body.status, 'candidate'); assert.deepEqual(result.body.candidate.claims.map(c => c.type), ['event', 'insight', 'unknown']);
-  assert.match(result.body.candidate.claims[0].text, /还要不要再约/);
+  assert.equal(result.body.candidate.claims[0].text, '最近约了两次朋友，她都在当天取消。');
+  assert.match(result.body.candidate.claims[1].text, /还要不要再约/);
   f.transform(value => { const bad = finished(value); bad.claims[3].evidenceIds = []; return bad; });
   const refused = await f.call(input({ stage: 'review' }));
   assert.notEqual(refused.body.status, 'candidate'); assert.equal(f.calls(), 2);

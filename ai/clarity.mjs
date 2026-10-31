@@ -1,9 +1,9 @@
 import { CLARITY_SCHEMA_VERSION, checkClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
 import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs';
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
-import { groundingPlan, groundClarityCandidate } from './clarity-grounding.mjs';
+import { groundingPlan, groundClarityCandidate, materialSentences } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-16';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-17';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.
@@ -66,23 +66,36 @@ function validateClarityFormat(value, context) {
   if (checked.reason === 'repeated_question' && value?.modeId === 'concern' && !plan.finish) {
     checked = validateClarityCandidate({ ...value, question: { ...value.question, text: plan.question } }, context);
   }
-  if (checked.ok || value?.modeId !== 'concern' || value.finish !== true || value.question !== null ||
-      !Array.isArray(value.claims) || value.claims.length !== 4) return checked;
-  const types = ['event', 'feeling', 'insight', 'unknown'];
-  if (!types.every(type => value.claims.filter(c => c?.type === type).length === 1)) return checked;
-  const [event, feeling, insight, unknown] = types.map(type => value.claims.find(c => c.type === type));
+  if (checked.ok || value?.modeId !== 'concern' || value.finish !== true || value.question !== null || context.allowNextStep ||
+      !Array.isArray(value.claims) || value.claims.length < 4 || value.claims.length > 6) return checked;
   // Validate every original field/source before folding. An extra field, false
   // source, or duplicate replacement must not disappear inside normalization.
-  const first = validateClarityCandidate({ ...value, claims: [event, feeling, insight] }, context);
-  const last = validateClarityCandidate({ ...value, claims: [unknown] }, context);
-  if (!first.ok) return first;
-  if (!last.ok) return last;
-  const merged = { ...event, text: `${event.text}\n\n${feeling.text}`,
-    evidenceIds: [...new Set([...event.evidenceIds, ...feeling.evidenceIds])],
-    derivation: [event, feeling].every(c => c.derivation === 'stated') ? 'stated' : 'inferred',
-    supersedes: [...event.supersedes, ...feeling.supersedes] };
+  for (let start = 0; start < value.claims.length; start += 3) {
+    const original = validateClarityCandidate({ ...value, claims: value.claims.slice(start, start + 3) }, context);
+    if (!original.ok) return original;
+  }
+  if (value.claims.reduce((length, claim) => length + claim.text.length, 0) > 480) return { ok: false, reason: 'response_too_large' };
+  const replacements = new Set(), originals = new Set();
+  for (const claim of value.claims) {
+    if (claim.supersedes.some(id => replacements.has(id))) return { ok: false, reason: 'invalid_claim', detail: 'supersedes_duplicate' };
+    claim.supersedes.forEach(id => replacements.add(id));
+    const fingerprint = JSON.stringify([claim.type, claim.text, [...claim.evidenceIds].sort(), claim.derivation, [...claim.supersedes].sort()]);
+    if (originals.has(fingerprint)) return { ok: false, reason: 'invalid_claim' };
+    originals.add(fingerprint);
+  }
+  const groups = [['event', ['event']], ['insight', ['feeling', 'thought', 'insight', 'need']], ['unknown', ['unknown']]];
+  if (value.claims.some(claim => !groups.some(([, types]) => types.includes(claim.type)))) return checked;
+  const claims = groups.flatMap(([type, types]) => {
+    const members = value.claims.filter(claim => types.includes(claim.type));
+    if (members.length < 2) return members;
+    return [{ type, text: members.map(claim => claim.text).join('\n\n'),
+      evidenceIds: [...new Set(members.flatMap(claim => claim.evidenceIds))],
+      derivation: members.every(claim => claim.derivation === 'stated') ? 'stated' : 'inferred',
+      supersedes: members.flatMap(claim => claim.supersedes) }];
+  });
   // Same strict three-claim contract and length limits; never truncate text.
-  return validateClarityCandidate({ ...value, claims: [merged, insight, unknown] }, context);
+  // The normal grounding pass still checks complete original event sentences.
+  return validateClarityCandidate({ ...value, claims }, context);
 }
 export function validateClarityResponse(value, context) {
   const checked = validateClarityFormat(value, context);
@@ -90,6 +103,20 @@ export function validateClarityResponse(value, context) {
   const routed = routeClarityCandidate(checked.candidate, context);
   if (!routed.ok) return routed;
   const grounded = groundClarityCandidate(routed.candidate, context);
+  if (grounded.ok && Array.isArray(value.claims) && value.claims.length > 3 && value.claims.filter(claim => claim.type === 'event').length > 1) {
+    // The existing grounding fallback may rebuild an event from an early source
+    // prefix. Do not let that silently consume a later part of a folded context.
+    // Refuse instead of truncating, inventing evidence, or bypassing grounding.
+    for (const original of routed.candidate.claims.filter(claim => claim.type === 'event')) {
+      const sentences = materialSentences(grounded.candidate.claims.find(claim => claim.type === 'event')?.text ?? '');
+      let next = 0;
+      for (const sentence of materialSentences(original.text)) {
+        const found = sentences.findIndex((text, index) => index >= next && text === sentence);
+        if (found < 0) return { ok: false, reason: 'ungrounded_event' };
+        next = found + 1;
+      }
+    }
+  }
   return grounded.ok ? validateClarityCandidate(grounded.candidate, context) : grounded;
 }
 export const clarityContract = Object.freeze({ buildModelRequest: buildClarityModelRequest, validateCandidate: validateClarityResponse });
