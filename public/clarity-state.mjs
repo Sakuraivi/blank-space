@@ -49,7 +49,6 @@ export function wireSession(s) {
 
 export function beginClarityRequest(s, { action = false } = {}) {
   if (s.pending) throw new Error('request_in_progress');
-  if (s.callCount >= 5) throw new Error('session_limit');
   // A clear answer to the needs question should produce a review, not ask the
   // user to quantify the same expectation again. This is a routing cue only;
   // the resulting review still requires the user's confirmation.
@@ -109,7 +108,7 @@ export function failClarityRequest(s, ticket, reason) {
 }
 
 const groups = {
-  concern: [['context', '让你卡住的', ['event', 'thought', 'feeling']], ['insight', '这次分清了', ['insight', 'need', 'tradeoff', 'option']], ['unknown', '还留着的问号', ['unknown']]],
+  concern: [['context', '你说过的', ['event', 'thought', 'feeling']], ['insight', '这次分清了', ['insight', 'need', 'tradeoff', 'option']], ['unknown', '还留着的问号', ['unknown']]],
   moment: [['context', '这一刻', ['event']], ['insight', '我想留下的', ['insight', 'feeling', 'need']], ['unknown', '还想慢慢想的', ['unknown']]],
   choice: [['context', '我的标准', ['need', 'event']], ['insight', '关键取舍', ['tradeoff', 'insight', 'option']], ['unknown', '还缺的信息', ['unknown']]],
 };

@@ -19,14 +19,35 @@ test('full source sentences preserve episode qualifiers, quoted speech and decim
   const c = context(text);
   assert.equal(validateClarityResponse(finish(text),c).ok,true);
   for (const wrong of ['两次她都发了抱歉表情。','发了个抱歉表情。','上一次是家里有事。这次她说加班，发了个抱歉表情。']) {
-    assert.equal(validateClarityResponse(finish(wrong),c).reason,'ungrounded_event');
+    const repaired = validateClarityResponse(finish(wrong),c);
+    assert.equal(repaired.ok,true); assert.equal(repaired.candidate.claims[0].text,materialSentences(text).join('\n'));
   }
   assert.equal(validateClarityResponse(finish(text,['fake']),c).reason,'invalid_claim');
 });
 test('a fact quote must cite the sentence source; valid IDs alone do not suffice', () => {
   const c = context('上一次她说家里有事。','这次她说临时加班。');
-  assert.equal(validateClarityResponse(finish('这次她说临时加班。'),c).reason,'ungrounded_event');
+  const reconstructed = validateClarityResponse(finish('这次她说临时加班。'),c);
+  assert.equal(reconstructed.ok,true);
+  assert.equal(reconstructed.candidate.claims[0].text,'上一次她说家里有事。\n这次她说临时加班。');
+  assert.deepEqual(reconstructed.candidate.claims[0].evidenceIds,['u1','u2']);
   assert.equal(validateClarityResponse(finish('这次她说临时加班。',['u2']),c).ok,true);
+});
+
+test('long source material is never cut into a made-up partial sentence', () => {
+  const c=context('长'.repeat(300)+'。');
+  assert.equal(validateClarityResponse(finish('一段模型改写。'),c).reason,'ungrounded_event');
+  assert.equal(c.statements[0].text.length,301);
+});
+
+test('an ordinary reflection can finish when the model paraphrases the event', () => {
+  const c=context('周末下午在家做一个手工项目。','原本想出去走走，后来没有出门。');
+  c.statements.push({id:'u3',kind:'expression',text:'希望每个周末都能留出放松的时间。'});
+  const raw=finish('周末花了一下午做手工，没有安排休息。',['u1','u2']);
+  raw.claims.push({type:'insight',text:'我想在周末给放松留出稳定的时间。',evidenceIds:['u3'],derivation:'inferred',supersedes:[]});
+  const result=validateClarityResponse(raw,c);
+  assert.equal(result.ok,true);
+  assert.equal(result.candidate.claims[0].text,c.statements.map(s=>s.text).join('\n'));
+  assert.equal(result.candidate.claims[1].text,raw.claims[1].text);
 });
 test('explicit emotion correction removes only its matching contrast and preserves original material', () => {
   const c = context('约好的朋友临时取消了。','不是失落，是生气。我希望下次能提前说。');

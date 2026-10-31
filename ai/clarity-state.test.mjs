@@ -16,7 +16,7 @@ function complete() { const s = state.createClaritySession(); for (const input o
 test('C01: four sends produce three linked blocks; the fifth primary action saves without a call', () => {
   const s = complete();
   assert.equal(s.callCount, 4); assert.equal(s.dialogue.length, 3); assert.equal(s.stage, 'reviewing');
-  assert.deepEqual(s.review.blocks.map(b => b.label), ['让你卡住的', '这次分清了', '还留着的问号']);
+  assert.deepEqual(s.review.blocks.map(b => b.label), ['你说过的', '这次分清了', '还留着的问号']);
   assert.match(s.review.blocks[1].text, /主动重约/); assert.match(s.review.blocks[2].text, /仍不知道/);
   const storage = store(), saved = state.saveClarityRecord(s, storage);
   assert.equal(saved.ok, true); assert.equal(s.stage, 'kept'); assert.equal(s.callCount, 4);
@@ -109,11 +109,11 @@ test('recorded real C01 responses retain time investment, corrected emotion and 
   assert.match(s.review.blocks[1].text, /新时间/); assert.match(s.review.blocks[2].text, /是否/);
   assert.equal(s.review.blocks.length, 3); assert.equal(state.saveClarityRecord(s, store()).ok, true);
 });
-test('one active request, explicit retry limit, and unrequested action rejection', () => {
+test('one active request, explicit retries beyond five, and unrequested action rejection', () => {
   const s = state.createClaritySession(); state.addExpression(s, inputs[0]);
   let t = state.beginClarityRequest(s); assert.throws(() => state.beginClarityRequest(s), /request_in_progress/);
   const bad = c01Candidate(t.context); bad.claims[0].type = 'action'; assert.equal(validateClarityCandidate(bad, t.context).reason, 'action_not_allowed');
   state.failClarityRequest(s, t, 'network_error'); assert.equal(s.callCount, 1);
-  for (let i = 1; i < 5; i++) { t = state.beginClarityRequest(s); state.failClarityRequest(s, t, 'network_error'); }
-  assert.throws(() => state.beginClarityRequest(s), /session_limit/); state.openClarityReview(s); assert.equal(state.saveClarityRecord(s, store()).ok, true);
+  for (let i = 1; i < 8; i++) { t = state.beginClarityRequest(s); state.failClarityRequest(s, t, 'network_error'); }
+  assert.equal(s.callCount,8); state.openClarityReview(s); assert.equal(state.saveClarityRecord(s, store()).ok, true);
 });

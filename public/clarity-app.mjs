@@ -52,7 +52,7 @@ function render() {
       ${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}
       <div class="actions">${button('修改', 'edit')}${session.statements.length && route ? button('再聊一句', 'continue') : ''}</div>
       ${session.stale ? `${route ? button('让 AI 重新理解', 'reanalyze') : ''}<label class="small"><input id="review-rechecked" type="checkbox">我已重新核对这份整理</label>` : ''}
-      ${session.stage === 'kept' ? `<details><summary>导出或继续整理</summary><label class="small"><input id="export-details" type="checkbox">包括补充内容</label><div class="actions">${button('下载文字', 'export-text')}${button('导出图片', 'export-image')}${route && session.callCount < 5 ? button('帮我想一句怎么说', 'request-action') : ''}${button('结束本次', 'end')}</div></details>` : ''}
+      ${session.stage === 'kept' ? `<details><summary>导出或继续整理</summary><label class="small"><input id="export-details" type="checkbox">包括补充内容</label><div class="actions">${button('下载文字', 'export-text')}${button('导出图片', 'export-image')}${route ? button('帮我想一句怎么说', 'request-action') : ''}${button('结束本次', 'end')}</div></details>` : ''}
     </article>`;
   }
   resizeFields();
@@ -75,7 +75,7 @@ async function sendToAi({ action = false } = {}) {
   if (!route || !sameAiRoute(route, routeNow()) || route.sourceMode === 'personal' && !preference.hasKey()) { localError = '本页的 AI 服务已失效。可以先整理保存，再结束本次并重新设置。'; render(); return; }
   let ticket;
   try { ticket = beginClarityRequest(session, { action }); }
-  catch (err) { localError = err.message === 'session_limit' ? '本次已聊到调用上限。已有内容仍可以修改、整理和保存。' : '这次表达暂时无法发送，请先保留原话。'; render(); return; }
+  catch { localError = '这次表达暂时无法发送，请先保留原话。'; render(); return; }
   const active = session, requestRoute = { ...route };
   controller = new AbortController(); const requestController = controller;
   localError = ''; render();

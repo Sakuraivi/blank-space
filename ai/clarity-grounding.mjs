@@ -1,6 +1,6 @@
 import { expressionParts } from './clarity-turn.mjs';
 
-export const CLARITY_GROUNDING_VERSION = 'clarity-grounding-2';
+export const CLARITY_GROUNDING_VERSION = 'clarity-grounding-3';
 const emotions = '失落|生气|愤怒|难过|委屈|焦虑|害怕|担心|开心|轻松|烦躁|烦|紧张|内疚|羞愧|疲惫';
 const correction = new RegExp(`^(?:我)?不是(${emotions})[，,]\\s*是(${emotions})([。.!！]?)$`, 'u');
 
@@ -69,13 +69,27 @@ export function groundClarityCandidate(candidate, context) {
     const fixes = plan.corrections.filter(f => claim.evidenceIds.includes(f.sourceId));
     claim.text = normalizeCorrection(claim.text, fixes);
     if (value.modeId === 'concern' && value.finish && claim.type === 'event' && !context.allowNextStep) {
-      let lastIndex = -1;
+      let lastIndex = -1, exact = claim.derivation === 'stated';
       for (const sentence of materialSentences(claim.text)) {
         const index = plan.sentences.findIndex((s, i) => i > lastIndex && s.text === sentence && claim.evidenceIds.includes(s.sourceId));
-        if (index < 0) return { ok: false, reason: 'ungrounded_event' };
+        if (index < 0) { exact = false; break; }
         lastIndex = index;
       }
-      if (claim.derivation !== 'stated') return { ok: false, reason: 'ungrounded_event' };
+      if (!exact) {
+        const room = Math.min(240,480-value.claims.filter(c => c !== claim).reduce((n,c) => n+c.text.length,0));
+        const selected = []; let length = 0;
+        // Application-owned excerpts: complete original sentences only, with
+        // their actual sources. The original statements remain intact.
+        for (const sentence of plan.sentences) {
+          const extra = sentence.text.length + (selected.length ? 1 : 0);
+          if (length + extra > room) break;
+          selected.push(sentence); length += extra;
+        }
+        if (!selected.length) return { ok:false,reason:'ungrounded_event' };
+        claim.text = selected.map(s => s.text).join('\n');
+        claim.evidenceIds = [...new Set(selected.map(s => s.sourceId))];
+        claim.derivation = 'stated';
+      }
     } else if (repeatsDenied(claim.text)) return { ok: false, reason: 'correction_not_applied' };
   }
   if ([value.reply, value.goal, value.title].some(repeatsDenied)) return { ok: false, reason: 'correction_not_applied' };

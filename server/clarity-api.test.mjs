@@ -71,14 +71,25 @@ test('API folds four valid concern parts but never invents missing evidence', as
   assert.notEqual(refused.body.status, 'candidate'); assert.equal(f.calls(), 2);
 });
 
-test('a changed occurrence scope is rejected at the API without an automatic retry', async t => {
+test('a changed occurrence scope uses original source excerpts without an automatic retry', async t => {
   const f = fixture(t);
   f.transform(value => ({ ...value, finish:true, question:null, claims:[
     { type:'event', text:'两次她都发了抱歉表情。', evidenceIds:['u1'], derivation:'stated', supersedes:[] },
   ] }));
   const result = await f.call(input({ stage:'review' }));
-  assert.equal(result.body.status,'fallback');
-  assert.equal(result.body.reason,'ungrounded_event');
-  assert.equal(result.body.candidate,null); assert.equal(f.calls(),1);
+  assert.equal(result.body.status,'candidate');
+  assert.equal(result.body.candidate.claims[0].text,inputs[0].replaceAll('。','。\n').trim());
+  assert.equal(f.calls(),1);
   assert.doesNotMatch(JSON.stringify(result),new RegExp(fakeKey));
+});
+
+test('clarity requests can continue past five while keeping the ledger and duplicate guard', async t => {
+  const f=fixture(t), body=input({sourceMode:'personal',personalApiKey:fakeKey});
+  for (let i=0;i<8;i++) {
+    body.requestId=crypto.randomUUID();
+    assert.equal((await f.call(body)).body.status,'candidate');
+  }
+  assert.equal(f.calls(),8);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM pilot_requests').get().n,8);
+  assert.equal((await f.call(body)).status,429); assert.equal(f.calls(),8);
 });

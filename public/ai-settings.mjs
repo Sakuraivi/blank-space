@@ -95,6 +95,8 @@ export function sameAiRoute(first, second) {
 }
 
 export function aiErrorMessage(reason, providerLabel = '所选服务商') {
+  if (reason === 'network_error') return '暂时没能连接服务，文字仍在本页。连接恢复后可以重新发送。';
+  if (reason === 'ungrounded_event') return '这次还没能把原话整理准确，文字仍在本页。可以先按已有内容整理。';
   if (reason === 'maintenance') return '服务正在迁移，请稍后再试。你的文字仍在本页，也可以继续轻引导。';
   if (reason === 'missing_personal_key') return '个人 API Key 尚未填写。本次没有切换到留白陪伴，请保留原话后完成设置。';
   if (reason === 'invalid_personal_key') return 'API Key 格式不正确。请先保留原话，再结束本次并在 AI 设置中更换。';

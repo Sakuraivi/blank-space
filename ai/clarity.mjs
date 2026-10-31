@@ -3,7 +3,7 @@ import { clarityOutputSchema, supportsClaritySchema } from './clarity-schema.mjs
 import { clarityTurn, routeClarityCandidate } from './clarity-turn.mjs';
 import { groundingPlan, groundClarityCandidate } from './clarity-grounding.mjs';
 export { buildClarityContext, validateClarityCandidate } from '../public/clarity-contract.mjs';
-export const CLARITY_POLICY_VERSION = 'clarity-warm-11';
+export const CLARITY_POLICY_VERSION = 'clarity-warm-13';
 
 // Routing guidance, not a conclusion about the user's feelings or needs.
 // Only validated application-owned stage/counts enter the instruction channel.

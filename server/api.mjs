@@ -180,7 +180,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (request.signal.aborted) return fallback('inactive', 409);
     const apiKey = personalApiKey || (source.type === 'environment' ? source.key : await decryptKey(source, env.LIUBAI_SECRET_KEY));
     if (!validKey(apiKey)) return fallback('default_unavailable', 503);
-    const ledger = createLedger(env.DB, source?.type === 'organizer' ? { sharedLimits: source.sharedLimits } : {});
+    const ledger = createLedger(env.DB, { ...(source?.type === 'organizer' ? { sharedLimits: source.sharedLimits } : {}), ...(isClarity ? { sessionCalls:null } : {}) });
     const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId,
       ...(source?.type === 'organizer' ? { defaultRevision: source.revision } : {}) };
     const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) }));
