@@ -1,6 +1,8 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
-最新隔离实验：异步准备/同步Runtime编译适配已完成，3次默认模型真实收尾中2次形成候选并通过内存保存、1次引用乱序被拒；内容还有过度归因与空泛评价，未启用新协议。144项主链路与73项材料/接入定向、构建和独立审阅通过。生产版本不变；3次共2770输入/956输出tokens，金额未定价。完整边界和下一步见[material-live-evaluation.md](material-live-evaluation.md)。
+最新v2隔离实验：三字段引用集合、Host元数据及签名续步完成，冻结7次真实请求中6份候选/1份格式失败，3个案例内存保存成功，完整4轮真实链路成立。内容仍漏感受、顾虑及条件期待，未启用v2；144/73/29项相关定向、构建与独立审阅通过。源码1c5fbba，本轮输入10356/输出1212tokens与精确账本一致，金额未知，生产版本不变。详见[material-set-v2-evaluation.md](material-set-v2-evaluation.md)。
+
+此前v1隔离实验：异步准备/同步Runtime编译适配完成，3次默认模型真实收尾中2次形成候选并通过内存保存、1次引用乱序被拒；内容有过度归因与空泛评价，未启用新协议。3次共2770输入/956输出tokens，金额未定价。历史边界见[material-live-evaluation.md](material-live-evaluation.md)。
 
 当前生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；AI提示策略仍为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。句级引用协议只完成离线底座，未进入生产，见[material-selection-experiment.md](material-selection-experiment.md)。可回退版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销本次纠正修复。
 

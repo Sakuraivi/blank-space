@@ -1,5 +1,7 @@
 # 句级引用的真实模型收尾验证
 
+本文为v1三例运行快照。后续v2三字段集合及完整四轮结果见[material-set-v2-evaluation.md](material-set-v2-evaluation.md)；原失败记录保持。
+
 状态：Host适配、三例真实模型运行及逐项agent_review completed；内容发布门槛 not met，完整4.1仍 in progress。仅本轮受控收尾切片，整体任务仍4/10；不扩大朋友测试、不切换生产默认策略。以下“运行前冻结”及判据已在源码提交`4ed46cd`保留，未按输出改标准。
 
 ## 运行前冻结的范围
