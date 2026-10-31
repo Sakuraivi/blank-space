@@ -1,6 +1,6 @@
 # 首轮场景与原意强度修复验证
 
-状态：隔离策略修复 completed（待真实模型验证）；运行harness not started；真实模型 not started；生产不变，整体4/10。沿用`clarity-tarot-reflection`，不改UI、字体、默认Key、型号、预算、口令、DNS或D1结构。
+状态：隔离策略与运行harness completed（待真实模型验证）；真实模型 not started；生产不变，整体4/10。沿用`clarity-tarot-reflection`，不改UI、字体、默认Key、型号、预算、口令、DNS或D1结构。
 
 ## 最小责任边界
 
@@ -16,6 +16,8 @@ reflect采用`clarity-guided-reflect-1`，基于固定warm-19请求，仅精确�
 
 v4隔离harness拥有独立label、MAC域及retention4_请求/会话ID；旧v2/v3默认行为和失败记录保留。所有首轮探针从auto/goal=null开始；expectedMode只供离线评审，不能进入生成context或提示。受控收尾自身已有concern scope须单独标明，不能据此证明自然场景识别。
 
+独立审阅发现caseId语义标签经sessionId进入模型的泄漏，真实调用前已修正为中性probe序号，Worker与client测试均检查完整provider请求不含任何边界caseId。报告、URL与不进入模型的账本requestId保留可追溯名称。模式字段剔除不足以证明没有旁路线索。
+
 逐次比对context、profile、Host binding及完整transport请求，原生JSON直接由实际契约编译并与APIcandidate深等；不迁移旧raw、不去围栏或补字段救活。完整/受控收尾继续核对实际apply、原话可见性、内存保存/JSON读回。边界首轮若仍追问，只验证真实state推进，不声称已完成该场景的完整体验。
 
 ## 验收与证据
@@ -26,4 +28,8 @@ v4隔离harness拥有独立label、MAC域及retention4_请求/会话ID；旧v2/v
 
 ## 结果
 
-策略冻结前新增12项检查（reflect9、收尾3）及原保留链路42项通过，严格OpenSpec和独立源码审阅通过；原v3的3份受控请求、binding、ledger与旧实现逐字对照一致。新语义提示不是确定性校验：故意加强原意的合法引用对照仍可通过结构检查，不能记作语义安全保证。尚未读取新4例正文或运行真实模型。后续harness检查及真实结果另填。1.1/4.1 in progress，5人无指导体验 not started，无需用户重新配置Key。
+策略预先冻结于`6a9bcfbb3e7d1de154102a2c3fa51a9844dde9d5`，之后root才读取独立新4例正文；此后两份策略module无diff。冻结前新增12项检查（reflect9、收尾3）及原保留链路42项通过，原v3的3份受控请求、binding、ledger与旧实现逐字对照一致。
+
+harness完成后共26项新检查（策略12、Worker8、client6），旧v3十四项、v2集合29项及保留链路42项通过；独立Worker构建dry-run、严格OpenSpec与独立源码审阅通过。中性ID修复后新26项及独立联合43项再次通过。没有运行旧版全量回归，真实调用尚未开始。新语义提示不是确定性校验：故意加强原意的合法引用对照仍可通过结构检查，不能记作语义安全保证。
+
+实际结果另填。1.1/4.1 in progress，5人无指导体验 not started，无需用户重新配置Key。
