@@ -14,7 +14,9 @@
     "db:generate": "drizzle-kit generate",
     "build:standalone": "node scripts/build-standalone.mjs",
     "deploy:standalone": "node node_modules/wrangler/bin/wrangler.js deploy --config wrangler.standalone.jsonc",
-    "test:standalone": "node --test server/standalone-worker.test.mjs"
+    "test:standalone": "node --test server/standalone-worker.test.mjs",
+    "verify:migration": "node scripts/standalone/verify-ledger.mjs",
+    "test:migration": "node --test scripts/standalone/verify-ledger.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

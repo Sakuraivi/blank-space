@@ -6,6 +6,9 @@
   "compatibility_date": "2026-05-15",
   "workers_dev": true,
   "preview_urls": false,
+  "routes": [
+    { "pattern": "blank.sakura.observer", "custom_domain": true, "zone_name": "sakura.observer" }
+  ],
   "assets": {
     "directory": "public",
     "binding": "ASSETS",
@@ -22,7 +25,7 @@
     }
   ],
   "vars": {
-    "LIUBAI_DATA_MIGRATION_STATE": "pending"
+    "LIUBAI_DATA_MIGRATION_STATE": "verified"
   },
   "observability": {
     "enabled": false
