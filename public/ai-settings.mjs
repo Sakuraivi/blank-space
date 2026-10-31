@@ -96,18 +96,18 @@ export function sameAiRoute(first, second) {
 
 export function aiErrorMessage(reason, providerLabel = '所选服务商') {
   if (reason === 'maintenance') return '服务正在迁移，请稍后再试。你的文字仍在本页，也可以继续轻引导。';
-  if (reason === 'missing_personal_key') return '个人 API Key 尚未填写。本次没有改用默认服务，请保留原话后完成设置。';
+  if (reason === 'missing_personal_key') return '个人 API Key 尚未填写。本次没有切换到留白陪伴，请保留原话后完成设置。';
   if (reason === 'invalid_personal_key') return 'API Key 格式不正确。请先保留原话，再结束本次并在 AI 设置中更换。';
   if (reason === 'provider_auth_failed') return `这次使用的 Key 未通过 ${providerLabel} 验证。没有改用其他 Key 重试，你的输入仍在本页。`;
   if (reason === 'provider_access_denied') return `${providerLabel} 暂未允许这次调用，请检查 Key 的平台、产品及访问权限。你的输入仍在本页。`;
   if (['provider_model_unavailable', 'unsupported_model'].includes(reason)) return `${providerLabel} 的所选模型暂不可用。请先保留原话，结束本次后检查模型或账户权限。`;
   if (['invalid_source', 'unsupported_provider'].includes(reason)) return '这次的服务选择不可用。请先保留原话，结束本次后重新选择 AI 服务。';
-  if (reason === 'default_unavailable') return '组织者的默认服务还未就绪。请先保留原话，结束本次后可选择个人服务。';
+  if (reason === 'default_unavailable') return '留白陪伴还未就绪。请先保留原话，结束本次后可选择个人服务。';
   if (reason === 'usage_out_of_bounds') return '这次调用超出允许的用量，未采用 AI 内容。你的输入仍在本页，可以按原话整理。';
   if (reason === 'provider_rate_limited') return `${providerLabel} 暂时繁忙，没有自动重试。你的输入仍在本页，可以按原话整理。`;
   if (reason === 'provider_balance_low') return `这次使用的 ${providerLabel} 账户余额或可用额度不足。你的输入仍在本页，可以按原话整理。`;
   if (['config_changed', 'consent_changed', 'consent_required', 'consent_mismatch'].includes(reason)) return 'AI 配置已变化，本次没有继续发送。请先保存原话，再回首页重新选择。';
-  if (['budget_exhausted', 'call_limit', 'quota_exceeded'].includes(reason)) return '组织者的共享体验额度暂时不可用。你的输入仍在本页，可以继续本地记录，或结束本次后使用个人服务。';
+  if (['budget_exhausted', 'call_limit', 'quota_exceeded'].includes(reason)) return '留白陪伴暂时无法继续。你的输入仍在本页，可以继续本地记录，或结束本次后使用个人服务。';
   if (reason === 'session_limit') return '本次体验已达到 5 次调用上限。你的输入仍在本页，可以按原话整理。';
   if (['concurrency_limit', 'rate_limited'].includes(reason)) return '目前同时体验的人有些多，没有自动重试。你的输入仍在本页，可以按原话整理。';
   if (['disabled', 'not_configured', 'pricing_expired'].includes(reason)) return '本轮 AI 体验暂时不可用。你的输入仍在本页，可以继续本地记录。';
