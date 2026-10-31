@@ -1,5 +1,6 @@
 import { buildClarityContext, validateClarityCandidate } from './clarity-contract.mjs';
 import { validateSavedRecord } from './core.mjs';
+import { parseVerbatimExpression } from './clarity-expression.mjs';
 export const RECORD_STORE = 'liubai.clarity.records.v2';
 const LEGACY_RECORD_STORE = 'liubai.records.v1';
 const copy = x => structuredClone(x);
@@ -11,6 +12,21 @@ export function createClaritySession() {
   return { id: uid(), createdAt: new Date().toISOString(), modeId: 'auto', goal: null, revision: 0, stage: 'express',
     statements: [], dialogue: [], claims: [], messages: [], question: null, review: null, removed: [],
     pending: null, failure: null, lastRequestAction: false, callCount: 0, dirty: false, stale: false, complete: false, actionProposal: null };
+}
+
+export function keepClarityVerbatim(s, value) {
+  // This is a user's explicit first-expression choice, not a model candidate
+  // or a way to replace an existing/protected conversation after a failure.
+  if (s.stage !== 'express' || s.pending || s.review || s.actionProposal || s.callCount !== 0 ||
+      s.statements.length || s.claims.length || s.messages.length || s.dialogue.length || s.removed.length || !text(value,4000)) return { handled:false };
+  const original = parseVerbatimExpression(value);
+  if (!original) return { handled:false };
+  if (!original.text) return { handled:true,ok:false,reason:'missing_verbatim' };
+  addExpression(s,value);
+  s.modeId = 'moment'; s.goal = '留住原话'; s.complete = true;
+  s.review = { title:'想留下的一句话', blocks:[{id:'context',type:'text',group:'main',label:'我写下的',text:original.text,claimIds:[],edited:false}] };
+  s.stage = 'reviewing';
+  return { handled:true,ok:true };
 }
 
 export function invalidateClarity(s) {

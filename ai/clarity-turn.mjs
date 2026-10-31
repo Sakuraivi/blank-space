@@ -1,34 +1,13 @@
 // Application-owned conversational controls. Cues decide what to ask next;
 // they never establish facts, feelings, or third-party intentions as true.
-export const CLARITY_TURN_VERSION = 'clarity-turn-6';
+import { expressionParts } from '../public/clarity-expression.mjs';
+export { expressionParts } from '../public/clarity-expression.mjs';
+export const CLARITY_TURN_VERSION = 'clarity-turn-7';
 export const CONCERN_QUESTIONS = Object.freeze({
   event: '能说说最近一次发生时，具体是什么情形吗？',
   interpretation: '这件事里，最让你介意的是什么？',
   need: '你希望接下来有什么具体的不同？',
 });
-
-// Recognize only standalone interaction requests, not quoted speech, mixed
-// clauses, or words inside a story. Original statements remain untouched.
-export function expressionParts(text) {
-  const chunks = []; let chunk = '', quote = null;
-  const pairs = { '“': '”', '「': '」', '『': '』', '"': '"' };
-  for (const ch of text) {
-    chunk += ch;
-    if (quote) { if (ch === quote) quote = null; }
-    else if (pairs[ch]) quote = pairs[ch];
-    else if (/[。！？!?；;，,\n]/u.test(ch)) { chunks.push(chunk); chunk = ''; }
-  }
-  if (chunk) chunks.push(chunk);
-  const controls = [], content = [];
-  for (const part of chunks) {
-    const core = part.trim().replace(/[。！？!?；;，,]$/u, '').trim();
-    const record = /^(?:我)?(?:只想|只要|就想|就要|就)(?:把)?(?:留住|留下|保留|记录|记下)(?:这一句|这句话|这句|原话|这一句话)(?:就好|就行|即可)?$/u.test(core);
-    const stop = /^(?:(?:我)?(?:不想|不愿意)(?:再|继续)?(?:说|聊|回答)(?:了)?|(?:不用|不要|不必)(?:再|继续)?(?:追问|问我|问了)(?:了)?|(?:先)?(?:到这里|这样)(?:吧|就好|就行)?|(?:我)?(?:不需要|不用|不要)(?:再)?(?:分析|建议|分析或建议|分析和建议))$/u.test(core);
-    if (record || stop) controls.push({ text: part, record, stop });
-    else content.push(part);
-  }
-  return { content: content.join('').trim().replace(/[，,；;]$/u, '。'), controls };
-}
 
 export function clarityTurn(context) {
   const materials = context.statements.map(s => ({ id: s.id, ...expressionParts(s.text) }));

@@ -1,8 +1,9 @@
 import { createPersonalKeyPreference } from './personal-key.mjs';
 import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage } from './ai-settings.mjs';
 import { CLARITY_FLOW } from './clarity-contract.mjs';
+import { parseVerbatimExpression } from './clarity-expression.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
-import { createClaritySession, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE } from './clarity-state.mjs';
+import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE } from './clarity-state.mjs';
 
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'), modalBody = document.querySelector('#modal-body');
 const preference = createPersonalKeyPreference();
@@ -12,6 +13,17 @@ const e = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;'
 const button = (text, action, primary = false, extra = '') => `<button type="button" data-action="${action}" class="${primary ? 'primary' : ''}" ${extra}>${text}</button>`;
 const field = (value, label = '写下你想说的', id = 'expression', max = 4000) => `<label class="small" for="${id}">${label}</label><textarea id="${id}" rows="3" maxlength="${max}" ${session.pending && id === 'expression' ? 'readonly' : ''}>${e(value)}</textarea>`;
 const usable = () => canUseAiSelection(preference.selection(), status, preference.hasKey());
+function startAction() {
+  if (parseVerbatimExpression(draft)) return { label:'只记这句话', hint:'会原样留下，不发送给 AI。',disabled:false };
+  return { label:usable() ? '开始聊聊' : '只记下来', disabled:status.loading,
+    hint:status.loading ? '正在准备陪伴服务…' : usable() ? `点击“开始聊聊”，会把本次文字发送给 AI。${preference.selection().sourceMode === 'personal' ? '费用由你的服务商账户承担。' : ''}` : '陪伴服务暂未就绪，可以先把这件事记下来。' };
+}
+function updateStartAction() {
+  if (session.stage !== 'express') return;
+  const submit=document.querySelector('#start-submit'), hint=document.querySelector('#start-hint');
+  if (!submit || !hint) return;
+  const action=startAction(); submit.textContent=action.label; submit.disabled=action.disabled; hint.textContent=action.hint;
+}
 const clarityError = reason => reason === 'timeout' ? '这次等待有些久，已停止等待，文字仍在本页。可以重新发送，也可以先整理；已发出的请求仍可能计费。' : aiErrorMessage(reason);
 const waitMessage = () => waitingSlow ? '这次回复有些慢，你可以继续等，也可以先整理。' : '正在等待回复…';
 const locked = () => session.statements.length > 0;
@@ -35,7 +47,8 @@ function render() {
   } else if (view === 'edit') {
     main.innerHTML = `<article class="paper"><h1>改成你的意思</h1><label for="review-title">记录名字</label><input id="review-title" maxlength="200" value="${e(editDraft.title)}">${editDraft.blocks.map((b, i) => `<section>${field(b.type === 'text' ? b.text : b.rows.map(r => `${r.option}：${r.benefit}；${r.cost}；${r.unknown}`).join('\n'), e(b.label), `edit-${i}`, 20000)}${button('移除这段', `remove:${b.id}`)}</section>`).join('')}${editDraft.removed.length ? button('恢复刚才移除的段落', 'restore') : ''}${button('自己写一段', 'add-note')}${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}${button('完成修改', 'apply-edit', true)}${button('取消修改', 'cancel-edit')}</article>`;
   } else if (session.stage === 'express') {
-    main.innerHTML = `<article class="paper welcome-paper"><div class="welcome"><h1>最近，<span>有什么想聊的？</span></h1><img src="/assets/cozy-room.svg" width="720" height="560" alt="" aria-hidden="true"></div><form id="expression-form">${field(draft, '零散的一两句，也可以。')}${status.loading ? '<p class="small">正在准备陪伴服务…</p>' : usable() ? `<p class="small">点击“开始聊聊”，会把本次文字发送给 AI。${preference.selection().sourceMode === 'personal' ? '费用由你的服务商账户承担。' : ''}</p>` : '<p class="small">陪伴服务暂未就绪，可以先把这件事记下来。</p>'}<button class="primary" ${status.loading ? 'disabled' : ''}>${usable() ? '开始聊聊' : '只记下来'}</button></form>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
+    const action=startAction();
+    main.innerHTML = `<article class="paper welcome-paper"><div class="welcome"><h1>最近，<span>有什么想聊的？</span></h1><img src="/assets/cozy-room.svg" width="720" height="560" alt="" aria-hidden="true"></div><form id="expression-form">${field(draft, '零散的一两句，也可以。')}<p class="small" id="start-hint">${e(action.hint)}</p><button id="start-submit" class="primary" ${action.disabled ? 'disabled' : ''}>${action.label}</button></form>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
   } else if (session.stage === 'exploring') {
     const last = session.statements.at(-1), reply = session.messages.findLast(m => m.role === 'assistant');
     const quote = last.text.length <= 160 ? `<p>${e(last.text)}</p>` : `<p>${e(last.text.slice(0, 100))}…</p><details><summary>展开原话</summary><p>${e(last.text)}</p></details>`;
@@ -119,9 +132,18 @@ async function sendToAi({ action = false } = {}) {
 }
 
 async function submitExpression(event) {
-  event.preventDefault(); if (session.pending) return;
+  event.preventDefault(); if (session.pending || !['express','exploring'].includes(session.stage)) return;
   const text = draft.trim(); if (!text) { localError = '写下一点想说的，就可以继续。'; render(); document.querySelector('#expression')?.focus(); return; }
   const starting = session.stage === 'express';
+  if (starting) {
+    const local=keepClarityVerbatim(session,text);
+    if (local.handled) {
+      localError=local.ok ? '' : '先写下想留下的话。';
+      if (local.ok) { draft=''; route=null; notice(''); }
+      render(); if (local.ok) focusMain(); else document.querySelector('#expression')?.focus();
+      return;
+    }
+  }
   if (starting && !usable()) { addExpression(session, text); draft = ''; openClarityReview(session); render(); return; }
   if (starting) route = routeNow();
   try { addExpression(session, text, { kind: starting || session.question ? 'expression' : 'correction' }); draft = ''; }
@@ -210,7 +232,7 @@ document.addEventListener('submit', async event => {
   }
 });
 document.addEventListener('input', event => {
-  if (event.target.id === 'expression') { draft = event.target.value; session.dirty = true; }
+  if (event.target.id === 'expression') { draft = event.target.value; session.dirty = true; updateStartAction(); }
   if (event.target.id === 'custom-model' && settings) { settings.modelId = event.target.value; settings.retainExisting = false; }
   if (event.target.tagName === 'TEXTAREA') { event.target.style.height = 'auto'; event.target.style.height = `${Math.max(132, event.target.scrollHeight + 3)}px`; }
 });
