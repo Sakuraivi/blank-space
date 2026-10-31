@@ -1,5 +1,7 @@
 # 首轮场景与原意强度修复验证
 
+后续时长检查与新批次见[duration-source-v5-evaluation.md](duration-source-v5-evaluation.md)。本页保留v4原生“两小时”内容失败；v5对该raw的离线拒绝不改写本页历史，也不算v5新输出在线拦截。
+
 状态：隔离策略、运行harness与固定真实批次 completed；三份已知受控收尾通过本轮窄范围内容标准，完整对话内容 hard fail，四个新首轮2 pass/2 partial；发布门槛 not met，生产不变，整体4/10。沿用`clarity-tarot-reflection`，不改UI、字体、默认Key、型号、预算、口令、DNS或D1结构。
 
 ## 最小责任边界
