@@ -1,6 +1,6 @@
 # 验证记录
 
-## 本轮：灵活模型与独立托管迁移（in progress）
+## 本轮：灵活模型、独立托管与服务商选择修复（已发布）
 
 日期：2026-10-31（Asia/Shanghai）。本节仅追加本轮证据；下方版本9及更早发布记录保留为历史事实。契约：[personal-model-flexibility](openspec/changes/personal-model-flexibility/design.md)。
 
@@ -13,14 +13,22 @@
 - 已将离线全列快照核验器纳入 `scripts/standalone/`，命令及快照隔离约定见 [STANDALONE.md](STANDALONE.md)。核验器使用合成数据测试，不读取真实快照；逐表行数/摘要与共享统计都一致才返回 `matched: true`，相同总预算不能掩盖记录或配置改变。
 - 新增核验器测试 `npm run test:migration` **4/4通过**，单独于上述174项；覆盖行顺序无关、同总额的行/配置篡改、空账本/重复主键/未知列拒绝，以及CLI成功摘要和解析/读文件错误不泄露输入。语法、diff及 `git check-ignore` 快照隔离规则检查通过。
 
-### 当前迁移状态与待验门槛
+### 独立生产迁移与访问验收
 
-- 独立候选已由主代理团队按canonical源码 `46d54fd9` 构建并部署到 `https://liubai-blank.sf6-empire.workers.dev`，版本 `724b4490-0bb7-40b0-8892-5527ffcfe117`；记录时API为pending（503），尚不能作为已迁移、已激活或正式域名已切换的证据。
-- 随后主代理已汇报真实源与目标的两表全列摘要 `matched: true`（`pilot_requests` 2行、`pilot_config` 0行），共享剩余16次/¥0.80。此为主代理迁移证据；本轮脚本测试未读取真实快照。候选verified发布正在进行，正式域名尚未切换，后续版本与发布终态待主代理补录。
-- 实现与本地模型选择验收 `completed`；独立迁移、运行时激活、域名切换与回退增量核验总体 `in progress`，逐项终态以主代理后续发布记录为准。本节不预先勾选迁移任务。
-- 尚未取得原受阻测试者网络的成功证据；没有Ray ID时不擅自关闭安全规则。自管托管去除 `chatgpt.site` 依赖，但不保证所有网络可达。只有原受阻测试者能打开正式页面、静态资源和状态API，才可报告该次拦截修复。
+- 旧Sites版本10精确源 `46d54fd9e7d40f115caba044ee35738933c688eb` 已构建、推送及发布，部署 `appgdep_6ae56e24896c8191a4d20d4198c3d2e8` 成功，环境revision2。`LIUBAI_MAINTENANCE=1` 拒绝生成和管理写入；管理GET不再首次绑定写入。实际POST生成/配置均503 maintenance，状态仍16次/¥0.80。
+- 冻结后源表无在途记录，两次读取全列一致且无投影截断。真实源与独立D1全列摘要 `matched: true`：`pilot_requests` 2行，SHA256 `01d88a052494af1e38832040a22f3d0d8e4cb8334dc97e431f8682e4ca00c39f`；`pilot_config` 0行，SHA256 `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`。共享预留100000微元、剩16次/800000微元；未补占位记录或恢复初始额度。原始快照留在仓库外私有迁移目录，不进入Git。
+- 用户账户内Worker `liubai-blank` 复用规范源码；D1为 `liubai-blank-db`（`6bc9e1c5-eac1-4c07-ba26-69b920f89ceb`）。先验证pending拒绝，再完成全列核验、激活；生产配置持久化verified及正式域名路由，避免下次正常部署覆盖回pending。
+- 2026-10-31 04:38:38 UTC正式 `blank.sakura.observer` 绑定成功，迁移发布版本 `0159a511-523f-4d00-bc09-576bf434ca40`，源码 `7bf6412bfcfdf512dd3f37045d0556e54af92cfc`。原DNS为CNAME→custom-domains.chatgpt.site、仅DNS、TTL300；首次绑定100117冲突后，通过账户控制台移除该条旧CNAME再成功绑定Worker，原Sites仍冻结作为回退资源。
+- 初次传播阶段单次检查仍命中旧维护API；04:40:46 UTC匿名复验已命中新Worker：首页/AI设置200且无登录跳转，8项静态资源SHA256与源码一致，状态200/enabled true/multi-flex-v1/四家custom true/16次/¥0.80，伪造管理员请求404，`/admin`303到本域AI设置，Sites登录/回调404；默认TLS校验开启、无Cookie/Authorization。旧原生站仍maintenance。未关闭未知命中规则或触发真实推理。
+- 用户随后明确回报“现在可以正常打开”，并在正式AI设置反馈服务商下拉交互；记录为受阻访问的用户验收通过，不外推所有地区、网络均可达。默认服务仍未配置，个人Key需在本页填写，迁移没有读取或转存真实Key。
 
-下一步：主代理完成冻结源与候选的全列摘要核验、激活与正式域名切换后，再请原受阻测试者验证；不需要再次索取已批准迁移的授权。
+### 服务商选择修复
+
+- 用户反馈原生下拉选中后重新弹开。原因是change处理替换了包含服务商select的整个设置字段区，并对新select强制focus。修复保留服务商和模型select节点，仅更新模型options、自填区域、Key提示及服务商说明，移除重复聚焦。
+- 四家切换均恢复对应预设模型、同步实际服务商说明、清空新填Key并关闭自填区域；不会把另一厂商的Key借用到新选择。相关单测含12种跨厂商组合；本地原生键盘选择后焦点仍在原服务商控件、无错误。
+- 最终完整回归 **179/179**（包含独立入口6项、迁移核验4项及新增厂商切换矩阵1项），语法通过。浏览器只使用虚构ID/假Key，未再次触发模型生成。修复源 `7da50f37d291733eed6ba639a06e33b19ffd69bc`，正式修复版本 `00420178-f6c6-4e51-81f0-8d8214b794c9`；04:46:33 UTC匿名核对 `/app.mjs` SHA256 `59b0515131b10d6b9b24c481b0f8a6348fb662b4b6c19ea7be692d28adf6eee9` 与源码逐字节一致，状态仍enabled true及16次/¥0.80。正式浏览器已显示OpenAI自填模型ID字段，截图位于工作区 `outputs/liubai-flex-settings-live.jpg`，未填真实Key。
+
+实现、迁移、域名切换和受阻访问用户验收均 `completed`。旧Sites继续冻结；增量账本回迁的真库灾难演练 `not started`，禁止未合并新消费就解冻旧站。日常代码回退优先在自管Worker复用同一个D1。下一步：刷新正式页面检查服务商下拉的真实交互；原生菜单的系统弹层观感仍以用户浏览器反馈为准。
 
 ## 版本9：成品版式与设置操作区（已发布）
 
