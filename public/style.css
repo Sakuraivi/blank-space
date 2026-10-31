@@ -444,3 +444,40 @@ dialog::backdrop { background: #3e2f3d77; backdrop-filter: blur(4px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Revisiting and recovering a draft stays part of the same quiet workspace. */
+.step-link { display: flex; flex-direction: inherit; align-items: center; justify-content: center; gap: 7px; min-width: 44px; min-height: 44px; padding: 6px 0; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; line-height: inherit; white-space: inherit; }
+.step-link .step-dot { flex-shrink: 0; }
+.step-link:hover:not(:disabled) > :last-child { text-decoration: underline; text-underline-offset: 4px; }
+.step-list li[aria-current=step] .step-dot, .step-list .step-link[aria-current=step] .step-dot { background: var(--berry); border-color: var(--berry); color: var(--white); }
+.review-return, .review-update { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border: 1px solid #e4d2c7; border-radius: 14px; background: #f7ebdf; }
+.review-return { margin: 0 0 22px; }
+.review-update { margin: 18px 0; border-color: #e2cfda; background: #f3e8ee; }
+.review-return p, .review-update p { flex: 1 1 230px; min-width: 0; margin: 0; font-size: 13px; line-height: 1.85; color: var(--muted); overflow-wrap: anywhere; }
+.review-return button, .review-update button, .review-recovery button, .review-empty button { max-width: 100%; min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.review-return .secondary, .review-update .secondary, .review-recovery .secondary { padding: 9px 14px; font-size: 12px; }
+.review-recovery { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 12px; margin: 22px 0; padding: 16px 0; border-block: 1px dashed var(--line); }
+.review-recovery p { flex: 1 0 100%; min-width: 0; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.85; overflow-wrap: anywhere; }
+.review-empty { margin: 20px 0; padding: 24px 20px; border: 1px dashed #d6bfca; border-radius: 16px; background: #fff7ed; }
+.review-empty h2 { font-size: 18px; line-height: 1.7; margin-bottom: 8px; }
+.review-empty p { color: var(--muted); font-size: 14px; line-height: 1.85; overflow-wrap: anywhere; }
+.review-empty .actions { gap: 10px; margin-top: 16px; }
+.review-empty .review-text { margin-top: 9px; }
+.review-history { margin: 22px 0; min-width: 0; }
+.review-history article { padding: 20px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.review-history article:first-child { padding-top: 0; }
+.review-history h2 { font-size: 16px; line-height: 1.75; margin: 0 0 9px; overflow-wrap: anywhere; }
+.review-history p { font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-history .field-label { margin-top: 15px; }
+.next-step-help { margin: -12px 0 20px 28px; max-width: calc(100% - 28px); color: var(--muted); font-size: 12px; line-height: 1.85; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .step-link { width: 100%; gap: 6px; padding: 0; white-space: normal; }
+  .review-return, .review-update { padding: 12px 13px; gap: 10px; }
+  .review-return p, .review-update p { flex-basis: 100%; }
+  .review-return .secondary, .review-update .secondary { width: 100%; }
+  .review-empty { padding: 20px 15px; }
+  .review-empty h2 { font-size: 17px; }
+  .review-recovery .secondary { flex: 1 1 auto; }
+}
+
+.review-recovery .actions { margin: 0; gap: 8px 18px; justify-content: flex-start; }
