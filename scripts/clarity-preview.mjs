@@ -31,7 +31,7 @@ const fixtureFetch = async (_, options) => {
   }
   return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(c01Candidate(context)) } }], usage: { prompt_tokens: 1000, completion_tokens: 300, total_tokens: 1300 } });
 };
-const mime = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const mime = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${port}`);
@@ -51,7 +51,7 @@ const server = createServer(async (req, res) => {
     let data = readFileSync(file);
     if (fixture && extname(file) === '.html') data = data.toString().replace('<body>', `<body><p class="help-note" style="max-width:624px;margin:16px auto;font-size:14px">${replay ? '验收回放：合成案例的真实模型响应，已应用本轮选段修复。当前没有实时调用模型。' : '联调演示：使用虚构的朋友取消约定样例，回复不是由真实模型生成。'}</p>`);
     // An explicit QA-only text-size fixture; never shipped in the public assets.
-    if (fixture && url.searchParams.get('textSize') === '200' && extname(file) === '.html') data = data.toString().replace('</head>', '<style>:root{font-size:36px}</style></head>');
+    if (fixture && url.searchParams.get('textSize') === '200' && extname(file) === '.html') data = data.toString().replace('</head>', '<style>:root{font-size:38px}</style></head>');
     res.writeHead(200, { 'Content-Type': mime[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(data);
   } catch { if (!res.headersSent) res.writeHead(500); res.end('Local preview unavailable'); }
 });

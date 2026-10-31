@@ -36,7 +36,7 @@ function render() {
   } else if (session.stage === 'exploring') {
     const last = session.statements.at(-1), reply = session.messages.findLast(m => m.role === 'assistant');
     const quote = last.text.length <= 160 ? `<p>${e(last.text)}</p>` : `<p>${e(last.text.slice(0, 100))}…</p><details><summary>展开原话</summary><p>${e(last.text)}</p></details>`;
-    main.innerHTML = `<article class="paper"><div class="actions">${button('查看前文', 'history')}${button('结束本次', 'end')}</div><blockquote class="last-word"><p class="small">你刚刚说</p>${quote}</blockquote>${session.pending ? `<p class="status" role="status">正在听你说，也在整理其中的线索…</p>${button('取消等待', 'cancel')}` : session.failure ? `<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">${e(aiErrorMessage(session.failure))}</p>${button('重新发送', 'retry', true)}` : `${reply ? `<p>${e(reply.text)}</p>` : ''}${session.question ? `<h1 class="question">${e(session.question.text)}</h1>` : '<h1 class="question">还有什么想补充或纠正的？</h1>'}<form id="expression-form">${field(draft)}<button class="primary">发送</button></form>`}<div class="actions">${button('先整理', 'review')}</div>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
+    main.innerHTML = `<article class="paper"><div class="actions">${button('查看前文', 'history')}${button('结束本次', 'end')}</div><blockquote class="last-word"><p class="small">你刚刚说</p>${quote}</blockquote>${session.pending ? `<p class="status" role="status">正在听你说，也在整理其中的线索…</p>${button('取消等待', 'cancel')}` : session.failure ? `<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">${e(aiErrorMessage(session.failure))}</p>${button('重新发送', 'retry', true)}` : `${reply ? `<p class="companion-reply">${e(reply.text)}</p>` : ''}${session.question ? `<h1 class="question">${e(session.question.text)}</h1>` : '<h1 class="question">还有什么想补充或纠正的？</h1>'}<form id="expression-form">${field(draft)}<button class="primary">发送</button></form>`}<div class="actions">${button('先整理', 'review')}</div>${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}</article>`;
   } else {
     const r = session.review;
     main.innerHTML = `<article class="paper">
@@ -46,7 +46,7 @@ function render() {
       ${r.blocks.filter(b => b.group === 'main').map(renderBlock).join('')}
       ${r.blocks.filter(b => b.group === 'details').map(renderBlock).join('')}
       ${!r.blocks.length ? '<p class="error">还没有保留内容。可以修改并恢复段落，或自己写一段。</p>' : ''}
-      ${session.actionProposal ? `<section class="help-note"><h3>如果你愿意，可以这样说</h3><p>${e(session.actionProposal.text)}</p><div class="actions">${button('放进这次记录', 'adopt-action')}${button('先不用', 'dismiss-action')}</div></section>` : ''}
+      ${session.actionProposal ? `<section class="help-note action-proposal"><h3>如果你愿意，可以这样说</h3><p>${e(session.actionProposal.text)}</p><div class="actions">${button('放进这次记录', 'adopt-action')}${button('先不用', 'dismiss-action')}</div></section>` : ''}
       ${session.pending ? `<p role="status">正在整理你的补充…</p>${button('取消等待', 'cancel')}` : session.stage === 'kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : button('确认并保存', 'save', true)}
       ${session.failure ? `<p class="error">${e(aiErrorMessage(session.failure))}</p>${button('重新发送补充', 'retry')}` : ''}
       ${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}
@@ -134,10 +134,16 @@ function savedRecord() { return readClarityRecord({ formatVersion: 2, id: sessio
 function download(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
 async function exportImage(details) {
   const record = savedRecord(); if (!record) return;
+  // Measure and draw with the same loaded face; a slow font must not block export.
+  const loaded = await Promise.race([
+    document.fonts.load('400 28px "LXGW WenKai"', recordText(record, { details })).then(faces => faces.length > 0).catch(() => false),
+    new Promise(resolve => setTimeout(() => resolve(false), 2500)),
+  ]);
+  const fontFamily = loaded ? '"LXGW WenKai", "KaiTi", serif' : 'system-ui, "Microsoft YaHei", sans-serif';
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); if (!ctx) throw Error();
   const width = 1000, pad = 70, lines = [];
   const add = (value, size, weight, gap = 0) => {
-    ctx.font = `${weight} ${size}px "Microsoft YaHei",sans-serif`;
+    ctx.font = `${weight} ${size}px ${fontFamily}`;
     for (const p of value.split('\n')) {
       let line = '';
       for (const ch of p) {
@@ -150,11 +156,11 @@ async function exportImage(details) {
     }
     if (gap) lines.push({ text: '', size: gap, weight: 400 });
   };
-  add(record.review.title, 38, 600, 18);
-  for (const b of record.review.blocks.filter(b => details || b.group === 'main')) { add(b.label, 26, 600, 6); add(b.type === 'text' ? b.text : b.rows.map(r => `${r.option}\n吸引我的：${r.benefit}\n需要付出：${r.cost}\n还不知道：${r.unknown}`).join('\n\n'), 28, 400, 20); }
+  add(record.review.title, 38, 400, 18);
+  for (const b of record.review.blocks.filter(b => details || b.group === 'main')) { add(b.label, 26, 400, 6); add(b.type === 'text' ? b.text : b.rows.map(r => `${r.option}\n吸引我的：${r.benefit}\n需要付出：${r.cost}\n还不知道：${r.unknown}`).join('\n\n'), 28, 400, 20); }
   const height = pad * 2 + lines.reduce((n, l) => n + l.size * 1.8, 0); if (height > 24000) throw Error('long_record');
-  canvas.width = width; canvas.height = height; ctx.fillStyle = '#fffcf7'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = '#34342f'; let y = pad;
-  for (const l of lines) { ctx.font = `${l.weight} ${l.size}px "Microsoft YaHei",sans-serif`; y += l.size * 1.4; ctx.fillText(l.text, pad, y); y += l.size * .4; }
+  canvas.width = width; canvas.height = height; ctx.fillStyle = '#fffaf3'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = '#3e2f3d'; let y = pad;
+  for (const l of lines) { ctx.font = `${l.weight} ${l.size}px ${fontFamily}`; y += l.size * 1.4; ctx.fillText(l.text, pad, y); y += l.size * .4; }
   const blob = await new Promise((resolve, reject) => canvas.toBlob(v => v ? resolve(v) : reject(Error()), 'image/png')); download(blob, '留白.png');
 }
 function showRecords() {
