@@ -1,0 +1,109 @@
+## Purpose
+
+让用户围绕一次具体经历，通过有目的的追问和可选择的牌面视角辨认自己的解释、感受、在意与选择，并形成有来源、可修正、保留未知的个人整理。系统支持轻量记忆、困扰梳理和选择权衡，避免把温柔复述或牌义当作已经发生的事实。
+
+## ADDED Requirements
+
+### Requirement: Goal-directed conversation
+
+系统 SHALL 以一个当前目标组织对话，每次最多提出一个主要问题，问题须对应尚未回答的信息缺口；用户已明确的目标不重复询问。系统 SHALL 允许修改目标、跳过问题和提前收尾。
+
+#### Scenario: Distinguishing observation from interpretation
+- **WHEN** 用户说朋友两次取消约定并猜测对方不想见面
+- **THEN** 系统区分这两类材料，追问具体互动或当前期待，不确认第三方的内心动机
+
+#### Scenario: Already answered question
+- **WHEN** 用户已经明确下一次安排的期待
+- **THEN** 系统不再用同义问句重复索取这个期待，并允许整理或转向一个不同且有价值的缺口
+
+### Requirement: Provisional understanding and correction
+
+系统 SHALL 将模型理解作为候选，区分用户陈述的经历、想法、感受、在意、选择和未知。关键解释必须可以认可、修改或暂不确定。用户修订 SHALL 优先于模型候选；来源标识合法不得被宣称为语义正确的保证。
+
+#### Scenario: User corrects a need
+- **WHEN** 用户把“希望提前沟通”改成“更希望主动提出新时间”
+- **THEN** 后续草稿保留该修改，相关旧解释标为待重看，模型不得静默覆盖用户用词
+
+#### Scenario: Confirmation is not external verification
+- **WHEN** 用户认可一段经历的记录
+- **THEN** 系统只表示记录符合用户表达，不标注为经过独立核验的客观事实
+
+### Requirement: Optional tarot perspective
+
+系统 SHALL 在关注点明确后提供可跳过的牌面视角，包含看清事情、听见在意和找到选择。牌面仅承载问题，不产生事实或预测。翻牌和切换视角 SHALL 不触发模型调用。
+
+#### Scenario: Revealing a recommended card
+- **WHEN** 用户翻开当前推荐的牌
+- **THEN** 牌面呈现当前有依据的问题，调用数保持不变，原问题不被重复计作一轮
+
+#### Scenario: Declining cards
+- **WHEN** 用户选择不用牌面
+- **THEN** 用户仍能完成同质量的对话、纠正与整理，不被要求先完成抽牌
+
+#### Scenario: Asking for third-party mind reading
+- **WHEN** 用户要求牌面判断他人是否爱自己
+- **THEN** 系统保留未知，将问题带回实际互动和用户的期待，不给出确定的牌义结论
+
+### Requirement: Scenario-appropriate output
+
+系统 SHALL 根据片刻、困扰和选择组织成品。困扰及选择的正常完成样例必须呈现一个有依据的区分、取舍或待验证事项；材料不足时 SHALL 明示未决，不伪造洞察。报告不得为了填满模板重复段落或增加场景细节。
+
+#### Scenario: Concern report
+- **WHEN** 用户完成朋友取消约定的完整脚本
+- **THEN** 成品区分事件、解释、具体期待和未知，并保留被认可的认识，而非只有事件复述及安慰
+
+#### Scenario: Decision report
+- **WHEN** 用户讨论课程与休息并提供可考虑的单次体验
+- **THEN** 成品按照个人标准展示选项、代价与缺失信息，不凭空量化胜负，不把询问信息写成已决定报名
+
+#### Scenario: Pleasant memory
+- **WHEN** 用户只想保留一次散步的舒服片段
+- **THEN** 成品可以短至片刻和意义两节，不强迫寻找矛盾或给出行动任务
+
+### Requirement: Explicit action choice
+
+系统 SHALL 仅在用户明确请求时提供模型生成的行动建议，并说明具体内容；用户自己提出的打算可直接纳入。行动 SHALL 为可选择、可修改的尝试，不能声称已经替用户执行。
+
+#### Scenario: Optional message wording
+- **WHEN** 用户选择“帮我想一句怎么说”
+- **THEN** 系统提供符合其修正后期待的话术，允许不放入记录，且不发送给第三方
+
+### Requirement: Recoverable review and truthful saving
+
+系统 SHALL 提供最终草稿编辑、移除恢复、返回前文和一次总确认；未确认的推断必须被明确确认或排除后才能成为确认后的成品。保存和导出 SHALL 只包含被保留的成品内容，不自动携带原始对话、密钥或内部提示词。
+
+#### Scenario: Remove every section
+- **WHEN** 用户移除最后一节
+- **THEN** 用户可恢复移除内容或手写新段落，不需要重新开始会话
+
+#### Scenario: Revise upstream material
+- **WHEN** 用户回到之前步骤修改表达
+- **THEN** 系统保留当前草稿与手动编辑，标示受影响的理解待重看，不自动发送新的模型请求
+
+### Requirement: Bounded explicit requests and failure recovery
+
+系统 SHALL 仅在明确发送或请求建议时调用模型，沿用服务端来源、配置版本、计费与并发约束。过期响应不得写回新版本；不自动重试或静默截断用户修订。已达到调用上限或失败 SHALL 不阻止编辑和保留已有内容。
+
+#### Scenario: Local actions cost no requests
+- **WHEN** 用户翻牌、确认、回看、编辑或将现有草稿整理成页
+- **THEN** 模型调用数不增加
+
+#### Scenario: Response arrives after an edit
+- **WHEN** 旧版本请求在用户修改内容后返回
+- **THEN** 旧响应不覆盖当前内容，当前输入和手动修订保持完整
+
+#### Scenario: Provider failure
+- **WHEN** 模型调用失败或额度用尽
+- **THEN** 系统说明真实状况并提供保留已有内容的路径，不把固定示例伪装成生成结果
+
+### Requirement: Accessible and evidence-backed delivery
+
+系统 SHALL 在窄屏与键盘操作中提供可读正文、可见焦点和不被遮挡的主要动作，并尊重减少动态偏好。交付说明 SHALL 区分设计样例、结构测试、真实模型结果及用户反馈；不得用其中一类证据替代另一类。
+
+#### Scenario: Narrow screen
+- **WHEN** 用户在 390px 宽度使用对话、牌面及报告
+- **THEN** 文字及操作无横向溢出，线索摘要不遮挡输入，跳过和修改操作无需悬停
+
+#### Scenario: Synthetic preview
+- **WHEN** 固定脚本用于展示流程
+- **THEN** 预览清楚标注为虚构设计示例，不能宣称线上模型已经实现同等质量
