@@ -240,6 +240,28 @@ v2的anchorIds SHALL 采用集合语义：先拒绝未知、重复、不可选�
 - **WHEN** 隔离评估逐轮发送固定合成表达
 - **THEN** 后续只接受Worker签名、绑定run/case/step/expiry的上一真实state，不能让任意context或claims进入模型；每步固定requestId由原账本去重，调用前持久attempt，提前结束或问题不符就停止，不伪造历史问答
 
+### Requirement: Visible retention of short working material
+
+独立v3实验 SHALL 从当前原话、UTF16范围、来源摘要、会话/revision及实际问题/回答关系派生不可变材料ledger，不另建重复数据库、不使用旧模型正文补材料。问题关联只表示交流来源，不证明回答的语义分类。previous ledger仅供Host观察变化，不是历史真实性或授权认证；原文编辑、移除、重排、版本复用或缺少修订历史 SHALL 令旧引用失效并要求重看，不猜测自然语言的全部撤回依赖。
+
+v3 SHALL 由Host固定组装全部active短原话为公开event，标签继续是“你说过的”，不能称已独立核实的事实。每条240、总计480上限保持，超容量在模型和计费前明确不支持，不截断、抬限或悄悄去重。模型仅能输出0–2条有依据的insight/unknown，不得选择漏掉哪句event、引用retired材料、重写原话或指定替换元数据。v1/v2历史协议与失败记录保持。
+
+窄明确感受纠正 SHALL 复用既有词表、匹配和正向原文后缀，仅退休实际较晚纠正所针对的完整、独立、第一人称肯定感受句或已证明的旧纠正投影。问句、否定、第二人称及混合事实不能按候选拒绝匹配直接退休；不安全时原文保留且实验拒绝。退休按出现顺序单向应用，A→B→A不得复活最早来源；kind=correction不等于语义撤回证明。
+
+候选包含全部原话 SHALL 不被宣称为实际可见或保存成功。已知edited/confirmed在v3准备前排出scope；wire不可见的stale+locked、用户移除、手改与晚响应继续由真实state保护。固定新批次只替代旧模型候选、不作语义反驳，不能从历史条目补正文。apply后 SHALL 核对实际可见原话块，用户移除/编辑或needs_review不得自动恢复或计为覆盖成功。仅保存总确认后的可见正文，不额外保存ledger、原始问答消息或退休历史。
+
+#### Scenario: The last generation omits a known concern or expectation
+- **WHEN** 短材料中已经表达了感受、同时顾虑及条件期待，但模型本轮分析没有复述它们
+- **THEN** active原话仍由Host完整进入可见原话块，并验证实际保存读回；这只证明材料保留，不把重复或错误分析算成有用拆解
+
+#### Scenario: A prior emotion is mixed with a fact
+- **WHEN** 较早句子为“我很失落，也迟到了半小时”而后来明确改为生气
+- **THEN** 不得退休整句丢掉事实，也不得裁剪从句制造新引用；ledger保留原句并明确不支持本次实验
+
+#### Scenario: A protected or removed block conflicts with automatic retention
+- **WHEN** 实际state拒绝固定event替换、已有context被用户主动移除，或手改使旧响应过期
+- **THEN** 用户文本和移除决定保留，覆盖检查返回needs_review/user_removed/stale而非成功，不强制恢复原话；原有保存权限与stale保护继续生效
+
 ### Requirement: Recoverable review and truthful saving
 
 系统 SHALL 提供最终草稿编辑、移除恢复与返回前文；“确认并保存”一次完成可见主文的总确认和本机写入。未确认的新推断不得藏在折叠区后自动通过。编辑、移除、恢复控件只在用户主动进入编辑时呈现。默认导出 SHALL 与主文一致，完整细节需另选，不自动携带原始对话、密钥或内部提示词。

@@ -18,6 +18,8 @@
     "test:clarity": "node --test ai/clarity.test.mjs ai/clarity-turn.test.mjs ai/clarity-expression.test.mjs ai/clarity-verbatim.test.mjs ai/clarity-grounding.test.mjs ai/clarity-state.test.mjs ai/clarity-wait.test.mjs ai/clarity-diagnostics.test.mjs server/clarity-api.test.mjs server/request-timing.test.mjs server/diagnostics.test.mjs scripts/clarity-evaluation.test.mjs",
     "test:clarity-materials": "node --test ai/experiments/clarity-materials.test.mjs ai/experiments/clarity-material-runtime.test.mjs scripts/clarity-materials-evaluation.test.mjs server/clarity-preparation.test.mjs scripts/experiments/clarity-material-live.test.mjs",
     "test:clarity-material-set": "node --test ai/experiments/clarity-material-set.test.mjs scripts/experiments/clarity-material-v2-live.test.mjs",
+    "test:clarity-retention": "node --test ai/experiments/clarity-retention-ledger.test.mjs ai/experiments/clarity-retained-concern.test.mjs scripts/clarity-retention-replay.test.mjs",
+    "evaluate:clarity-retention": "node scripts/clarity-retention-replay.mjs",
     "evaluate:clarity-materials": "node scripts/clarity-materials-evaluation.mjs",
     "dev:clarity": "node scripts/clarity-preview.mjs",
     "dev:clarity-fixture": "node scripts/clarity-preview.mjs --fixture",

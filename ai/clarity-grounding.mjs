@@ -60,16 +60,39 @@ function normalizeCorrection(text, fixes) {
   return text;
 }
 
+// Share the existing candidate matcher without widening its vocabulary or
+// meaning. A rejection match is not by itself proof that a source can retire.
+const ownEmotion = word => new RegExp(`(^|[。！？!?；;\\n])\\s*(?:我|你)?(?:其实|现在|还是|仍然|又|觉得|感到|很|挺|有些|有点|主要|是|不是|并非|并不|的感受是|的情绪是)*${word}`, 'u');
+function referencesEmotion(text, words) {
+  let found = false;
+  outsideQuotes(text, part => { if (words.some(word => ownEmotion(word).test(part))) found = true; return part; });
+  return found;
+}
+
+export function parseExplicitEmotionCorrection(text) {
+  if (typeof text !== 'string') return null;
+  const matched = text.match(correction);
+  return matched ? Object.freeze({ from: matched[1], to: matched[2], positiveText: matched[2] + matched[3] }) : null;
+}
+
+export function inspectSourceEmotion(text, word) {
+  if (typeof text !== 'string' || !emotions.split('|').includes(word)) throw new TypeError('invalid_emotion_reference');
+  const referencesDenied = referencesEmotion(text, [word]);
+  const matched = ownEmotion(word).exec(text);
+  // Source perspective must be explicitly first-person and affirmative. The
+  // old candidate matcher also accepts 你 and negative prefixes; those cannot
+  // authorize deleting a user's source sentence. Mixed clauses stay intact.
+  const prefix = matched ? matched[0].slice(0, -word.length) : '';
+  const pureFirstPerson = referencesDenied && matched?.index === 0 && /^\s*我/u.test(prefix) &&
+    !/(?:不是|并非|并不)/u.test(prefix) && /^[。.!！\s]*$/u.test(text.slice(matched[0].length));
+  return Object.freeze({ referencesDenied, pureFirstPerson: Boolean(pureFirstPerson) });
+}
+
 export function groundClarityCandidate(candidate, context) {
   const plan = groundingPlan(context), value = structuredClone(candidate), denied = new Set();
   for (const fix of plan.corrections) { denied.delete(fix.to); denied.add(fix.from); }
   value.reply = normalizeCorrection(value.reply, plan.corrections);
-  const ownEmotion = word => new RegExp(`(^|[。！？!?；;\\n])\\s*(?:我|你)?(?:其实|现在|还是|仍然|又|觉得|感到|很|挺|有些|有点|主要|是|不是|并非|并不|的感受是|的情绪是)*${word}`, 'u');
-  const repeatsDenied = text => {
-    let found = false;
-    outsideQuotes(text, part => { if ([...denied].some(word => ownEmotion(word).test(part))) found = true; return part; });
-    return found;
-  };
+  const repeatsDenied = text => referencesEmotion(text, [...denied]);
   for (const claim of value.claims) {
     // Never invent evidence or rewrite from an unreferenced correction.
     const fixes = plan.corrections.filter(f => claim.evidenceIds.includes(f.sourceId));
