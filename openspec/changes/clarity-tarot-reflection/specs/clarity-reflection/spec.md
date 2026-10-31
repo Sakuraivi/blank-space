@@ -32,6 +32,10 @@
 - **WHEN** 用户已经明确下一次安排的期待
 - **THEN** 系统不再用同义问句重复索取这个期待，并允许整理或转向一个不同且有价值的缺口
 
+#### Scenario: Application chooses the concern gap
+- **WHEN** 经过已经补充、但真正介意的部分尚不明确
+- **THEN** 应用选择聚焦介意点的问题，模型不能改为让用户比较虚构回应；已有明确在意点时跳到期待，明确停止时直接整理
+
 ### Requirement: Grounded warmth and visible progress
 
 系统 SHALL 用用户提供的具体投入、影响或顾虑承接表达，并通过可修正的区分、取舍或矛盾推进当前问题；不能以固定安慰、连续问卷或冗长解释替代这一作用。用户可见回应 SHALL 解释材料与下一问的简短联系，不展示模型内部思考过程。不确定的感受和动机 SHALL 保持不确定，用户纠正时立即采用。
@@ -77,6 +81,10 @@
 #### Scenario: Pleasant memory
 - **WHEN** 用户只想保留一次散步的舒服片段
 - **THEN** 成品可以短至片刻和意义两节，不强迫寻找矛盾或给出行动任务
+
+#### Scenario: Recording instruction is not the memory
+- **WHEN** 用户提供短片刻并明确只保留一句、不需要分析
+- **THEN** 系统保留要记录的原话及原始来源，独立交流要求不写进正文；引号中的叙述不被当成操作要求删除
 
 ### Requirement: Explicit action choice
 
@@ -128,7 +136,7 @@
 
 ### Requirement: Bounded candidate formatting
 
-系统 SHALL 只在有文档依据的精确模型别名上启用严格结构化输出，约束字段、条数、已有来源ID及收尾形式；未知自选模型保留通用协议。供应商结构化输出 SHALL 不替代平台来源、长度、状态及内容验收，不提高调用上限，不自动重试。
+系统 SHALL 只在有文档依据的精确模型别名上启用严格结构化输出，约束字段、条数、已有来源ID及收尾形式；未知自选模型保留通用协议。供应商结构化输出 SHALL 不替代平台来源、长度、状态及内容验收，不放宽单次容量边界，不自动重试。
 
 #### Scenario: Supported structured output
 - **WHEN** 新版契约调用已适配的结构化模型

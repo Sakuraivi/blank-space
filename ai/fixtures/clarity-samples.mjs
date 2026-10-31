@@ -1,8 +1,10 @@
 import { inputs } from './clarity-c01.mjs';
+const concern = [inputs[0], inputs[1], '不是失落，是生气。我能理解临时有事，但她都没有主动说下次什么时候，好像只有我在等。又怕说了显得我在逼她。', inputs[3]];
 
 // Synthetic inputs, shared by controlled evaluation and deterministic tests.
 export const CORE_SAMPLES = Object.freeze({
-  C01: [inputs[0], inputs[1], '不是失落，是生气。我能理解临时有事，但她都没有主动说下次什么时候，好像只有我在等。又怕说了显得我在逼她。', inputs[3]],
+  C01: concern,
+  C01_READY: [concern.join('\n')],
   M01: ['周末和朋友沿着河边散步，没有赶着走完哪条路线。走累了，就在长椅上坐了一会儿。', '最舒服的是不用一直找话说，安静坐着也不尴尬。我只想把这种有人陪着、又不需要表现的感觉留下来。'],
   M02: ['今天jun说自己是笨蛋，我笑了。就想留住这句玩笑，不用再问我了。'],
   M03: ['今天自己做的面很好吃，我很开心。只想留住这一句，不需要分析或建议。'],

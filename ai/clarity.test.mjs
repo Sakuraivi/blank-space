@@ -82,7 +82,7 @@ test('strict decoding never bypasses the application validator or silently retri
 });
 test('runtime injects v2 contract, preserves source evidence, and discards stale results', async () => {
   const context = first(), route = getPersonalRoute('deepseek', 'deepseek-flash'); let active = true;
-  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, 'clarity-warm-7'); return { status: 'completed', output: c01Candidate(context) }; } };
+  const adapter = { profile: route.profile, generate: async request => { assert.equal(request.policyVersion, 'clarity-warm-10'); return { status: 'completed', output: c01Candidate(context) }; } };
   const result = await runCandidate({ context, adapter, contract: clarityContract, isCurrent: () => active });
   assert.equal(result.status, 'candidate'); assert.equal(result.candidate.claims[0].evidenceIds[0], 'u1');
   const late = await runCandidate({ context, adapter: { ...adapter, generate: async () => { active = false; return { status: 'completed', output: c01Candidate(context) }; } }, contract: clarityContract, isCurrent: () => active });

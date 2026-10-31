@@ -16,7 +16,7 @@ function setup(t, baseline) {
   });
   const reportPath = join(dir, 'report.json'), priorReportPath = join(dir, 'prior.json');
   writeFileSync(priorReportPath, JSON.stringify({ calls: [{ estimatedFullPriceCny: baseline }], perCallReservationCny: .229 }));
-  return { coreSuite: true, reportPath, priorReportPath };
+  return { coreSuite: true, reportPath, priorReportPath, budgetCny: 1 };
 }
 test('budget reserves concurrent work and keeps unknown spend after restart', async t => {
   const config = setup(t, .55); let dispatches = 0, resolveResponse;
@@ -50,4 +50,19 @@ test('a committed snapshot is not double-counted on resume and survives a fresh 
   const fresh = { ...config, reportPath: join(dirname(config.reportPath), 'fresh.json') };
   await createClarityEvaluation(fetcher, fresh)(endpoint, options());
   assert.ok(Math.abs(evaluationSpend(JSON.parse(readFileSync(fresh.reportPath))) - .1312) < 1e-8);
+});
+
+test('monitor-only resumes above old caps without resetting usage or relaxing source boundaries', async t => {
+  const config = { ...setup(t, 2), budgetCny: null };
+  let calls = 0;
+  const fetcher = async () => { calls++; return Response.json({ choices: [], usage: { prompt_tokens: 1000, completion_tokens: 100 } }); };
+  await createClarityEvaluation(fetcher, config)(endpoint, options());
+  const previous = JSON.parse(readFileSync(config.reportPath)); previous.budgetCny = 1; previous.maxCalls = 1;
+  writeFileSync(config.reportPath, JSON.stringify(previous));
+  const resumed = createClarityEvaluation(fetcher, config);
+  for (let i = 0; i < 25; i++) await resumed(endpoint, options());
+  await assert.rejects(resumed(endpoint, options('not a synthetic sample')), /evaluation_boundary/);
+  const report = JSON.parse(readFileSync(config.reportPath));
+  assert.equal(report.limitMode, 'monitor-only'); assert.equal(report.budgetCny, null); assert.equal(report.maxCalls, null);
+  assert.equal(calls, 26); assert.ok(evaluationSpend(report) > 2);
 });
