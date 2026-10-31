@@ -2,6 +2,8 @@
 
 状态：ledger、v3固定原话编译及离线纵向重放 completed；真实v3模型 not started；内容质量 not evaluated，发布门槛 not met，生产不变。整体仍4/10，完整1.1/4.1不因机械保留通过而勾选。
 
+本文保留`ef21350`阶段的离线结论；后续原生真实调用见[retention-v3-live-evaluation.md](retention-v3-live-evaluation.md)，不将后者成功或失败写回旧重放结果。
+
 ## 工程判断与范围
 
 已有context包含全部原话，问题是最终模型没有把材料放进正文。本轮从当前原话派生ledger与问题/回答关联，不另存一份重复数据库，不把旧模型条目补回成品。Host固定保留全部active短原话，模型只写有材料支持的区分与未决。内部event表示本人这样表达过，界面仍叫“你说过的”，不是外部事实认证。
