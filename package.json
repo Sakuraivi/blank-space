@@ -26,6 +26,8 @@
     "evaluate:clarity-guided": "node scripts/experiments/clarity-retention-v4-live.mjs",
     "test:clarity-duration": "node --test ai/experiments/clarity-duration-source.test.mjs ai/experiments/clarity-source-checked.test.mjs scripts/experiments/clarity-retention-v5-worker.test.mjs scripts/experiments/clarity-retention-v5-live.test.mjs",
     "evaluate:clarity-duration": "node scripts/experiments/clarity-retention-v5-live.mjs",
+    "test:clarity-dialogue": "node --test ai/experiments/clarity-faithful-dialogue.test.mjs scripts/experiments/clarity-retention-v6-worker.test.mjs",
+    "evaluate:clarity-dialogue": "node scripts/experiments/clarity-retention-v6-live.mjs",
     "evaluate:clarity-materials": "node scripts/clarity-materials-evaluation.mjs",
     "dev:clarity": "node scripts/clarity-preview.mjs",
     "dev:clarity-fixture": "node scripts/clarity-preview.mjs --fixture",

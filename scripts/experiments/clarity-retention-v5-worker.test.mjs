@@ -185,7 +185,7 @@ test('v5 version, label, request IDs and authenticated continuation domains rema
   const next=await(await workers[3].fetch(request(V2_FULL_ID,2,first[3].continuationToken),env())).json();assert.equal(next.progress.mayContinue,true);
   assert.equal((await workers[3].fetch(request(V2_CASE_IDS[0]),env())).status,404);
   for(const worker of workers.slice(0,3))assert.equal((await worker.fetch(request('QTY_NO_AMOUNT'),env())).status,404);
-  for(const version of [0,1,6,'5',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
+  for(const version of [0,1,7,'5',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
 });
 
 test('v5 retains route/body gates and opaque credentials while failed provider output remains unmodified evidence',async()=>{

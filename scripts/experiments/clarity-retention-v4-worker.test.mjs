@@ -146,7 +146,7 @@ test('v4 labels, HKDF/MAC token domains and request IDs cannot cross v2/v3 bound
   for(let a=0;a<workers.length;a++)for(let b=0;b<workers.length;b++)if(a!==b)assert.equal((await workers[a].fetch(request(V2_FULL_ID,2,first[b].continuationToken),env())).status,400);
   assert.ok(domains.some(d=>d.salt==='liubai-guided-retention-v4-preview'&&d.info==='liubai-material-v4-continuation-1'));
   const next=await(await workers[2].fetch(request(V2_FULL_ID,2,first[2].continuationToken),env())).json();assert.equal(next.progress.mayContinue,true);assert.equal(next.progress.applied,true);
-  for(const version of [0,1,6,'4',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
+  for(const version of [0,1,7,'4',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
   for(const worker of workers.slice(0,2))assert.equal((await worker.fetch(request(V4_BOUNDARY_IDS[0]),env())).status,404);
 });
 

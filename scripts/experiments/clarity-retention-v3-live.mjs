@@ -23,11 +23,16 @@ import {V5_CASE_IDS,isV5Probe,fixtureForV5,prepareV5Step,purposeForV5Case} from 
 export const RETENTION_V3_LABEL='liubai-material-retention-preview-3';
 export const RETENTION_V4_LABEL='liubai-guided-retention-preview-4';
 export const RETENTION_V5_LABEL='liubai-duration-source-preview-5';
+export const RETENTION_V6_LABEL='liubai-faithful-dialogue-preview-6';
 const route=getPersonalRoute(V2_ROUTE.providerId,V2_ROUTE.modelId);
 const visible=review=>({title:review.title,blocks:review.blocks.map(({id,type,group,label,text})=>({id,type,group,label,text}))});
 const digest=value=>createHash('sha256').update(value).digest('hex');
-const labelFor=version=>version===5?RETENTION_V5_LABEL:version===4?RETENTION_V4_LABEL:RETENTION_V3_LABEL;
-const nativeRun=(context,version,final,caseId)=>version===5?
+const labelFor=version=>version===6?RETENTION_V6_LABEL:version===5?RETENTION_V5_LABEL:version===4?RETENTION_V4_LABEL:RETENTION_V3_LABEL;
+const purposeForVersion=async(id,version)=>version===6?(await import('./clarity-retention-v6-fixtures.mjs')).purposeForV6Case(id):purposeForV5Case(id);
+const nativeRun=(context,version,final,caseId)=>version===6?
+  Promise.all([import('../../ai/experiments/clarity-faithful-dialogue.mjs'),purposeForVersion(caseId,version)]).then(([policy,purpose])=>
+    (final?policy.prepareFaithfulDialogueReviewRun:policy.prepareFaithfulDialogueReflectRun)(context,route.profile,{purpose})):
+  version===5?
   (final?prepareSourceCheckedReviewRun:prepareSourceCheckedReflectRun)(context,route.profile,{purpose:purposeForV5Case(caseId)}):
   final?(version===4?prepareFaithfulRetainedConcernRun:prepareRetainedConcernRun)(context,route.profile):
   version===4?prepareGuidedReflectRun(context,route.profile):null;
@@ -49,10 +54,10 @@ function saveAndReopen(session,prepared){
 async function verifyAndApply(call,prepared,{runId,caseId,step,final,boundary,experimentVersion}){
   const e=call.evidence,v=call.verification;
   assert.equal(e.synthetic,true);assert.equal(e.label,labelFor(experimentVersion));assert.equal(e.runId,runId);assert.equal(e.caseId,caseId);assert.equal(e.step,step);
-  assert.equal(e.kind,boundary?(experimentVersion===5?'source_boundary_probe':'scene_boundary_probe'):isFullCase(caseId)?'fixed_dialogue_step':'controlled_review_only');
+  assert.equal(e.kind,boundary?(experimentVersion>=5?'source_boundary_probe':'scene_boundary_probe'):isFullCase(caseId)?'fixed_dialogue_step':'controlled_review_only');
   assert.equal(e.requestId,prepared.ticket.requestId);assert.equal(e.revision,prepared.ticket.revision);assert.deepEqual(e.context,prepared.context);assert.deepEqual(e.route,V2_ROUTE);
-  if(experimentVersion===5&&e.preparationUnsupported===true){
-    assert.equal(purposeForV5Case(caseId),'personal_reflection');
+  if(experimentVersion>=5&&e.preparationUnsupported===true){
+    assert.equal(await purposeForVersion(caseId,experimentVersion),'personal_reflection');
     const scope=prepareDurationSourceCheck(prepared.context,{purpose:'personal_reflection'}).trace;assert.equal(scope.status,'unsupported');
     assert.deepEqual(e.durationChecks,{preparation:scope,raw:null,compiled:null});assert.equal(e.hostRequest,null);
     assert.equal(e.transport.dispatches,0);assert.equal(e.transport.request,null);assert.equal(e.transport.response,null);
@@ -72,7 +77,7 @@ async function verifyAndApply(call,prepared,{runId,caseId,step,final,boundary,ex
   v.hostEnvelopeMatched=true;v.exactTransportRequestMatched=true;v.transportRequestSha256=digest(expected.body);
   assert.equal(e.transport.dispatches,1);assert.equal(e.api?.httpStatus,200);assert.equal(e.transport.httpStatus,200);
   const result=e.api.result;
-  if(experimentVersion===5){
+  if(experimentVersion>=5){
     assert.equal(result.flow,'clarity-v2');assert.equal(result.requestId,prepared.ticket.requestId);
     assert.equal(result.revision,prepared.ticket.revision);assert.deepEqual(result.route,V2_ROUTE);
     assert.deepEqual(e.durationChecks.preparation,native.durationTrace);
@@ -97,7 +102,7 @@ async function verifyAndApply(call,prepared,{runId,caseId,step,final,boundary,ex
   // Parse the native response as-is: no historical mapping, fence removal,
   // added claims or hidden retry can turn a failed response into a success.
   const raw=JSON.parse(choices[0].message.content);
-  const checked=experimentVersion===5?native.validateCandidate(raw,prepared.context):final?native.validateSelection(raw,prepared.context):validateClarityResponse(raw,prepared.context);
+  const checked=experimentVersion>=5?native.validateCandidate(raw,prepared.context):final?native.validateSelection(raw,prepared.context):validateClarityResponse(raw,prepared.context);
   assert.equal(checked.ok,true);assert.deepEqual(checked.candidate,result.candidate);v.nativeRawCompiledUnchanged=true;
   if(!boundary)assert.equal(result.candidate.finish,final);assert.equal(e.progress?.applied,true);
   assert.equal(applyClarityReply(prepared.session,prepared.ticket,result).ok,true);v.actualStateApplied=true;
@@ -120,13 +125,15 @@ async function verifyAndApply(call,prepared,{runId,caseId,step,final,boundary,ex
 }
 
 export async function runNativeRetentionEvaluation({runId,origin=V2_ORIGIN,fetchImpl=globalThis.fetch,persist,now=()=>Date.now(),experimentVersion=3}={}){
-  if(![3,4,5].includes(experimentVersion)||!validRunId(runId)||origin!==V2_ORIGIN||typeof fetchImpl!=='function'||typeof persist!=='function')throw new TypeError('invalid_retention_evaluation_options');
-  const v5=experimentVersion===5,v4=experimentVersion===4,caseIds=v5?V5_CASE_IDS:v4?V4_CASE_IDS:V2_CASE_IDS,getFixture=v5?fixtureForV5:v4?fixtureForV4:fixtureFor,label=labelFor(experimentVersion);
-  const report={synthetic:true,kind:v5?'duration_source_and_open_reflection':v4?'guided_retention_known_and_new_boundary':'native_v3_known_regression',label,runId,origin,startedAt:new Date(now()).toISOString(),expectedRoute:V2_ROUTE,
-    reflectPolicy:v5?SOURCE_CHECKED_REFLECT_POLICY:v4?GUIDED_REFLECT_POLICY:CLARITY_POLICY_VERSION,reviewPolicy:v5?SOURCE_CHECKED_REVIEW_POLICY:v4?FAITHFUL_RETAINED_CONCERN_POLICY:RETAINED_CONCERN_POLICY,
-    reviewSchema:RETAINED_CONCERN_SCHEMA,plannedMaximumModelCalls:v5?12:v4?11:7,retries:0,clientStepAttempts:0,modelDispatchesObserved:0,nativeResponseCount:0,samples:[],complete:false,
+  if(![3,4,5,6].includes(experimentVersion)||!validRunId(runId)||origin!==V2_ORIGIN||typeof fetchImpl!=='function'||typeof persist!=='function')throw new TypeError('invalid_retention_evaluation_options');
+  const v6=experimentVersion===6,v5=experimentVersion===5,v4=experimentVersion===4,
+    fixtures6=v6?await import('./clarity-retention-v6-fixtures.mjs'):null,policy6=v6?await import('../../ai/experiments/clarity-faithful-dialogue.mjs'):null,
+    caseIds=v6?fixtures6.V6_CASE_IDS:v5?V5_CASE_IDS:v4?V4_CASE_IDS:V2_CASE_IDS,getFixture=v6?fixtures6.fixtureForV6:v5?fixtureForV5:v4?fixtureForV4:fixtureFor,label=labelFor(experimentVersion);
+  const report={synthetic:true,kind:v6?'faithful_dialogue_known_and_fresh':v5?'duration_source_and_open_reflection':v4?'guided_retention_known_and_new_boundary':'native_v3_known_regression',label,runId,origin,startedAt:new Date(now()).toISOString(),expectedRoute:V2_ROUTE,
+    reflectPolicy:v6?policy6.FAITHFUL_DIALOGUE_REFLECT_POLICY:v5?SOURCE_CHECKED_REFLECT_POLICY:v4?GUIDED_REFLECT_POLICY:CLARITY_POLICY_VERSION,reviewPolicy:v6?policy6.FAITHFUL_DIALOGUE_REVIEW_POLICY:v5?SOURCE_CHECKED_REVIEW_POLICY:v4?FAITHFUL_RETAINED_CONCERN_POLICY:RETAINED_CONCERN_POLICY,
+    reviewSchema:RETAINED_CONCERN_SCHEMA,plannedMaximumModelCalls:v6?16:v5?12:v4?11:7,retries:0,clientStepAttempts:0,modelDispatchesObserved:0,nativeResponseCount:0,samples:[],complete:false,
     nativeProtocolRequested:true,productionIntegrated:false,semanticReview:'pending_manual_review',contentReleaseGate:'not_met',
-    scope:v5?'已知完整对话、四个已见首轮及四个新受控时长首轮，最多十二次；source unsupported可前置停止，不替换样例，不是全量事实或归属认证。':v4?'四个已知回归及四个新单轮边界案例，最多十一次；策略先冻结后读新材料，不是统计盲测、用户研究或完整全场景验收。':'四个已知合成回归案例，最多七次真实调用；不是新holdout、用户研究或全产品验收。',
+    scope:v6?'已知FULL四步、八个已见首轮及四个策略冻结后读取的新首轮，最多十六次；保留源unsupported和所有失败，不替换样例，不是统计盲测、事实或归属认证，也不是新场景完整对话验收。':v5?'已知完整对话、四个已见首轮及四个新受控时长首轮，最多十二次；source unsupported可前置停止，不替换样例，不是全量事实或归属认证。':v4?'四个已知回归及四个新单轮边界案例，最多十一次；策略先冻结后读新材料，不是统计盲测、用户研究或完整全场景验收。':'四个已知合成回归案例，最多七次真实调用；不是新holdout、用户研究或全产品验收。',
     usage:'保留失败及实际tokens；精确别名单价未核实时金额未知，不把未知费用记为0。'};
   const save=async()=>persist(structuredClone(report));await save();
   report.health={dispatched:true,httpStatus:null};await save();let health;
@@ -138,15 +145,16 @@ export async function runNativeRetentionEvaluation({runId,origin=V2_ORIGIN,fetch
   }catch{report.health.failure='health_failed';await save();return report;}
   await save();
   for(const caseId of caseIds){
-    const fixture=getFixture(caseId),full=isFullCase(caseId),boundary=v5?isV5Probe(caseId):v4&&isBoundaryCase(caseId),sample={caseId,
-      kind:boundary?(v5?'single_turn_source_probe':'single_turn_scene_probe'):full?'fixed_full_dialogue':'controlled_review_only',
-      ...(boundary&&typeof fixture.expectedMode==='string'?{expectedMode:fixture.expectedMode}:{}),...(v5?{durationPurpose:purposeForV5Case(caseId)}:{}),requirements:fixture.requirements,
+    const fixture=getFixture(caseId),full=isFullCase(caseId),boundary=v6?fixtures6.isV6Probe(caseId):v5?isV5Probe(caseId):v4&&isBoundaryCase(caseId),sample={caseId,
+      kind:boundary?(v6&&fixtures6.isV6Fresh(caseId)?'single_turn_dialogue_probe':v5||v6?'single_turn_source_probe':'single_turn_scene_probe'):full?'fixed_full_dialogue':'controlled_review_only',
+      ...(boundary&&typeof fixture.expectedMode==='string'?{expectedMode:fixture.expectedMode}:{}),...(v5||v6?{durationPurpose:await purposeForVersion(caseId,experimentVersion)}:{}),
+      ...(v6?{fixtureGroup:fixtures6.isV6Fresh(caseId)?'fresh_dialogue':'known_regression'}:{}),requirements:fixture.requirements,
       forbiddenAdditions:fixture.forbiddenAdditions,meaningfulDistinctions:fixture.meaningfulDistinctions,...(full?{turnRequirements:fixture.turnRequirements}:{}),
       calls:[],complete:false,semanticReview:'pending_manual_review'};
     report.samples.push(sample);await save();let session=null,continuationToken=null;
     for(let step=1;step<=(full?4:1);step++){
       if(now()<health.startedAt||now()>=health.expiresAt){sample.stopReason='preview_expired_before_step';break;}
-      let prepared;try{prepared=v5?prepareV5Step(caseId,runId,health.startedAt,step,session):v4?prepareV4Step(caseId,runId,health.startedAt,step,session):prepareV2Step(caseId,runId,health.startedAt,step,session,3);}catch{sample.stopReason='fixture_or_question_boundary';break;}
+      let prepared;try{prepared=v6?fixtures6.prepareV6Step(caseId,runId,health.startedAt,step,session):v5?prepareV5Step(caseId,runId,health.startedAt,step,session):v4?prepareV4Step(caseId,runId,health.startedAt,step,session):prepareV2Step(caseId,runId,health.startedAt,step,session,3);}catch{sample.stopReason='fixture_or_question_boundary';break;}
       const call={step,requestId:prepared.ticket.requestId,revision:prepared.ticket.revision,context:prepared.context,dispatches:1,httpStatus:null,evidence:null,
         nativeResponseCaptured:false,verification:{hostEnvelopeMatched:false,exactTransportRequestMatched:false,nativeRawCompiledUnchanged:false,actualStateApplied:false},stateVerification:null};
       sample.calls.push(call);report.clientStepAttempts++;await save();const started=now();
@@ -172,10 +180,11 @@ export async function runNativeRetentionEvaluation({runId,origin=V2_ORIGIN,fetch
     continuationToken=null;await save();
   }
   report.complete=report.samples.length===caseIds.length;report.completedCaseCount=report.samples.filter(s=>s.complete).length;
-  if(v4||v5){const probe=s=>['single_turn_scene_probe','single_turn_source_probe'].includes(s.kind);
+  if(v4||v5||v6){const probe=s=>['single_turn_scene_probe','single_turn_source_probe','single_turn_dialogue_probe'].includes(s.kind);
     report.completedBoundaryProbes=report.samples.filter(s=>probe(s)&&s.complete).length;
     report.memorySavedCaseCount=report.samples.filter(s=>s.complete&&!probe(s)).length;}
-  if(v5){report.sourceUnsupportedCaseCount=report.samples.filter(s=>s.calls.some(c=>c.stateVerification?.sourceUnsupported===true&&c.verification.sourceUnsupportedVerified===true)).length;
+  if(v6)report.completedFreshProbes=report.samples.filter(s=>s.kind==='single_turn_dialogue_probe'&&s.complete).length;
+  if(v5||v6){report.sourceUnsupportedCaseCount=report.samples.filter(s=>s.calls.some(c=>c.stateVerification?.sourceUnsupported===true&&c.verification.sourceUnsupportedVerified===true)).length;
     report.runtimeRejectedOutputCount=report.samples.flatMap(s=>s.calls).filter(c=>c.stateVerification?.expectedRuntimeRejectionMatched).length;
     report.durationRejectedOutputCount=report.samples.flatMap(s=>s.calls).filter(c=>c.stateVerification?.expectedRuntimeRejectionMatched&&c.stateVerification.reason==='duration_source_mismatch').length;}
   report.completedAt=new Date(now()).toISOString();await save();return report;
@@ -184,7 +193,7 @@ export async function runNativeRetentionEvaluation({runId,origin=V2_ORIGIN,fetch
 export const runRetentionV3Evaluation=options=>runNativeRetentionEvaluation({...options,experimentVersion:3});
 
 export function retentionEvaluationSourceMetadata(experimentVersion=3){
-  if(![3,4,5].includes(experimentVersion))throw new TypeError('invalid_evaluation_source_version');
+  if(![3,4,5,6].includes(experimentVersion))throw new TypeError('invalid_evaluation_source_version');
   const root=fileURLToPath(new URL('../../',import.meta.url)),git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
   const files=['ai/experiments/clarity-retained-concern.mjs','ai/experiments/clarity-retention-ledger.mjs','ai/clarity.mjs','ai/clarity-grounding.mjs',
     'ai/clarity-turn.mjs','public/clarity-state.mjs','ai/provider-transport.mjs','server/api.mjs',
@@ -192,9 +201,11 @@ export function retentionEvaluationSourceMetadata(experimentVersion=3){
     'scripts/experiments/clarity-material-v2-fixtures.mjs','ai/fixtures/clarity-material-v2-samples.mjs','scripts/experiments/clarity-retention-v3-live.mjs'];
   if(experimentVersion>=4)files.push('ai/experiments/clarity-guided-reflect.mjs','scripts/experiments/clarity-retention-v4-fixtures.mjs',
     'scripts/experiments/clarity-retention-v4-worker.mjs','scripts/experiments/clarity-retention-v4-live.mjs','ai/fixtures/clarity-routing-boundary-samples.mjs');
-  if(experimentVersion===5)files.push('ai/experiments/clarity-duration-source.mjs','ai/experiments/clarity-source-checked.mjs',
+  if(experimentVersion>=5)files.push('ai/experiments/clarity-duration-source.mjs','ai/experiments/clarity-source-checked.mjs',
     'scripts/experiments/clarity-retention-v5-fixtures.mjs','scripts/experiments/clarity-retention-v5-worker.mjs',
     'scripts/experiments/clarity-retention-v5-live.mjs','ai/fixtures/clarity-quantity-boundary-samples.mjs');
+  if(experimentVersion===6)files.push('ai/experiments/clarity-faithful-dialogue.mjs','ai/fixtures/clarity-dialogue-boundary-samples.mjs',
+    'scripts/experiments/clarity-retention-v6-fixtures.mjs','scripts/experiments/clarity-retention-v6-worker.mjs','scripts/experiments/clarity-retention-v6-live.mjs');
   return {sourceCommit:git(['rev-parse','HEAD']),sourceTreeDirty:git(['status','--porcelain']).length>0,
     sourceDigests:files.map(file=>({file,sha256:digest(readFileSync(new URL(`../../${file}`,import.meta.url)))}))};
 }

@@ -13,7 +13,7 @@ export const V2_FULL_ID=MATERIAL_V2_DIALOGUE_SAMPLE.id;
 export const validRunId=value=>typeof value==='string'&&/^[a-zA-Z0-9_-]{8,32}$/.test(value);
 export const isFullCase=id=>id===V2_FULL_ID;
 export const fixtureFor=id=>MATERIAL_V2_REVIEW_SAMPLES.find(s=>s.id===id)??(id===V2_FULL_ID?MATERIAL_V2_DIALOGUE_SAMPLE:null);
-const prefixFor=version=>{if(version!==2&&version!==3&&version!==4&&version!==5)throw new TypeError('invalid_material_experiment_version');return version===2?'material2':`retention${version}`;};
+const prefixFor=version=>{if(version!==2&&version!==3&&version!==4&&version!==5&&version!==6)throw new TypeError('invalid_material_experiment_version');return version===2?'material2':`retention${version}`;};
 export const requestIdFor=(runId,id,step,experimentVersion=2)=>`${prefixFor(experimentVersion)}_${runId}_${id}_${step}`;
 // This controlled script only advances on the actual, unchanged Host concern
 // question. An enum target alone cannot establish that the answer fits.

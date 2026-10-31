@@ -1,6 +1,6 @@
 # 忠实承接与开放追问切片
 
-状态：隔离策略及8项定向检查 completed、独立源码审阅通过，harness in progress，真实模型 not started；生产、界面与字体不变，整体4/10。本轮不扩展时长guard文法或把它接入所有线上输入。
+状态：隔离策略、harness、16项新定向检查 completed，构建/严格规范/独立审阅通过；真实模型 not started，待最终源码冻结后运行。生产、界面与字体不变，整体4/10。本轮不扩展时长guard文法或把它接入所有线上输入。
 
 ## Responsibility and scope
 
@@ -20,4 +20,8 @@ v5四个partial暴露出共同问题：中途接话被要求“再说一个区�
 
 ## Pending evidence
 
-新策略8项定向检查通过，连同既有wrapper/core共28项独立复核通过；严格OpenSpec校验通过。负对照明确表明合法语义错误仍可机械通过；四步旧真实context经可信transport容量检查通过，仅证明这些固定历史。harness测试、构建、真实调用/逐句审阅与精确账本待记录。root在本次策略冻结前未读新四例正文；最终结论将追加，运行前计划保留。1.1/4.1 in progress、4.2 not started；无需用户重新配置Key。
+策略于`caac5f08ba3d9cebba369ea2c8d1dfec1decc7e5`先冻结，root之后才首次读新四例并映射到最终fixture；原独立文件SHA256 `ca68b9669c8a56895dd781e4ef1ff83e74575aeeca9886edb14250d94e3bd613`。只改caseId/text/评审字段的接口命名，没有修改正文或根据新例调词。Host purpose显式进入控制数据，不将其误称为无场景信息的盲测；评审期望和case标签不入provider。
+
+新策略8项+harness8项共16项通过；相关v5 55、v4 26、v3 14、v2集合29和原保留42项通过。生产独立Worker构建dry-run与实验Worker bundle dry-run（294.63KiB/gzip75.92KiB）、严格OpenSpec和独立源码审阅通过，未执行旧版全量回归。fake完整body 10290/11019/11532/7197B，小于原12000B；旧真实context容量也通过，仅证明这些固定历史。负对照仍明确合法语义错误可机械通过。
+
+真实调用前生产只读status200，默认服务仍enabled、百炼`deepseek-v4-pro-0813`/revision3，未读取凭证。真实调用/逐句审阅、精确账本与最终生产只读复核待记录。最终结论将追加，以上运行前计划保留。1.1/4.1 in progress、4.2 not started；无需用户重新配置Key。

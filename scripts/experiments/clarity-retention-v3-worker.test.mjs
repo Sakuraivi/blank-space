@@ -55,7 +55,7 @@ function fakeApi({calls=[],defaultStatus=status()}={}){
 }
 
 test('experiment versions are factory-only, with distinct labels and request/session identities',async()=>{
-  for(const version of [0,1,6,'3',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
+  for(const version of [0,1,7,'3',null])assert.throws(()=>createMaterialV2Worker({experimentVersion:version}),/invalid_material_experiment_version/u);
   const two=createMaterialV2Worker({now:()=>START}),three=createRetentionV3Worker({now:()=>START,experimentVersion:2});
   const r2=await(await two.fetch(new Request(`${V2_ORIGIN}/health`),env())).json();
   const r3=await(await three.fetch(new Request(`${V2_ORIGIN}/health`),{...env(),LIUBAI_MATERIAL_EXPERIMENT_VERSION:2})).json();
