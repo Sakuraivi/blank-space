@@ -1,5 +1,7 @@
 import { buildContext, buildModelRequest } from '../ai/contract.mjs';
 import { buildClarityContext, buildClarityModelRequest, clarityContract } from '../ai/clarity.mjs';
+import { buildClarityContext as buildClarityV3Context } from '../public/clarity-v3-contract.mjs';
+import { buildClarityModelRequest as buildClarityV3ModelRequest, clarityContract as clarityV3Contract } from '../ai/clarity-v3.mjs';
 import { runCandidate } from '../ai/runtime.mjs';
 import { getRoute, getPersonalRoute, publicProviders, PRICE_VALID_UNTIL } from '../ai/providers.mjs';
 import { createProviderAdapter, prepareProviderRequest } from '../ai/provider-transport.mjs';
@@ -159,8 +161,9 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     }
     if (path !== '/api/ai/generate' || request.method !== 'POST') return fallback('not_found', 404);
     const body = await readJson(request);
-    if (body.flow !== undefined && body.flow !== 'clarity-v2') return fallback('invalid_flow');
-    const isClarity = body.flow === 'clarity-v2';
+    if (body.flow !== undefined && !['clarity-v2', 'clarity-v3'].includes(body.flow)) return fallback('invalid_flow');
+    const isClarityV3 = body.flow === 'clarity-v3';
+    const isClarity = body.flow === 'clarity-v2' || isClarityV3;
     if (await safetyStopped(env.DB)) return fallback('usage_out_of_bounds', 503);
     if (body.configVersion !== PUBLIC_CONFIG_VERSION || body.consentVersion !== CONSENT_VERSION) return fallback('consent_changed', 409);
     if (!['default', 'personal'].includes(body.sourceMode)) return fallback('invalid_source');
@@ -181,18 +184,25 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (!validId(body.requestId) || !validId(body.session?.id) || !['reflect', 'review'].includes(body.stage) || !Number.isSafeInteger(body.revision) || body.revision < 0 || typeof body.allowNextStep !== 'boolean') return fallback('invalid_request');
     let context, requestData, preparedClarity;
     try {
-      context = (isClarity ? buildClarityContext : buildContext)({ session: body.session, revision: body.revision, stage: body.stage, questionsAsked: body.session.turns?.length ?? 0, allowNextStep: body.allowNextStep });
+      context = (isClarityV3 ? buildClarityV3Context : isClarity ? buildClarityContext : buildContext)({ session: body.session, revision: body.revision, stage: body.stage, questionsAsked: body.session.turns?.length ?? 0, allowNextStep: body.allowNextStep });
       // Internal dependency injection only: no request field or environment
       // flag selects a different model contract. Production supplies no hook.
       // Async preparation and exact transport capacity checks precede billing.
-      if (isClarity && prepareClarityRun !== undefined) {
+      // Historical private preparation hooks remain v2-only. The new public
+      // flow has its own bound contract, never an output-shape fallback.
+      if (body.flow === 'clarity-v2' && prepareClarityRun !== undefined) {
         if (typeof prepareClarityRun !== 'function') throw new TypeError('invalid_preparation');
         preparedClarity = await prepareClarityRun(context, route.profile);
         if (!preparedClarity || typeof preparedClarity.run !== 'function') throw new TypeError('invalid_preparation');
         requestData = preparedClarity.requestData;
-      } else requestData = (isClarity ? buildClarityModelRequest : buildModelRequest)(context, route.profile);
+      } else requestData = (isClarityV3 ? buildClarityV3ModelRequest : isClarity ? buildClarityModelRequest : buildModelRequest)(context, route.profile);
       prepareProviderRequest(requestData, route);
-    } catch { return fallback('input_too_large_or_invalid'); }
+    } catch (error) {
+      // Capacity is a normal, pre-billing v3 boundary. Do not tell that client
+      // a provider failed when no provider was contacted. v2 stays unchanged.
+      return fallback(isClarityV3 && error instanceof RangeError && error.message === 'input_too_large'
+        ? 'context_capacity' : 'input_too_large_or_invalid');
+    }
     if (request.signal.aborted) return fallback('inactive', 409);
     const apiKey = personalApiKey || (source.type === 'environment' ? source.key : await decryptKey(source, env.LIUBAI_SECRET_KEY));
     if (request.signal.aborted) return fallback('inactive', 409);
@@ -201,7 +211,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     const responseRoute = { sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId,
       ...(source?.type === 'organizer' ? { defaultRevision: source.revision } : {}) };
     const requestDigest = await digest(JSON.stringify({ context, version: body.configVersion, route: responseRoute,
-      ...(isClarity ? { flow: 'clarity-v2' } : {}), ...(preparedClarity ? { preparedRequest: requestData } : {}) }));
+      ...(isClarity ? { flow: body.flow } : {}), ...(preparedClarity || isClarityV3 ? { preparedRequest: requestData } : {}) }));
     if (request.signal.aborted) return fallback('inactive', 409);
     if (source && !sameSource(source, (await currentDefault(env, now)).source)) return fallback('config_changed', 409);
     if (request.signal.aborted) return fallback('inactive', 409);
@@ -231,7 +241,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 };
       result = preparedClarity
         ? await preparedClarity.run(runtimeOptions)
-        : await runCandidate({ context, ...runtimeOptions, ...(isClarity ? { contract: clarityContract } : {}) });
+        : await runCandidate({ context, ...runtimeOptions, ...(isClarity ? { contract: isClarityV3 ? clarityV3Contract : clarityContract } : {}) });
       if (result.status === 'fallback' && result.reason === 'incomplete_response' && providerReason) result = { ...result, reason: providerReason };
     } catch { result = { status: 'fallback', reason: 'generation_failed', candidate: null }; }
     if (isClarity) requestTiming.endModel();
@@ -250,7 +260,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     if (source && !sameSource(source, (await currentDefault(env, now)).source)) {
       return completeGeneration({ status: 'fallback', reason: 'config_changed' }, 409);
     }
-    return completeGeneration({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute, ...(isClarity ? { flow: 'clarity-v2' } : {}) });
+    return completeGeneration({ ...result, requestId: body.requestId, revision: body.revision, route: responseRoute, ...(isClarity ? { flow: body.flow } : {}) });
   } catch (error) {
     if (['input_too_large', 'invalid_content_type', 'invalid_body'].includes(error?.message) || error instanceof SyntaxError) return fallback('invalid_body', 400);
     return fallback('service_unavailable', 503);

@@ -1,0 +1,10 @@
+@import url('/clarity.css');
+
+/* Isolated companion preview: retain the established room, paper and diary face. */
+.clarity-v3 .actions button, .clarity-v3 .history-item button { font-size: 1rem; min-height: 44px; }
+.clarity-v3 .review-block h3 { font-size: .84rem; }
+.clarity-v3 .pause-note { color: var(--accent); margin: 16px 0; }
+.clarity-v3 .conversation-actions { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 16px; }
+.clarity-v3 .fixture-banner { max-width: 680px; margin: 12px auto; padding: 12px 20px; font-size: 1rem; }
+.clarity-v3 .draft-actions { margin-top: 20px; }
+.clarity-v3 .modal-head button { width: 44px; height: 44px; min-height: 44px; }

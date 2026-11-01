@@ -1,8 +1,8 @@
 ## Context
 
-设计修订：2026-11-01，r5「倾听优先、按需梳理」。动机与范围见[proposal.md](proposal.md)，冻结场景与门槛见[acceptance.md](acceptance.md)。本文件是待实现契约，不描述已上线效果。原r4设计、字体探索、完整脚本与工程增量保留在[74d9cca历史快照](https://github.com/Sakuraivi/blank-space/blob/74d9cca160d977ca69c43302dc962681b3151ad4/openspec/changes/clarity-tarot-reflection/design.md)及各评估报告中，不因修订撤销旧证据。
+设计修订：2026-11-01，r5「倾听优先、按需梳理」。动机与范围见[proposal.md](proposal.md)，冻结场景与门槛见[acceptance.md](acceptance.md)。本文件是设计契约，不描述已上线效果；阶段2A本地模拟交付见[listening-first-r5-slice.md](listening-first-r5-slice.md)，真实模型与真人验收另行取证。原r4设计、字体探索、完整脚本与工程增量保留在[74d9cca历史快照](https://github.com/Sakuraivi/blank-space/blob/74d9cca160d977ca69c43302dc962681b3151ad4/openspec/changes/clarity-tarot-reflection/design.md)及各评估报告中，不因修订撤销旧证据。
 
-当前事实：独立 `/clarity` 已有稳定内测，发布信息以[beta-release.md](beta-release.md)为准。现有程序有固定缺口问句、三答后review、无问句必须finish、模型finish驱动complete，以及无question的续说被标correction等耦合；这与原设计「不固定问卷」已有距离。当前麦圆体、纸面、梅紫和小屋已有实现，r5保留此视觉身份。
+旧v2背景：独立 `/clarity` 已有稳定内测，历史发布信息以[beta-release.md](beta-release.md)为准。旧程序有固定缺口问句、三答后review、无问句必须finish、模型finish驱动complete，以及无question的续说被标correction等耦合；这与原设计「不固定问卷」已有距离。麦圆体、纸面、梅紫和小屋已有实现，r5保留此视觉身份。
 
 最新完整示例实验只比较同模型的受控收尾：baseline 5 pass/3 partial，examples 7 pass/1 partial，核心FULL仍未连起学习时间和怕尴尬，并出现特定行为泛化；不作为r5合格模型或真实陪伴证据。详见[example-review-v1-evaluation.md](example-review-v1-evaluation.md)。首次无指导体验尚未执行。
 
@@ -19,7 +19,7 @@
 
 - 塔罗、重决策升级、长期/跨设备记忆、打卡、心理评分和扩大为通用知识聊天。
 - 前置选择倾诉/分析模式、逐轮认可按钮、大改字体配色，或为每次倾诉强造洞见和行动。
-- 在本轮规划中实现、部署、改组织者配置或迁移存储；r5开发仍须新证据。
+- 把规划当成实现或效果证据、在本地切片交付中直接部署/改线上组织者配置/迁移存储；r5开发及发布仍须各阶段新证据。
 
 ## Decisions
 
@@ -53,6 +53,8 @@ Express --> Respond --> Continue
 仅本人明确、非引语的交流要求及合法显式操作构成控制依据。引语、别人说的话、模糊心理解释不提升为权限。歧义时沿用较保守的权限、继续具体承接，不增加分类模型或必经模式问答。混合结束与其他含糊要求时先停止请求、保留内容，由本人选择后续动作，不自动丢弃或续费生成。
 
 服务端从绑定的表达与合法操作重建策略；不接受模型写入意愿，不接受任意客户端allowQuestion/allowInterpretation等自由权限覆盖。策略随请求的context/profile/revision快照绑定，最新明确要求优先，变更使旧候选失效。单次成稿或行动仅授权该次要求范围，不默认解除先前的禁问/不分析偏好；本人明确要求一起分析时才相应更新。控制语句不当成生活经历写进记录。
+
+阶段2A实现细化：未获明确梳理要求时，默认不授权新增解释或分析claim；忠实承接本人已明确说出的感受、顾虑仍可进行。明确一起理清才持续开放分析；单次review在没有显式分析禁令时可授权本次整理所需的分析，不改变后续对话的倾听偏好，也不解除禁问。控制识别仅覆盖有限、明确、非转述的语法，不冒称通用意图分类器。来源窗口12条、active claims 15条与可信路由字节、输出及本机记录容量分别检查；没有对话调用次数上限。
 
 ### 3. 显式新行为版本，保持旧契约可回放
 
@@ -123,7 +125,7 @@ r5使用 `flow=clarity-v3`，公共候选schema `liubai-clarity-2`；旧clarity-
 
 ## Migration Plan
 
-1. 阶段1更新六份既有文件、冻结L01–L09与任务依赖；这只是规划完成，r5实现0/9。
+1. 阶段1更新六份既有文件、冻结L01–L09与任务依赖；规划冻结时r5实现0/9，后续实现状态以tasks.md及专项证据为准。
 2. 阶段2A做显式新flow倾听切片；2B固定条件筛选模型；2C在清楚标注的原型/稳定入口做两人研究。三线可并行，联调须吸收研究卡点并选定经过内容筛选的模型。
 3. 阶段3验证同版本真实完整链路、容量、取消/失败/纠正/存储及手机/放大/键盘，保留原生输出和实际用量；不运行旧版全量回归。
 4. 阶段4执行五名新人无指导检查，操作、内容、本人反馈和自愿存储功能分栏。关键缺陷回流修复，不以其他分数抵消。
