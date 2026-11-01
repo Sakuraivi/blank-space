@@ -1,5 +1,7 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
+当前线上自然接话修复：源码33530ac/100% Worker c695fd7e-2f33-497d-95ea-acfe5cc950d6。默认可提供有据候选理解，显式倾听/禁问仍生效；输入增补有界previousReply，仅用于接续，不作为本人事实/权限或保存内容。首批2次失败已回退留证，新批5次接续有改善、纯倾听及片刻行为保持，但首轮准确性和无据归因仍未达标，内容No-Go不改。100/21相关检查、资产/后台/七ID账目核对通过；默认配置/r3/NULL额度保持，稳定回退2d471cc3仍在，默认首页不切换。见[natural-companionship-repair.md](natural-companionship-repair.md)，下方均为此前批次历史。
+
 当前线上`/clarity`已修复“点击整理只剩原话”的退化，恢复真实review，“只保留已有内容”独立为本地动作。最终源码f77421e/100% Worker 2d471cc3-60a9-4346-a518-bfa03e1c43f2，默认服务/r3/NULL预算不变。8真实调用技术接受，首批内容fail、次批partial，保存/找回/导出及94/21/18相关检查通过；功能修复completed不等于内容/真人门槛通过。此前唯一入口本地拼接已被取代，详细结果与回退见[report-generation-repair.md](report-generation-repair.md)。
 
 最新线上个人试用已交付：用户明确要求直接线上实测，`https://blank.sakura.observer/clarity`现为真实v3、源码699f6ef、100% Worker 7e6d8b7c-4636-42a0-99f4-eeddb0592693。正常收尾本地组合已有理解/原话，取消公开重复成稿入口；实际6次模型调用5candidate/1fallback，编辑确认后保存/刷新/导出通过，默认来源/模型/r3/NULL预算和管理认证保留。早轮深度和纠正后旧候选仍有限制，内容No-Go及真人/完整发布门槛未改，旧实验不回填；默认首页未切换。明确个人试用授权仅覆盖这一交付，回退基线d49f5c96-b8a0-4195-8404-b65561c73524。完整证据见[online-real-pilot.md](online-real-pilot.md)。以下为此前批次记录，其中生产状态以当时为准。
