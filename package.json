@@ -44,6 +44,8 @@
     "evaluate:clarity-model-comparison": "node scripts/experiments/clarity-model-comparison-live.mjs",
     "test:clarity-v3-compatibility": "node --test ai/experiments/clarity-v3-compatibility.test.mjs scripts/experiments/clarity-v3-compatibility-probe.test.mjs",
     "evaluate:clarity-v3-compatibility": "node scripts/experiments/clarity-v3-compatibility-probe.mjs",
+    "test:clarity-v3-native": "node --test scripts/experiments/clarity-v3-native-fixtures.test.mjs scripts/experiments/clarity-v3-native-worker.test.mjs scripts/experiments/clarity-v3-native-live.test.mjs",
+    "evaluate:clarity-v3-native": "node scripts/experiments/clarity-v3-native-live.mjs",
     "verify:migration": "node scripts/standalone/verify-ledger.mjs",
     "test:migration": "node --test scripts/standalone/verify-ledger.test.mjs"
   },
