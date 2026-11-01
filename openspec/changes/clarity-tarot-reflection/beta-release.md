@@ -1,5 +1,7 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
+当前线上`/clarity`已修复“点击整理只剩原话”的退化，恢复真实review，“只保留已有内容”独立为本地动作。最终源码f77421e/100% Worker 2d471cc3-60a9-4346-a518-bfa03e1c43f2，默认服务/r3/NULL预算不变。8真实调用技术接受，首批内容fail、次批partial，保存/找回/导出及94/21/18相关检查通过；功能修复completed不等于内容/真人门槛通过。此前唯一入口本地拼接已被取代，详细结果与回退见[report-generation-repair.md](report-generation-repair.md)。
+
 最新线上个人试用已交付：用户明确要求直接线上实测，`https://blank.sakura.observer/clarity`现为真实v3、源码699f6ef、100% Worker 7e6d8b7c-4636-42a0-99f4-eeddb0592693。正常收尾本地组合已有理解/原话，取消公开重复成稿入口；实际6次模型调用5candidate/1fallback，编辑确认后保存/刷新/导出通过，默认来源/模型/r3/NULL预算和管理认证保留。早轮深度和纠正后旧候选仍有限制，内容No-Go及真人/完整发布门槛未改，旧实验不回填；默认首页未切换。明确个人试用授权仅覆盖这一交付，回退基线d49f5c96-b8a0-4195-8404-b65561c73524。完整证据见[online-real-pilot.md](online-real-pilot.md)。以下为此前批次记录，其中生产状态以当时为准。
 
 最新完整示例配对隔离验证：策略/例文1735564先冻结，执行源码778daae固定同8已知context、默认模型及旧三字段协议，只改变system示例后缀；16次原生响应均candidate、actual apply/全部原话可见/内存save+JSON读回，0重试。内容baseline5 pass/3partial、examples7 pass/1partial，配对6改善/1持平/1退步；核心FULL仍漏学习时间与怕尴尬的连接，并出现特定两次到一般照做的范围风险，发布门槛not met。12项新定向、54项相关检查、两种dry-run/严格规范/独立源码/机械/语义审阅通过；精确16ID输入24246/输出2398/合26644tokens，示例输入约增41%，金额未知。预览已关，4项HTTP及旧100%Worker核对通过，未部署或改配置/UI，整体4/10。下一步先固定examples条件做候选模型对照，暂不以更多轮数替代当前收尾生成能力检查。详见[example-review-v1-evaluation.md](example-review-v1-evaluation.md)。
