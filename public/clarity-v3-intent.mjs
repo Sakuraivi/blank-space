@@ -28,7 +28,9 @@ function control(value) {
   if(/^(?:你)?(?:现在)?(?:可以|请)(?:继续|再)?(?:追问|问|问我|问问题|提问)(?:了)?$/u.test(s)||/^恢复追问$/u.test(s))return {type:'allow_question'};
   if(/^(?:(?:我)?(?:想|希望)(?:你)?|请(?:你)?|帮我|请帮我|你可以|可以)?(?:一起)?(?:理清|分析|梳理|想想)(?:一下|这件事|思路)?$/u.test(s)||
     /^(?:我)?(?:想|希望)(?:你)?帮我(?:理清|分析|梳理)(?:一下|这件事)?$/u.test(s)||
-    /^(?:我们)?一起(?:理清|分析|梳理|想想)(?:一下|这件事)?$/u.test(s))return {type:'interpret'};
+    /^(?:我们)?一起(?:理清|分析|梳理|想想)(?:一下|这件事)?$/u.test(s)||
+    /^(?:你的|你对这件事的)(?:拆解|分析|理解)(?:是什么|是怎样的|呢)$/u.test(s)||
+    /^(?:请|可以|能|能不能|你可以|你能|你能不能)?(?:帮我)?(?:拆解|分析|梳理|理清)(?:一下|下|这件事|思路)?(?:吗|么)?$/u.test(s))return {type:'interpret'};
   if(/^(?:请(?:你|AI)?|请帮我|帮我|我想请(?:你|AI))?(?:把(?:这些话|这些内容|本次表达|这次表达|我的表达))?(?:整理成一份(?:整理|记录|报告)?|整理成稿|生成一份(?:整理|记录|报告)|写成一份记录|形成一份整理)(?:吧|就好|即可)?$/u.test(s))return {type:'review'};
   if(/^(?:请)?(?:先)?(?:暂停|暂停一下|停一下|取消等待|取消这次请求|取消本次请求)(?:吧)?$/u.test(s))return {type:'pause'};
   const end=/^(?:我)?(?:(?:不想|不愿意)(?:再|继续)?(?:聊|说)(?:了)?|不(?:聊|说)了)$/u.test(s)||
@@ -100,4 +102,12 @@ export function deriveConversationPolicy(context) {
   return {allowQuestion:allowQuestion&&!endRequested&&!pauseRequested&&!reviewRequested&&!actionRequested,
     allowInterpretation:effectiveInterpretation,reviewRequested,endRequested,pauseRequested,discardRequested,recordOnly,
     actionRequested,explicitInterpretationBan,materials,controls,intentAction:{kind,discard:discardRequested}};
+}
+
+// Preference changes alone are local. An explicit request to think together
+// needs one real response when there is already material to think about.
+export function shouldGenerateClarityReply(parts,policy){
+  if(policy.endRequested||policy.pauseRequested||policy.recordOnly)return false;
+  if(parts.content)return true;
+  return policy.materials.length>0&&(policy.reviewRequested||parts.controls.some(c=>c.type==='interpret'));
 }

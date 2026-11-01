@@ -41,6 +41,16 @@ export function createStandaloneWorker({ handleApiImpl = handleApi, handleOrgani
       const url = new URL(request.url);
       if (blockedIdentityPath(url.pathname)) return fallback('not_found', 404);
       const sanitized = withoutPlatformIdentity(request);
+      if (['/clarity', '/clarity/', '/clarity.html'].includes(url.pathname)) {
+        if (!['GET', 'HEAD'].includes(request.method)) return fallback('method_not_allowed', 405);
+        if (!env.ASSETS?.fetch) return fallback('assets_unconfigured', 503);
+        // One real pilot URL. Fixture adapters are loopback-only tooling and
+        // are never imported into this deployed entry point.
+        const asset = await env.ASSETS.fetch(new Request(new URL('/clarity-v3', url), sanitized));
+        const headers = new Headers(asset.headers);
+        headers.set('Cache-Control', 'no-store');
+        return new Response(request.method === 'HEAD' ? null : asset.body, {status: asset.status, headers});
+      }
       if (['/admin', '/admin/', '/admin.html'].includes(url.pathname)) {
         if (!['GET', 'HEAD'].includes(request.method)) return fallback('method_not_allowed', 405);
         if (!env.ASSETS?.fetch) return fallback('assets_unconfigured', 503);
@@ -64,7 +74,12 @@ export function createStandaloneWorker({ handleApiImpl = handleApi, handleOrgani
       }
       if (!['GET', 'HEAD'].includes(request.method)) return fallback('method_not_allowed', 405);
       if (!env.ASSETS?.fetch) return fallback('assets_unconfigured', 503);
-      return env.ASSETS.fetch(sanitized);
+      const asset = await env.ASSETS.fetch(sanitized);
+      if (/^\/clarity-v3[^/]*\.(?:mjs|css)$/u.test(url.pathname)) {
+        const headers = new Headers(asset.headers); headers.set('Cache-Control', 'no-store');
+        return new Response(asset.body, {status: asset.status, headers});
+      }
+      return asset;
     },
   });
 }

@@ -1,7 +1,7 @@
 import { createPersonalKeyPreference } from './personal-key.mjs';
 import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage } from './ai-settings.mjs';
 import { CLARITY_FLOW } from './clarity-v3-contract.mjs';
-import { expressionPartsV3 } from './clarity-v3-intent.mjs';
+import { expressionPartsV3, shouldGenerateClarityReply } from './clarity-v3-intent.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
 import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, currentClarityUnderstanding, historicalClarityUnderstanding, reviewPresentation } from './clarity-v3-state.mjs';
 
@@ -231,11 +231,11 @@ async function submitExpression(event) {
     notice('还没有替你选择哪一句。刚写的内容仍在，可以写清想留下的原句，或在已有内容中编辑。'); render(); return;
   }
   if (starting) route = usable() ? routeNow() : null;
-  try { addExpression(session,text,{kind:'expression'}); }
+  try { addExpression(session,text,{kind:!parts.content&&parts.controls.length?'request':'expression'}); }
   catch { capacityMessage='这次内容已经比较多了，刚写的话还在输入框里。可以先保留已有内容，或下载这次完整表达。'; render(); return; }
   draft=''; capacityMessage=''; localError='';
-  if (!parts.content && !policy.reviewRequested && !policy.recordOnly) {
-    notice('已保留你的交流要求。可以继续说，也可以先停在这里。'); render(); return;
+  if (!shouldGenerateClarityReply(parts,policy)) {
+    notice(parts.controls.some(c=>c.type==='interpret')&&!policy.materials.length?'可以先写一点想理清的事。':'已保留你的交流要求。可以继续说，也可以先停在这里。'); render(); return;
   }
   if (!route) { showLocalReview(); return; }
   await sendToAi({review:policy.reviewRequested});

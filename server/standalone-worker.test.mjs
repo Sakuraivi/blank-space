@@ -106,3 +106,24 @@ test('static frontend remains usable before migration, without an external fallb
   for (const name of Object.keys(identity)) assert.equal(observed.headers.get(name), null);
   assert.equal((await worker.fetch(request('/', { method: 'POST' }), {})).status, 405);
 });
+
+test('the stable clarity URL serves the real v3 pilot asset without redirect or cache mixing',async()=>{
+  const worker=createStandaloneWorker(),seen=[];
+  const configuration={ASSETS:{fetch:async r=>{seen.push(r);return new Response('<script src="/clarity-v3-app.mjs"></script>',{headers:{'Content-Type':'text/html','Cache-Control':'public, max-age=86400'}});}}};
+  for(const path of ['/clarity','/clarity/','/clarity.html'])for(const method of ['GET','HEAD']){
+    const r=await worker.fetch(request(path,{method,headers:identity}),configuration);
+    assert.equal(r.status,200);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.equal(r.headers.get('Location'),null);
+    assert.equal(new URL(seen.at(-1).url).pathname,'/clarity-v3');
+    assert.equal(await r.text(),method==='HEAD'?'':'<script src="/clarity-v3-app.mjs"></script>');
+    for(const name of Object.keys(identity))assert.equal(seen.at(-1).headers.get(name),null);
+  }
+  assert.equal((await worker.fetch(request('/clarity'),{})).status,503);
+  assert.equal((await worker.fetch(request('/clarity',{method:'POST'}),configuration)).status,405);
+});
+test('pilot script and style responses cannot stay on an old policy after the entry changes',async()=>{
+  const worker=createStandaloneWorker(),configuration={ASSETS:{fetch:async()=>new Response('asset',{headers:{'Cache-Control':'public, max-age=86400'}})}};
+  for(const path of ['/clarity-v3-app.mjs','/clarity-v3-intent.mjs','/clarity-v3.css']){
+    const r=await worker.fetch(request(path),configuration);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.equal(await r.text(),'asset');
+  }
+  assert.equal((await worker.fetch(request('/font.css'),configuration)).headers.get('Cache-Control'),'public, max-age=86400');
+});
