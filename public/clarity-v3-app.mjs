@@ -1,7 +1,7 @@
 import { createPersonalKeyPreference } from './personal-key.mjs';
 import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage } from './ai-settings.mjs';
 import { CLARITY_FLOW } from './clarity-v3-contract.mjs';
-import { expressionPartsV3, shouldGenerateClarityReply, shouldAssembleClarityReview } from './clarity-v3-intent.mjs';
+import { expressionPartsV3, shouldGenerateClarityReply } from './clarity-v3-intent.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
 import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, currentClarityUnderstanding, historicalClarityUnderstanding, reviewPresentation } from './clarity-v3-state.mjs';
 
@@ -27,7 +27,7 @@ function updateStartAction() {
   const action=startAction(); submit.textContent=action.label; submit.disabled=action.disabled; hint.textContent=action.hint;
 }
 const clarityError = reason => reason === 'timeout' ? '这次等待有些久，已停止等待，文字仍在本页。可以重新发送，也可以先整理；已发出的请求仍可能计费。' : aiErrorMessage(reason);
-const waitMessage = () => waitingSlow ? '这次回复有些慢，你可以继续等，也可以先整理。' : '正在等待回复…';
+const waitMessage = () => waitingSlow ? '这次等待有些久，你可以继续等，也可以先保留已有内容。' : session.pending?.kind==='review' ? '正在整理这次对话…' : '正在等待回复…';
 const locked = () => session.statements.length > 0;
 const notice = text => { document.querySelector('#notice').textContent = text; };
 function focusMain() { main.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
@@ -111,13 +111,13 @@ function render() {
       : session.paused ? pause
       : (reply ? '<p class="companion-reply">'+e(reply.text)+'</p>' : '')+
         renderUnderstanding(currentClarityUnderstanding(session))+
-        (session.failure ? '<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">'+e(clarityError(session.failure))+'</p>'+button('重新发送', 'retry') : '')+
+        (session.failure ? '<p class="error" role="alert">'+(session.lastRequestKind==='review'?'这次没能完成整理，原话和对话还在。':'这次没有收到可用的回复。')+'</p><p class="small">'+e(clarityError(session.failure))+'</p>'+button(session.lastRequestKind==='review'?'重新整理':'重新发送', 'retry') : '')+
         (session.question && !session.failure ? '<h1 class="question">'+e(session.question.text)+'</h1>' : '')+
         '<form id="expression-form">'+field(draft, '还想说的话，可以接着写。')+'<button class="primary">发送</button></form>';
     main.innerHTML = '<article class="paper"><div class="actions">'+button('查看前文', 'history')+button('结束本次', 'end')+'</div>'+
       (last ? '<blockquote class="last-word"><p class="small">你刚刚说</p>'+quote+'</blockquote>' : '')+conversation+
       capacityNotice()+(localError ? '<p class="error" role="alert">'+e(localError)+'</p>' : '')+
-      '<div class="actions conversation-actions">'+button('整理这次对话', 'review')+'</div>'+
+      '<div class="actions conversation-actions">'+button('整理这次对话', 'review',false,session.pending?'disabled':'')+button('只保留已有内容', 'local-review')+'</div>'+
       '<details><summary>保留这次表达</summary>'+workingDownload()+'</details></article>';
   } else {
     const r = session.review;
@@ -234,16 +234,35 @@ async function submitExpression(event) {
   try { addExpression(session,text,{kind:!parts.content&&parts.controls.length?'request':'expression'}); }
   catch { capacityMessage='这次内容已经比较多了，刚写的话还在输入框里。可以先保留已有内容，或下载这次完整表达。'; render(); return; }
   draft=''; capacityMessage=''; localError='';
-  if(shouldAssembleClarityReview(policy)){
-    if(parts.content&&session.claims.length)session.stale=true;
-    if(showLocalReview())notice(parts.content&&session.claims.length?'新补充的原话已保留，请核对已有理解。':'已把原话和已有理解整理在一起，没有再次调用 AI。');
+  if(policy.reviewRequested&&policy.explicitInterpretationBan){
+    if(showLocalReview())notice('按你的选择不新增分析，先保留原话和已有内容。');
     return;
   }
   if (!shouldGenerateClarityReply(parts,policy)) {
     notice(parts.controls.some(c=>c.type==='interpret')&&!policy.materials.length?'可以先写一点想理清的事。':'已保留你的交流要求。可以继续说，也可以先停在这里。'); render(); return;
   }
-  if (!route) { showLocalReview(); return; }
+  if (!route) {
+    if(policy.reviewRequested){localError='陪伴服务暂未就绪，可以先保留已有内容，或检查 AI 设置。';render();}
+    else showLocalReview();
+    return;
+  }
   await sendToAi({review:policy.reviewRequested});
+}
+async function requestReview(){
+  if(session.pending)return;
+  const value=draft.trim();
+  if(value&&handleLocalControl(value))return;
+  const policy=conversationControl(session,value);
+  if(value&&policy.recordOnly){notice('想只留原话，可以选择“只保留已有内容”，再修改成想留下的那句。');return;}
+  if(value){
+    const parts=expressionPartsV3(value);
+    try{addExpression(session,value,{kind:!parts.content&&parts.controls.length?'request':'expression'});draft='';}
+    catch{capacityMessage='刚写的内容还在输入框里，可以先保留已有内容，或下载完整表达。';render();return;}
+  }
+  if(policy.explicitInterpretationBan){if(showLocalReview())notice('按你的选择不新增分析，先保留原话和已有内容。');return;}
+  if(!route&&session.callCount===0&&usable())route=routeNow();
+  if(!route){localError='陪伴服务暂未就绪，可以先保留已有内容，或检查 AI 设置。';render();return;}
+  resumeClaritySession(session);await sendToAi({review:true});
 }
 function downloadWorking() {
   if (view==='edit') captureEdits();
@@ -364,7 +383,8 @@ document.addEventListener('click', async event => {
     else if (action === 'retry') await sendToAi({ action:session.lastRequestKind==='action',review:session.lastRequestKind==='review' });
     else if (action === 'resume') resumeConversation();
     else if (action === 'download-working') downloadWorking();
-    else if (action === 'review') { abortRequest(); if (draft.trim()) { if(handleLocalControl(draft))return; if(conversationControl(session,draft).recordOnly){if(showLocalReview())notice('还未替你选择某一句。刚写的原文仍保留在草稿中，可以先编辑已有内容。');return;} try{addExpression(session,draft,{kind:'expression'});draft='';}catch{capacityMessage='刚写的话还在输入框里，可以下载完整表达。';render();return;} } showLocalReview(); }
+    else if (action === 'review') await requestReview();
+    else if (action === 'local-review') { abortRequest(); if (draft.trim()) { if(handleLocalControl(draft))return; if(conversationControl(session,draft).recordOnly){if(showLocalReview())notice('还未替你选择某一句。刚写的原文仍保留在草稿中，可以先编辑已有内容。');return;} try{addExpression(session,draft,{kind:'expression'});draft='';}catch{capacityMessage='刚写的话还在输入框里，可以下载完整表达。';render();return;} } if(showLocalReview())notice('这里只保留原话和已有内容，没有新增 AI 整理。'); }
     else if (action === 'history') { view = 'history'; render(); focusMain(); }
     else if (action === 'return') { view = 'main'; render(); focusMain(); }
     else if (action === 'revise') { const u = session.statements.find(s => s.id === id); openModal('修改前面的表达', `<form id="revise-form" data-id="${e(id)}">${field(u.text, '改成你想说的', 'revised-expression')}<p id="revise-error" class="error" role="alert"></p><button class="primary">保留修改</button></form>`); }

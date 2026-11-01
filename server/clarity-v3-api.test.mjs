@@ -55,11 +55,20 @@ test('new and old flows keep separate idempotency identity and v2 question behav
 });
 
 test('typed review is one explicit generation and invalid spontaneous finishes remain failures',async t=>{
-  const f=fixture(t),body=input({texts:['今天在河边走了一会儿。']});
-  f.produce(()=>output({finish:true,claims:[{type:'event',text:'今天在河边走了一会儿。',evidenceIds:['u1'],derivation:'stated',supersedes:[]}]}));
+  const f=fixture(t),body=input({texts:['今天在河边走了一会儿，觉得很轻松。']});
+  f.produce(()=>output({finish:true,claims:[{type:'feeling',text:'我当时觉得很轻松。',evidenceIds:['u1'],derivation:'stated',supersedes:[]}]}));
   const spontaneous=await f.call(body);assert.equal(spontaneous.body.status,'fallback');assert.equal(spontaneous.body.candidate,null);assert.equal(f.calls(),1);
   const review=await f.call({...body,stage:'review',requestId:crypto.randomUUID()});assert.equal(review.body.status,'candidate',JSON.stringify(review.body));
   assert.equal(review.body.candidate.finish,true);assert.equal(review.body.candidate.question,null);assert.equal(f.calls(),2);
+});
+
+test('a requested report cannot pass by echoing events after ordinary replies had no insight',async t=>{
+  const f=fixture(t),body=input({texts:['今天打算工作，后来忙自己的事，也没休息好。','我该怎么安排。'],stage:'review'});
+  f.produce(()=>output({finish:true,claims:[{type:'event',text:body.session.statements[0].text,evidenceIds:['u1'],derivation:'stated',supersedes:[]}]}));
+  const bad=await f.call(body);assert.equal(bad.body.status,'fallback');assert.equal(bad.body.reason,'review_event_not_allowed');assert.equal(bad.body.candidate,null);
+  assert.equal(f.calls(),1);assert.equal(f.db.prepare('SELECT outcome FROM pilot_requests').get().outcome,'fallback');
+  f.produce(()=>output({finish:true,claims:[{type:'insight',text:'我既想推进工作，也希望自己的时间能真正让我休息。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]}));
+  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-3');assert.equal(f.calls(),2);
 });
 
 test('free client permission flags cannot override explicit listening or no-question requirements',async t=>{

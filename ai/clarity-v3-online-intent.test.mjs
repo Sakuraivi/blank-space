@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {expressionPartsV3,deriveConversationPolicy,shouldGenerateClarityReply,shouldAssembleClarityReview} from '../public/clarity-v3-intent.mjs';
+import {expressionPartsV3,deriveConversationPolicy,shouldGenerateClarityReply} from '../public/clarity-v3-intent.mjs';
 import {createClaritySession,addExpression,conversationControl,beginClarityRequest,applyClarityReply,openClarityReview} from '../public/clarity-v3-state.mjs';
 import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION} from '../public/clarity-v3-contract.mjs';
 const story='周末想做点工作的事，但是一直在做自己的事。';
@@ -25,14 +25,16 @@ test('an analysis request without life material stays local until there is somet
   assert.equal(shouldGenerateClarityReply(expressionPartsV3(text),conversationControl(s,text)),false);
   assert.equal(s.callCount,0);
 });
-test('normal closure assembles previously accepted AI understanding and originals without another model call',()=>{
-  const s=createClaritySession();addExpression(s,story);addExpression(s,'请帮我理清。',{kind:'request'});
-  const ticket=beginClarityRequest(s),candidate={modeId:'concern',goal:'理清这次表达',reply:'你说了想做的事与实际行动。',question:null,finish:false,title:'这次表达',
-    claims:[{type:'insight',text:'我还想分清自己的工作打算和实际安排。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]};
-  assert.equal(applyClarityReply(s,ticket,{status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:ticket.policyVersion,requestId:ticket.requestId,revision:ticket.revision,candidate}).ok,true);
+test('explicit closure generates a real review even when reflection has no understanding yet',()=>{
+  const s=createClaritySession();addExpression(s,story);addExpression(s,'我该怎么计划安排。');
   const calls=s.callCount,text='请AI整理成一份。',parts=expressionPartsV3(text),policy=conversationControl(s,text);
-  assert.equal(shouldAssembleClarityReview(policy),true);assert.equal(shouldGenerateClarityReply(parts,policy),false);
-  addExpression(s,text,{kind:'request'});assert.equal(openClarityReview(s).ok,true);
-  assert.equal(s.callCount,calls);assert.equal(s.review.blocks.find(b=>b.id==='insight').text,candidate.claims[0].text);
-  assert.equal(s.review.blocks.find(b=>b.id==='source').text,story);
+  assert.equal(shouldGenerateClarityReply(parts,policy),true);
+  addExpression(s,text,{kind:'request'});const ticket=beginClarityRequest(s,{review:true});
+  assert.equal(ticket.kind,'review');assert.equal(s.callCount,calls+1);assert.equal(s.review,null);
+  const candidate={modeId:'concern',goal:'理清安排',reply:'先把原计划与实际经历分开。',question:null,finish:true,title:'工作打算与自己的事',
+    claims:[{type:'insight',text:'我想先分清原本想做的工作，与实际花时间做的事，再决定怎样安排。',evidenceIds:['u1','u2'],derivation:'inferred',supersedes:[]}]};
+  assert.equal(applyClarityReply(s,ticket,{status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:ticket.policyVersion,requestId:ticket.requestId,revision:ticket.revision,candidate}).ok,true);
+  assert.equal(s.stage,'reviewing');assert.equal(s.review.blocks.find(b=>b.id==='insight').text,candidate.claims[0].text);
+  assert.equal(s.review.blocks.find(b=>b.id==='source').text,story+'\n\n我该怎么计划安排。');
+  assert.ok(!s.review.blocks.find(b=>b.id==='source').text.includes('请AI'));
 });

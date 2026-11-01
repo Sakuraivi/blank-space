@@ -6,18 +6,20 @@ import {buildClarityModelRequest,validateClarityResponse,CLARITY_POLICY_VERSION}
 import {CLARITY_POLICY_VERSION as PUBLIC_POLICY} from '../public/clarity-v3-contract.mjs';
 import {getOrganizerRoute} from './providers.mjs';
 import {prepareProviderRequest} from './provider-transport.mjs';
+import {validateV3EmotionCorrection} from './clarity-v3-correction.mjs';
 import {prepareNativeFixture,NATIVE_SLOT_IDS} from '../scripts/experiments/clarity-v3-native-fixtures.mjs';
 
 const published=JSON.parse(readFileSync(new URL('./evaluations/2026-11-01-v3-native-qualification.json',import.meta.url),'utf8'));
 const policy2=JSON.parse(readFileSync(new URL('./evaluations/2026-11-01-listening-2-repair.json',import.meta.url),'utf8'));
 const captured=id=>published.trace.registeredSlots.find(s=>s.slotId===id).call;
 const route=getOrganizerRoute({providerId:'bailian',modelId:'deepseek-v4-pro-0813',pricingMode:'manual',inputRate:null,outputRate:null,revision:3});
-test('the recorded negative-positive emotion wording passes the new full contract unchanged while the old failure stays frozen',()=>{
+test('the recorded negative-positive emotion wording still passes its finite guard while the old failure stays frozen',()=>{
   const call=captured('corrected_review'),raw=structuredClone(call.rawOutput),context=structuredClone(call.context);
   assert.equal(call.evidence.api.result.status,'fallback');assert.equal(call.evidence.api.result.reason,'correction_not_applied');
-  const result=validateClarityResponse(raw,context);
+  const result=validateV3EmotionCorrection(raw,context);
   assert.equal(result.ok,true);assert.deepEqual(result.candidate,raw);assert.deepEqual(raw,call.rawOutput);assert.deepEqual(context,call.context);
   assert.equal(result.candidate.claims.some(c=>['insight','tradeoff'].includes(c.type)),false); // Not a content-quality repair.
+  assert.equal(validateClarityResponse(raw,context).reason,'review_event_not_allowed','new report responsibility rejects event excerpts independently of the emotion guard');
   assert.equal(createHash('sha256').update(JSON.stringify(published.trace)).digest('hex'),'1198cd7d0d33e62349bc2fc0b6563b4d5310e5b5aa6e3d4bd470398936d3b019');
 });
 test('the same recorded response still fails for a genuinely reaffirmed denied emotion, wrong correction source, or fabricated event',()=>{
@@ -29,10 +31,11 @@ test('the same recorded response still fails for a genuinely reaffirmed denied e
   const wrong=structuredClone(call.rawOutput);wrong.claims[1].evidenceIds=['u1'];
   assert.equal(validateClarityResponse(wrong,call.context).reason,'correction_not_applied');
   const invented=structuredClone(call.rawOutput);invented.claims[0].text='我一直答应随时帮邻居浇花。';
-  assert.equal(validateClarityResponse(invented,call.context).reason,'ungrounded_event');
+  const noAnalysis=structuredClone(call.context);noAnalysis.statements.push({id:'u12',text:'不用分析。',kind:'request'});
+  assert.equal(validateClarityResponse(invented,noAnalysis).reason,'ungrounded_event');
 });
 test('the new responsibility policy stays generic, immutable and within the unchanged trusted route capacity',()=>{
-  assert.equal(CLARITY_POLICY_VERSION,'clarity-listening-2');assert.equal(PUBLIC_POLICY,CLARITY_POLICY_VERSION);
+  assert.equal(CLARITY_POLICY_VERSION,'clarity-listening-3');assert.equal(PUBLIC_POLICY,CLARITY_POLICY_VERSION);
   for(const id of NATIVE_SLOT_IDS.filter(id=>id!=='stop')){
     const {context}=prepareNativeFixture(id,'ownership20261101a'),before=structuredClone(context),request=buildClarityModelRequest(context,route.profile);
     const body=prepareProviderRequest(request,route),data=JSON.parse(request.input.content);
@@ -43,17 +46,17 @@ test('the new responsibility policy stays generic, immutable and within the unch
     assert.equal(Object.isFrozen(request),true);assert.equal(JSON.parse(body.body).model,'deepseek-v4-pro-0813');
   }
 });
-test('event-only output remains a literal candidate, not evidence that an understanding was generated',()=>{
+test('historical event-only output is now rejected for a requested understanding without rewriting its old outcome',()=>{
   const call=captured('review'),result=validateClarityResponse(call.rawOutput,call.context);
-  assert.equal(result.ok,true);assert.deepEqual(result.candidate,call.rawOutput);
-  assert.ok(result.candidate.claims.every(c=>c.type==='event'));
+  assert.equal(result.reason,'review_event_not_allowed');
+  assert.ok(call.rawOutput.claims.every(c=>c.type==='event'));
   assert.equal(published.semanticReview.slots.find(s=>s.slotId==='review').coreRelation,'fail');
 });
 test('an exact own-correction event or positive suffix is accepted unchanged at one actual source position',()=>{
   const source=['我不是失落，是生气。','我不是委屈，主要是生气。'];
   for(const text of source){
     const context={sessionId:'correction_quote',revision:2,stage:'review',allowNextStep:false,modeId:'concern',goal:null,
-      statements:[{id:'u1',text,kind:'expression'},{id:'u2',text:'请AI整理成一份。',kind:'request'}],dialogue:[],claims:[]};
+      statements:[{id:'u1',text,kind:'expression'},{id:'u2',text:'不用分析。请AI整理成一份。',kind:'request'}],dialogue:[],claims:[]};
     const candidate={modeId:'concern',goal:'留下当前感受',reply:'你说的是生气。',question:null,finish:true,title:'当前感受',
       claims:[{type:'event',text,evidenceIds:['u1'],derivation:'stated',supersedes:[]}]};
     assert.deepEqual(validateClarityResponse(candidate,context).candidate,candidate);

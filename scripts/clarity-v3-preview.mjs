@@ -33,6 +33,8 @@ export function fixtureCandidate(input){
     }
     if(current.text)groups.push(current);
     if(groups.length>3||groups.reduce((n,g)=>n+g.text.length,0)>480)throw new TypeError('fixture_material_capacity');
+    if(p.allowInterpretation)return {...base,reply:'这是模拟占位，不代表真实模型的理解。',finish:true,
+      claims:[{type:'unknown',text:'这里只是检查整理交互的模拟占位，尚未获得真实模型的理解。',evidenceIds:materials.map(m=>m.id),derivation:'stated',supersedes:[]}]};
     return {...base,reply:'这是按已经说过的话生成的模拟整理，你可以改成自己的意思。',finish:true,
       claims:groups.map(g=>({type:'event',text:g.text,evidenceIds:g.ids,derivation:'stated',supersedes:[]}))};
   }

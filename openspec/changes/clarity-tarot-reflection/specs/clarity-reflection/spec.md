@@ -11,8 +11,12 @@
 r5 policy2 SHALL 将原话保全与模型候选理解分开，沿用七字段schema2并将策略版本绑定请求票据和响应应用。Host SHALL 保留完整生活原话，剔除交流控制和历史问答，允许本人修改、移除和恢复；模型event和内部goal SHALL NOT 被当作给本人呈现的理解。模型非event候选 SHALL 保持可见，不以details隐藏新推断后总确认；超容量整体拒绝而非裁文或降组。纯倾诉、仅记原话及尚无理解 SHALL 保持正常。
 
 #### Scenario: Event-only review
-- **WHEN** 模型在明确成稿时只返回合法event摘录
-- **THEN** 原回包与工作claim保持，页面如实显示原话且记录里暂无候选理解；不补写insight、不确认隐藏event、不据保存成功提升内容等级
+- **WHEN** policy3允许分析的明确成稿请求收到event摘录，或对话尚无理解块时本人点击“整理这次对话”
+- **THEN** 主动整理真实请求review，完整校验拒绝模型event而非冒充理解；失败保留对话并明确显示整理失败，不补写insight、不自动降成本地记录。本人可另选“只保留已有内容”；旧policy2事件回包、原记录及禁止分析的原话路径保持其边界
+
+#### Scenario: Actual review after ordinary conversation
+- **WHEN** 普通回应没有insight，但用户已提供生活材料并主动点击整理或明确要求成稿
+- **THEN** policy3派发一次绑定当前完整材料的review，Host完整保全原话，模型主文负责有依据的理解、在意或未知；候选通过后才进入确认页。保存和本地保留不再次调用，暂停/结束/禁止分析继续按本人要求处理
 
 #### Scenario: Multiple understandings and protected originals
 - **WHEN** 同批存在多条合法insight，或受保护原话与新来源发生冲突
