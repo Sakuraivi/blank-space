@@ -1,0 +1,222 @@
+{
+  "date": "2026-11-01",
+  "scope": "User-authorized personal online real-service pilot; not full content or human acceptance",
+  "status": "completed",
+  "entry": "https://blank.sakura.observer/clarity",
+  "deployment": {
+    "sourceCommit": "699f6ef40e3ab02d200f380395c93468843d1e02",
+    "deploymentId": "37bc705d-6492-42ca-82cd-2345b9b0e78b",
+    "versionId": "7e6d8b7c-4636-42a0-99f4-eeddb0592693",
+    "percentage": 100,
+    "previousStableVersion": "d49f5c96-b8a0-4195-8404-b65561c73524",
+    "initialRealPilotVersion": "cae85eb9-3565-4a3d-8084-428bd9d264f8"
+  },
+  "runtime": {
+    "flow": "clarity-v3",
+    "schemaVersion": "liubai-clarity-2",
+    "policyVersion": "clarity-listening-2",
+    "recordFormatVersion": 2,
+    "fixtureInPublicGenerationPath": false
+  },
+  "defaultConfig": {
+    "provider_id": "bailian",
+    "model_id": "deepseek-v4-pro-0813",
+    "revision": 3,
+    "enabled": 1,
+    "pricing_mode": "manual",
+    "input_rate": null,
+    "output_rate": null,
+    "call_limit": null,
+    "shared_budget_micros": null
+  },
+  "authentication": "No ChatGPT identity needed; unauthenticated organizer status is 401",
+  "checks": {
+    "listening": 92,
+    "standalone": 10,
+    "legacyFlowApi": 11,
+    "syntax": true,
+    "strictSpec": true,
+    "buildDryRun": true,
+    "fullLegacyRegression": false,
+    "timing": "standalone and legacy API before initial deployment; listening and dry-run repeated for final client closure patch"
+  },
+  "live": {
+    "freshIsolatedProfile": true,
+    "requestInterception": false,
+    "upstreamReal": true,
+    "developerSyntheticConversation": true,
+    "humanParticipants": 0,
+    "modelCalls": 6,
+    "candidates": 5,
+    "fallbacks": 1,
+    "retries": 0,
+    "exchanges": [
+      {
+        "requestId": "c93dc7f6-c3ef-4ea2-8525-96d180b56e79",
+        "stage": "reflect",
+        "status": "candidate",
+        "reason": null,
+        "fullResponseMs": 4910,
+        "promptTokens": 1193,
+        "completionTokens": 144,
+        "totalTokens": 1337
+      },
+      {
+        "requestId": "1ba97562-5cb3-4b44-b907-2f724bb16261",
+        "stage": "reflect",
+        "status": "candidate",
+        "reason": null,
+        "fullResponseMs": 4798,
+        "promptTokens": 1299,
+        "completionTokens": 120,
+        "totalTokens": 1419
+      },
+      {
+        "requestId": "5735999c-2616-4abb-9996-329d8733e0be",
+        "stage": "reflect",
+        "status": "candidate",
+        "reason": null,
+        "fullResponseMs": 4064,
+        "promptTokens": 1525,
+        "completionTokens": 208,
+        "totalTokens": 1733
+      },
+      {
+        "requestId": "b966d8c0-8bc2-4e69-8def-0a5cc0607913",
+        "stage": "reflect",
+        "status": "candidate",
+        "reason": null,
+        "fullResponseMs": 6647,
+        "promptTokens": 1812,
+        "completionTokens": 211,
+        "totalTokens": 2023
+      },
+      {
+        "requestId": "975844d8-0718-4364-acf9-bfb49c928a7c",
+        "stage": "reflect",
+        "status": "candidate",
+        "reason": null,
+        "fullResponseMs": 5808,
+        "promptTokens": 2062,
+        "completionTokens": 288,
+        "totalTokens": 2350
+      },
+      {
+        "requestId": "045f954c-c498-4488-9070-401d985437e3",
+        "stage": "review",
+        "status": "fallback",
+        "reason": "ungrounded_event",
+        "fullResponseMs": 6783,
+        "promptTokens": 2247,
+        "completionTokens": 315,
+        "totalTokens": 2562
+      }
+    ],
+    "usage": {
+      "promptTokens": 10138,
+      "completionTokens": 1286,
+      "totalTokens": 11424,
+      "costCny": null,
+      "costReason": "organizer-unpriced-r3; zero reservation is not zero cost"
+    },
+    "boundaries": "Full-response client latency, not TTFT; accepted candidates do not certify semantic quality"
+  },
+  "ui": {
+    "save": true,
+    "reloadFindAndReadback": true,
+    "textDownload": true,
+    "pngDownloadAndViewed": true,
+    "mobile390NoHorizontalOverflow": true,
+    "pageErrors": 0,
+    "saveWasDeveloperEdited": true,
+    "editing": "Manually replaced mixed insights with one corrected statement and removed outdated unknown before confirmation",
+    "normalClosure": "Host assembles already generated candidate understanding and complete original materials; no additional AI review request",
+    "finalDeployedNaturalReviewRequestExtraCalls": 0,
+    "endAndExportsExtraCalls": 0,
+    "finalClosureCheck": "Live final version used a separate local-only original to verify natural review dispatch without generation; earlier real-AI record assembly/save was on initial pilot. Not claiming one identical version completed every paid stage"
+  },
+  "content": {
+    "status": "partial; prior No-Go retained",
+    "earlyAnalysis": "Generic acknowledgment/abstract question, not strong decomposition",
+    "laterInsight": "A specific distinction appeared after concrete material",
+    "correction": "New interpretation appeared; supersedes empty, old insight and unknown remained until manual editing",
+    "reviewFailure": "Sixth raw AI review rejected as ungrounded_event; preserved and not retried. Backend model review is not fixed; removed from normal public closure"
+  },
+  "productionChecks": [
+    {
+      "path": "/clarity",
+      "status": 200,
+      "cacheControl": "no-store",
+      "newScript": true,
+      "mock": false
+    },
+    {
+      "path": "/clarity/",
+      "status": 200,
+      "cacheControl": "no-store",
+      "newScript": true,
+      "mock": false
+    },
+    {
+      "path": "/clarity.html",
+      "status": 200,
+      "cacheControl": "no-store",
+      "newScript": true,
+      "mock": false
+    },
+    {
+      "path": "/clarity-v3-app.mjs",
+      "status": 200,
+      "cacheControl": "no-store",
+      "sha256": "97fd106a2094f0c32d1cb22a6ffa6e22ace185f5889beb69fc1ab1410304b7bd",
+      "matchesLocal": true
+    },
+    {
+      "path": "/clarity-v3-intent.mjs",
+      "status": 200,
+      "cacheControl": "no-store",
+      "sha256": "867f4a76eccb1354a39b75afe60695ab35dc5cbad80c3891a286468433969bff",
+      "matchesLocal": true
+    },
+    {
+      "path": "/clarity-v3-contract.mjs",
+      "status": 200,
+      "cacheControl": "no-store",
+      "sha256": "4dc1cf1eb67a76eb5b0d143499071c633ce64b64d683f901934815260b8e3bfe",
+      "matchesLocal": true
+    },
+    {
+      "path": "/clarity-v3-state.mjs",
+      "status": 200,
+      "cacheControl": "no-store",
+      "sha256": "c107d731072b6f332e9c0a220d4c9ea04fc7de0a586d3a017a2c1d6a057ddb2d",
+      "matchesLocal": true
+    },
+    {
+      "path": "/api/ai/status",
+      "status": 200,
+      "cacheControl": "no-store"
+    },
+    {
+      "path": "/api/organizer/status",
+      "status": 401,
+      "cacheControl": "no-store"
+    }
+  ],
+  "evidenceSha256": {
+    "syntheticRequestResponseTrace": "ffdcddcf663281dd982e00f9bf6266cbc8fb0973a63094b67d51750ea69bd093",
+    "ledger": "14bfe3e05c6eabd5a67a747a270a7c2fda10780fb924abe20c6024ba433cbfe8",
+    "recordPng": "118f8e6efeb09a0a44e8ae3c42bf73a0e8197fcf717ab9a7e09a94d98641833e",
+    "mobileScreenshot": "a0816cb2f6ed44fa210bacd37246968f4d55c56dc30562ffda8709e37fbf154e"
+  },
+  "boundaries": {
+    "noSecretRead": true,
+    "noUserExistingTabsOrRecordsRead": true,
+    "noDnsOrD1SchemaChanges": true,
+    "noDefaultModelOrBudgetChanges": true,
+    "priorQualification": "No-Go unchanged",
+    "checklist": "8/19 unchanged; 5.6 and 5.9 not checked",
+    "humanWarmthAcceptance": "not started"
+  },
+  "next": "Personal natural online trial; prioritize specific questions and retirement of corrected interpretations. No new key required."
+}

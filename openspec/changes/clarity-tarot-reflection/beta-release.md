@@ -1,5 +1,7 @@
 # 2026-11-01 内容保留切片的最终发布状态
 
+最新线上个人试用已交付：用户明确要求直接线上实测，`https://blank.sakura.observer/clarity`现为真实v3、源码699f6ef、100% Worker 7e6d8b7c-4636-42a0-99f4-eeddb0592693。正常收尾本地组合已有理解/原话，取消公开重复成稿入口；实际6次模型调用5candidate/1fallback，编辑确认后保存/刷新/导出通过，默认来源/模型/r3/NULL预算和管理认证保留。早轮深度和纠正后旧候选仍有限制，内容No-Go及真人/完整发布门槛未改，旧实验不回填；默认首页未切换。明确个人试用授权仅覆盖这一交付，回退基线d49f5c96-b8a0-4195-8404-b65561c73524。完整证据见[online-real-pilot.md](online-real-pilot.md)。以下为此前批次记录，其中生产状态以当时为准。
+
 最新完整示例配对隔离验证：策略/例文1735564先冻结，执行源码778daae固定同8已知context、默认模型及旧三字段协议，只改变system示例后缀；16次原生响应均candidate、actual apply/全部原话可见/内存save+JSON读回，0重试。内容baseline5 pass/3partial、examples7 pass/1partial，配对6改善/1持平/1退步；核心FULL仍漏学习时间与怕尴尬的连接，并出现特定两次到一般照做的范围风险，发布门槛not met。12项新定向、54项相关检查、两种dry-run/严格规范/独立源码/机械/语义审阅通过；精确16ID输入24246/输出2398/合26644tokens，示例输入约增41%，金额未知。预览已关，4项HTTP及旧100%Worker核对通过，未部署或改配置/UI，整体4/10。下一步先固定examples条件做候选模型对照，暂不以更多轮数替代当前收尾生成能力检查。详见[example-review-v1-evaluation.md](example-review-v1-evaluation.md)。
 
 此前两侧计划生成隔离验证：策略`6fbcdc2`先冻结后读新4例，源码`0f9fd97`固定8次真实生成，7份四字段raw编成公开candidate并实际应用/全部原话可见/内存保存读回，1份原生JSON围栏在provider解析失败（无compile/apply/save、未去围栏或重试）。内容4窄范围pass/3partial/1不可用，FULL仍选偏关系/期待方向、反馈强造关系、照护弱化条件并加持续压力；7个可用全选focus，不能认证理解或留空能力，发布门槛not met。16项新定向、相关16/42项、两种dry-run/严格规范/独立审阅通过；8精确账本7candidate/1fallback，输入8251/输出1631/总9882tokens，金额未知。预览停止、生产HTTP与旧100%Worker不变，未部署或改Key/预算/UI，整体4/10。下一步暂停扩结构，以相同输入/模型/旧三字段协议做生成示例的单变量对照。详见[relation-plan-v1-evaluation.md](relation-plan-v1-evaluation.md)。
@@ -20,7 +22,7 @@
 
 此前v1隔离实验：异步准备/同步Runtime编译适配完成，3次默认模型真实收尾中2次形成候选并通过内存保存、1次引用乱序被拒；内容有过度归因与空泛评价，未启用新协议。3次共2770输入/956输出tokens，金额未定价。历史边界见[material-live-evaluation.md](material-live-evaluation.md)。
 
-当前生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；AI提示策略仍为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。句级引用与v3材料保留实验均未进入生产，分阶段证据见本页所链各实验报告。可回退版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销本次纠正修复。
+此前稳定生产源码`7f7df4f`，Worker版本`d49f5c96-b8a0-4195-8404-b65561c73524`；当时AI提示策略为`clarity-warm-19`，grounding为`clarity-grounding-4`，共享语法模块`clarity-turn-7`。已修复事实段跳过既有纠正检查及嵌套引用归属的问题；144项新版定向、构建、独立审阅及10项线上HTTP检查通过。当时句级引用与v3材料保留实验均未进入生产，分阶段证据见本页所链各实验报告。更早版本`4d2a77f2-c8c0-4c92-8dd6-0c3a856d6886`保留原话记录，但会撤销该次纠正修复。
 
 此前`9950696`发布的首次明确原话要求本地保存路径继续保留，线上浏览器保存/刷新找回及零生成请求的历史证据见[verbatim-recording.md](verbatim-recording.md)。本轮未重复浏览器/PNG验证；5项前端JS SHA仍一致，字体和界面无变更。
 
