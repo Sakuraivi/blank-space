@@ -107,7 +107,9 @@ export function deriveConversationPolicy(context) {
 // Preference changes alone are local. An explicit request to think together
 // needs one real response when there is already material to think about.
 export function shouldGenerateClarityReply(parts,policy){
-  if(policy.endRequested||policy.pauseRequested||policy.recordOnly)return false;
+  if(policy.endRequested||policy.pauseRequested||policy.recordOnly||policy.reviewRequested)return false;
   if(parts.content)return true;
-  return policy.materials.length>0&&(policy.reviewRequested||parts.controls.some(c=>c.type==='interpret'));
+  return policy.materials.length>0&&parts.controls.some(c=>c.type==='interpret');
 }
+
+export const shouldAssembleClarityReview=policy=>Boolean(policy.reviewRequested&&policy.materials.length&&!policy.endRequested&&!policy.pauseRequested);

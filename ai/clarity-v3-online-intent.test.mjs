@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {expressionPartsV3,deriveConversationPolicy,shouldGenerateClarityReply} from '../public/clarity-v3-intent.mjs';
-import {createClaritySession,addExpression,conversationControl,beginClarityRequest} from '../public/clarity-v3-state.mjs';
+import {expressionPartsV3,deriveConversationPolicy,shouldGenerateClarityReply,shouldAssembleClarityReview} from '../public/clarity-v3-intent.mjs';
+import {createClaritySession,addExpression,conversationControl,beginClarityRequest,applyClarityReply,openClarityReview} from '../public/clarity-v3-state.mjs';
+import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION} from '../public/clarity-v3-contract.mjs';
 const story='周末想做点工作的事，但是一直在做自己的事。';
 test('natural explicit analysis requests trigger one reflective response with existing material',()=>{
   for(const text of ['你的拆解是什么？','你对这件事的分析是什么？','能帮我分析下吗？','帮我拆解一下。','你能不能帮我理清这件事？']){
@@ -23,4 +24,15 @@ test('an analysis request without life material stays local until there is somet
   const s=createClaritySession(),text='你的拆解是什么？';
   assert.equal(shouldGenerateClarityReply(expressionPartsV3(text),conversationControl(s,text)),false);
   assert.equal(s.callCount,0);
+});
+test('normal closure assembles previously accepted AI understanding and originals without another model call',()=>{
+  const s=createClaritySession();addExpression(s,story);addExpression(s,'请帮我理清。',{kind:'request'});
+  const ticket=beginClarityRequest(s),candidate={modeId:'concern',goal:'理清这次表达',reply:'你说了想做的事与实际行动。',question:null,finish:false,title:'这次表达',
+    claims:[{type:'insight',text:'我还想分清自己的工作打算和实际安排。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]};
+  assert.equal(applyClarityReply(s,ticket,{status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:ticket.policyVersion,requestId:ticket.requestId,revision:ticket.revision,candidate}).ok,true);
+  const calls=s.callCount,text='请AI整理成一份。',parts=expressionPartsV3(text),policy=conversationControl(s,text);
+  assert.equal(shouldAssembleClarityReview(policy),true);assert.equal(shouldGenerateClarityReply(parts,policy),false);
+  addExpression(s,text,{kind:'request'});assert.equal(openClarityReview(s).ok,true);
+  assert.equal(s.callCount,calls);assert.equal(s.review.blocks.find(b=>b.id==='insight').text,candidate.claims[0].text);
+  assert.equal(s.review.blocks.find(b=>b.id==='source').text,story);
 });
