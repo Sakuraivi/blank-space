@@ -8,6 +8,16 @@ test('L01: explicit listening and no-question are independent persistent prefere
  const q=deriveConversationPolicy(ctx(['不用问，也不用分析。','可以一起分析，但别再问。']));assert.equal(q.allowInterpretation,true);assert.equal(q.allowQuestion,false);
  assert.equal(deriveConversationPolicy(ctx(['不用问。','你可以继续问我。'])).allowQuestion,true);
 });
+
+test('ordinary concern permits provisional understanding without a trigger phrase; explicit preferences still win',()=>{
+ const p=deriveConversationPolicy(ctx(['周末原本想推进工作，后来忙自己的事，也没休息好。','让我在周末也非常疲惫烦恼。']));
+ assert.equal(p.allowInterpretation,true);assert.equal(p.explicitInterpretationBan,false);assert.equal(p.allowQuestion,true);
+ assert.equal(p.reviewRequested,false);assert.equal(p.actionRequested,false);assert.equal(p.controls.length,0);assert.equal(p.materials.length,2);
+ const noQuestion=deriveConversationPolicy(ctx(['别问了。','这让我很疲惫。']));assert.equal(noQuestion.allowQuestion,false);assert.equal(noQuestion.allowInterpretation,true);
+ const listening=deriveConversationPolicy(ctx(['我只想说说，不用分析。','这让我很疲惫。','她说“帮我分析”。']));
+ assert.equal(listening.allowInterpretation,false);assert.equal(listening.explicitInterpretationBan,true);
+ assert.equal(deriveConversationPolicy(ctx(['不用分析。','这让我很疲惫。','帮我理清。'])).allowInterpretation,true);
+});
 test('quoted, reported, malformed and ambiguous instructions remain data',()=>{
  for(const value of ['她说“别问了”。','她说，别问了。','我对朋友说，别问了。','朋友说我今天没空，别问了。','她说可以散步，帮我分析。','她说：\n帮我分析。','她对我说：不用分析。','“不用分析','他说：请AI整理成一份。','我不知道是不是该分析。']){
   assert.deepEqual(expressionPartsV3(value),{content:value,controls:[]},value);
@@ -24,7 +34,8 @@ test('one-shot operations expire, review does not reset preferences and stop win
  assert.equal(deriveConversationPolicy(ctx(['请AI整理成一份。','后来又有新的经历。'])).reviewRequested,false);
  assert.equal(deriveConversationPolicy(ctx(['生活小事。'],{stage:'review'})).allowInterpretation,true);
  assert.equal(deriveConversationPolicy(ctx(['不用分析。','生活小事。'],{stage:'review'})).allowInterpretation,false);
- assert.equal(deriveConversationPolicy(ctx(['请AI整理成一份。','生活小事。'])).allowInterpretation,false);
+ assert.equal(deriveConversationPolicy(ctx(['请AI整理成一份。','生活小事。'])).allowInterpretation,true,'ordinary reflection has its own default permission');
+ assert.equal(deriveConversationPolicy(ctx(['不用分析。','请AI整理成一份。','生活小事。'])).allowInterpretation,false,'a one-shot review never lifts a personal ban');
  for(const op of ['结束不保存。','暂停一下。','不保存。']){const p=deriveConversationPolicy(ctx(['生活小事。',op],{stage:'review',allowNextStep:true}));assert.equal(p.reviewRequested,false);assert.equal(p.actionRequested,false);}
  const d=deriveConversationPolicy(ctx(['不保存。']));assert.equal(d.discardRequested,true);assert.equal(d.endRequested,false);
  const e=deriveConversationPolicy(ctx(['到这里吧，不保存。']));assert.equal(e.endRequested,true);assert.equal(e.discardRequested,true);

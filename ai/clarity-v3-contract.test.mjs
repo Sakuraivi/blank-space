@@ -18,7 +18,7 @@ test('four and twelve real question-answer links remain intact; independent capa
  const q=raw({question:{text:'另一件相关的小事呢？',target:'event',evidenceIds:['u12']}});assert.equal(validateClarityCandidate(q,c).ok,true);
 });
 test('question, explicit interpretation, action and reply checks cannot hide violations',()=>{
- const c=ctx(['不用追问。','今天很累。']),q=raw({question:{text:'发生了什么？',target:'event',evidenceIds:['u2']}});
+ const c=ctx(['不用追问，也不用分析。','今天很累。']),q=raw({question:{text:'发生了什么？',target:'event',evidenceIds:['u2']}});
  assert.equal(validateClarityCandidate(q,c).reason,'question_not_allowed');
  assert.equal(validateClarityCandidate(raw({reply:'今天很累。为什么呢？'}),c).reason,'question_in_reply');
  const insight={type:'insight',text:'我想被认可。',evidenceIds:['u2'],derivation:'inferred',supersedes:[]};assert.equal(validateClarityCandidate(raw({claims:[insight]}),c).reason,'interpretation_not_allowed');

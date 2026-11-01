@@ -32,7 +32,7 @@ test('L04 limited explicit emotion correction adopts source suffix without resur
 test('requested report gives the model understanding responsibility while Host owns original text',()=>{
  const c=ctx(['今天计划做工作的事，但是在做自己的事，也没好好休息。','我该怎么计划安排。'],{stage:'review'});
  const request=buildClarityModelRequest(c,route.profile),data=JSON.parse(request.input.content);
- assert.equal(request.policyVersion,'clarity-listening-4');
+ assert.equal(request.policyVersion,'clarity-listening-5');
  assert.equal(data.outputResponsibilities.model,'organize_supported_understanding_and_open_questions_without_event_excerpts');
  const echo=raw({finish:true,claims:[event(c.statements[0].text)]});
  assert.equal(validateClarityResponse(echo,c).reason,'review_event_not_allowed');

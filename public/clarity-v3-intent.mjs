@@ -75,7 +75,10 @@ export function deriveConversationPolicy(context) {
   // Intentionally accepts an internal prospective 13th statement so a local
   // stop still works at capacity. Wire validation owns the actual 12-source cap.
   if(!context||!Array.isArray(context.statements))throw new TypeError('invalid_policy_context');
-  let allowQuestion=true,allowInterpretation=false,explicitInterpretationBan=false;
+  // Reflecting together is the product's default service, not a permission
+  // unlocked by a magic phrase. A person's explicit listening preference
+  // overrides this default and persists until they explicitly change it.
+  let allowQuestion=true,allowInterpretation=true,explicitInterpretationBan=false;
   const controls=[],materials=[];let latest=[];
   for(const [index,source]of context.statements.entries()){
     if(!source||typeof source.text!=='string'||typeof source.id!=='string')throw new TypeError('invalid_policy_source');
@@ -94,9 +97,8 @@ export function deriveConversationPolicy(context) {
   const discardRequested=has('discard')||latest.some(c=>c.discard===true);
   const reviewRequested=!endRequested&&!pauseRequested&&!discardRequested&&!context.allowNextStep&&(context.stage==='review'||has('review'));
   const recordOnly=!endRequested&&!pauseRequested&&!discardRequested&&!reviewRequested&&!context.allowNextStep&&has('record');
-  // Default listening is not a permanent analysis ban. A typed/explicit review
-  // may authorize analysis for that request, never subsequent reflection; an
-  // earlier explicit ban still wins until the person explicitly changes it.
+  // Review does not override a person's earlier explicit analysis ban.
+  // Automatic reflection and an explicit report remain separate permissions.
   const effectiveInterpretation=allowInterpretation||reviewRequested&&!explicitInterpretationBan;
   const actionRequested=!endRequested&&!pauseRequested&&!discardRequested&&context.allowNextStep===true;
   const kind=endRequested?'end':pauseRequested?'pause':reviewRequested?'review':recordOnly?'record':'respond';

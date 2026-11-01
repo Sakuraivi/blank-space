@@ -68,7 +68,17 @@ test('a requested report cannot pass by echoing events after ordinary replies ha
   const bad=await f.call(body);assert.equal(bad.body.status,'fallback');assert.equal(bad.body.reason,'review_event_not_allowed');assert.equal(bad.body.candidate,null);
   assert.equal(f.calls(),1);assert.equal(f.db.prepare('SELECT outcome FROM pilot_requests').get().outcome,'fallback');
   f.produce(()=>output({finish:true,claims:[{type:'insight',text:'我既想推进工作，也希望自己的时间能真正让我休息。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]}));
-  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-4');assert.equal(f.calls(),2);
+  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-5');assert.equal(f.calls(),2);
+});
+
+test('natural emotional expression can receive understanding and continue without an analysis command or a report',async t=>{
+  const f=fixture(t),body=input({texts:['周末原本想推进工作，后来忙自己的事，也没休息好。','让我在周末也非常疲惫烦恼。']});
+  f.produce(request=>{
+    const data=JSON.parse(request.messages[1].content);assert.equal(data.conversationPolicy.allowInterpretation,true);assert.equal(data.conversationPolicy.reviewRequested,false);
+    return output({reply:'忙着自己的事，也没有得到休息，这两件事可以分开看看。',claims:[{type:'insight',text:'我做了自己的事，却没有得到休息，两者对我来说可能不完全一样。',evidenceIds:['u1','u2'],derivation:'inferred',supersedes:[]}],
+      question:{text:'今天自己的事主要是什么？',target:'event',evidenceIds:['u1']}});
+  });
+  const result=await f.call(body);assert.equal(result.body.status,'candidate');assert.equal(result.body.candidate.finish,false);assert.equal(result.body.candidate.claims[0].type,'insight');assert.equal(f.calls(),1);
 });
 
 test('free client permission flags cannot override explicit listening or no-question requirements',async t=>{
