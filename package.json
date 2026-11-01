@@ -32,6 +32,8 @@
     "evaluate:clarity-semantic-audit": "node scripts/experiments/clarity-semantic-audit-live.mjs",
     "test:clarity-relation-plan": "node --test ai/experiments/clarity-relation-plan.test.mjs scripts/experiments/clarity-relation-plan-worker.test.mjs",
     "evaluate:clarity-relation-plan": "node scripts/experiments/clarity-relation-plan-live.mjs",
+    "test:clarity-example-review": "node --test ai/experiments/clarity-example-review.test.mjs scripts/experiments/clarity-example-review-worker.test.mjs",
+    "evaluate:clarity-example-review": "node scripts/experiments/clarity-example-review-live.mjs",
     "evaluate:clarity-materials": "node scripts/clarity-materials-evaluation.mjs",
     "dev:clarity": "node scripts/clarity-preview.mjs",
     "dev:clarity-fixture": "node scripts/clarity-preview.mjs --fixture",

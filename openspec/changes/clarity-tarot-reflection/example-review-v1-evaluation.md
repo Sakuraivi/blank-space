@@ -29,6 +29,12 @@
 
 每臂每例标 narrow pass / partial / fail / unavailable，再逐对标 improved / tied / regressed / incomparable，引用具体原文与输出支持判断。无可用candidate不得剥围栏后计内容通过。评审由独立agent逐句执行，作者身份披露；不是盲评、用户体验或统计显著性证明。这批只能判断已知受控收尾是否值得进入完整对话验证，不能独立授权发布或勾完4.1。
 
+## 真实前的证据
+
+策略/例文先冻结1735564；真实调用前core6+harness6共12项新定向、54项相关继承链检查、严格规范、独立源码审阅与两种Worker dry-run通过。生产dry-run 142.08KiB/gzip36.27KiB，实验317.43KiB/gzip74.74KiB。8组实际完整请求最大9546B/12000B，输出2000token约束不变。
+
+真实handleApi+内存DB/stub provider测试有16条finished/candidate及16次独立保存读回，实际顺序4对baseline先/4对examples先；故意首臂失败、候选篡改、落盘失败、原生围栏失败均有定向检查。这些合成stub仅证工程，不是内容成功。执行关键摘要覆盖例文/core、继承compiler/guard、完整harness、测试、plan及package；准备最终源冻结后再运行真实批次。
+
 ## 发布边界与后续
 
 不改生产API、flow、Key、模型配置、预算、口令、域名、D1结构、UI、字体或用户记录；只有合成测试记入正常用量。结束停止远程预览，核对精确16个请求账本、生产HTTP和100%部署版本。按用户要求不跑旧版全量回归，仍做新模块、相关继承链的定向检查、构建及独立审阅。
