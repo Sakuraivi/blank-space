@@ -3,7 +3,7 @@ import {deriveConversationPolicy} from './clarity-v3-intent.mjs';
 export const CLARITY_FLOW='clarity-v3';
 export const CLARITY_SCHEMA_VERSION='liubai-clarity-2';
 // Policy changes independently from the unchanged seven-field wire shape.
-export const CLARITY_POLICY_VERSION='clarity-listening-3';
+export const CLARITY_POLICY_VERSION='clarity-listening-4';
 export const CLAIM_TYPES=['event','thought','feeling','need','option','tradeoff','unknown','insight','action'];
 export const MODES=['auto','moment','concern','choice'];
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);

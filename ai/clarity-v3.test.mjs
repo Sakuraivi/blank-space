@@ -32,12 +32,12 @@ test('L04 limited explicit emotion correction adopts source suffix without resur
 test('requested report gives the model understanding responsibility while Host owns original text',()=>{
  const c=ctx(['今天计划做工作的事，但是在做自己的事，也没好好休息。','我该怎么计划安排。'],{stage:'review'});
  const request=buildClarityModelRequest(c,route.profile),data=JSON.parse(request.input.content);
- assert.equal(request.policyVersion,'clarity-listening-3');
+ assert.equal(request.policyVersion,'clarity-listening-4');
  assert.equal(data.outputResponsibilities.model,'organize_supported_understanding_and_open_questions_without_event_excerpts');
  const echo=raw({finish:true,claims:[event(c.statements[0].text)]});
  assert.equal(validateClarityResponse(echo,c).reason,'review_event_not_allowed');
  const value=raw({finish:true,claims:[{type:'insight',text:'我在意的不只是工作没推进，也包括自己的时间没有成为真正的休息。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]},
-   {type:'unknown',text:'我还没说清原本要做的工作是什么，以及自己的事具体占用了哪些时间。',evidenceIds:['u1','u2'],derivation:'stated',supersedes:[]}]});
+   {type:'unknown',text:'我还没说清原本要做的工作是什么，以及自己的事具体占用了哪些时间。',evidenceIds:['u1'],derivation:'stated',supersedes:[]}]});
  assert.equal(validateClarityResponse(value,c).ok,true);
  // An existing listening ban still blocks inferred analysis in a requested review.
  assert.equal(validateClarityResponse(value,ctx([...c.statements.map(s=>s.text),'不用分析。'],{stage:'review'})).reason,'interpretation_not_allowed');

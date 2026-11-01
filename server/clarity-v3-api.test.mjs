@@ -68,7 +68,7 @@ test('a requested report cannot pass by echoing events after ordinary replies ha
   const bad=await f.call(body);assert.equal(bad.body.status,'fallback');assert.equal(bad.body.reason,'review_event_not_allowed');assert.equal(bad.body.candidate,null);
   assert.equal(f.calls(),1);assert.equal(f.db.prepare('SELECT outcome FROM pilot_requests').get().outcome,'fallback');
   f.produce(()=>output({finish:true,claims:[{type:'insight',text:'我既想推进工作，也希望自己的时间能真正让我休息。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]}));
-  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-3');assert.equal(f.calls(),2);
+  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-4');assert.equal(f.calls(),2);
 });
 
 test('free client permission flags cannot override explicit listening or no-question requirements',async t=>{
