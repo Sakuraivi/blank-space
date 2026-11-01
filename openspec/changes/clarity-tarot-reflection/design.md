@@ -23,6 +23,10 @@
 
 ## Decisions
 
+### 0. policy2后续修复：原话与候选理解
+
+[原生资格检查](v3-native-qualification.md)发现明确梳理仍可能只返回event摘录，另有情绪否定句误拦。后续使用`clarity-listening-2`策略，七字段schema2不变并将策略版本绑定票据/响应。Host保全生活原话为可见、可删的独立source块；模型专注具体回应与有依据的候选理解，不把event/内部goal当已经给本人看见的拆解。event仅留工作态/trace不隐式确认，所有非event模型候选可见；缺理解如实表示，历史/手改记录中性呈现。确认时选择保留的原话可随记录写本机，默认仅导出主文，控制/问答/Key不保存。新增有限否定-肯定检查原样保留模型文字，旧v2纠正规则不改。详细契约、反例及尚未验证部分见[listening-2-repair.md](listening-2-repair.md)，不能用这次工程修复升级原内容No-Go。
+
 ### 1. 一条主线与用户控制的分支
 
 ```text

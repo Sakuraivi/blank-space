@@ -65,11 +65,11 @@ test('native permission failures remain failures; no repair, no retry, later reg
   assert.equal(report.complete,true);assert.equal(report.nativeAcceptedSlotCount,5);assert.equal(env.calls.length,7);assert.equal(slot.status,'native_runtime_rejected');
   assert.equal(slot.call.verification.runtimeRejectionMatched,true);assert.equal(slot.call.actualState,undefined);assert.equal(slot.call.programmaticSave,undefined);assert.equal(slot.call.rawOutput.finish,true);
 });
-test('limited existing Host normalization is disclosed separately from the unchanged native raw',async()=>{
+test('policy2 keeps an authorized emotion contrast unchanged through the complete native validator and state path',async()=>{
   const report=await evaluate(environment({mutateRaw(raw,id){return id==='correction'?{...raw,reply:'不是委屈，是生气。'}:raw;}}));
   const call=report.registeredSlots.find(s=>s.slotId==='correction').call;
-  assert.equal(call.rawOutput.reply,'不是委屈，是生气。');assert.equal(call.nativeValidation.candidate.reply,'生气。');
-  assert.equal(call.verification.hostNormalizationObserved,true);assert.equal(call.verification.rawEqualsValidatedCandidate,false);assert.equal(call.verification.actualStateApplied,true);
+  assert.equal(call.rawOutput.reply,'不是委屈，是生气。');assert.equal(call.nativeValidation.candidate.reply,'不是委屈，是生气。');
+  assert.equal(call.verification.hostNormalizationObserved,false);assert.equal(call.verification.rawEqualsValidatedCandidate,true);assert.equal(call.verification.actualStateApplied,true);
 });
 test('object field ordering alone is not reported as Host normalization',async()=>{
   const report=await evaluate(environment({mutateRaw(raw){return Object.fromEntries(Object.entries(raw).reverse());}}));

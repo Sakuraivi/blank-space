@@ -24,7 +24,7 @@ test('native requests use the unchanged public seven-field contract and trusted 
     const {context,ticket}=prepareNativeFixture(sample.id,'native20261101a'),policy=deriveConversationPolicy(context);
     for(const [key,value]of Object.entries(sample.expected))assert.equal(key==='stage'?context.stage:policy[key],value,`${sample.id}:${key}`);
     const request=buildClarityModelRequest(context,route.profile),body=prepareProviderRequest(request,route);
-    assert.equal(request.policyVersion,'clarity-listening-1');assert.equal(request.schemaVersion,'liubai-clarity-2');
+    assert.equal(request.policyVersion,'clarity-listening-2');assert.equal(request.schemaVersion,'liubai-clarity-2');
     assert.ok(body.byteLength<=route.maxRequestBytes);assert.equal(ticket.kind,sample.expected.stage);
     const input=JSON.parse(request.input.content);assert.equal(Object.hasOwn(input,'expected'),false);
     assert.deepEqual(input.context.claims,[]);

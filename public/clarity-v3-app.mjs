@@ -3,7 +3,7 @@ import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection
 import { CLARITY_FLOW } from './clarity-v3-contract.mjs';
 import { expressionPartsV3 } from './clarity-v3-intent.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
-import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply } from './clarity-v3-state.mjs';
+import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, reviewPresentation } from './clarity-v3-state.mjs';
 
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'), modalBody = document.querySelector('#modal-body');
 const preference = createPersonalKeyPreference();
@@ -83,7 +83,10 @@ function showLocalReview() {
 
 function renderBlock(b) {
   const body = b.type === 'option-comparison' ? b.rows.map(r => `<div class="option-row"><h3>${e(r.option)}</h3><p>吸引我的：${e(r.benefit)}</p><p>需要付出：${e(r.cost)}</p><p>还不知道：${e(r.unknown)}</p></div>`).join('') : `<p>${e(b.text)}</p>`;
-  return `<section class="review-block ${b.id === 'insight' ? 'insight' : ''}"><h3>${e(b.label)}</h3>${body}</section>`;
+  const section = `<section class="review-block ${b.id === 'insight' ? 'insight' : ''}"><h3>${e(b.label)}</h3>${body}</section>`;
+  // Only Host-owned original words may start collapsed. Model claims and
+  // their manual edits remain visible before the single confirmation.
+  return b.id==='source'&&b.group==='details'&&!b.edited ? `<details><summary>回看我的原话</summary>${section}</details>` : section;
 }
 function render() {
   if (view === 'history') {
@@ -115,18 +118,20 @@ function render() {
   } else {
     const r = session.review;
     if (!r) { main.innerHTML='<article class="paper"><h1>先停在这里，也可以。</h1><p>还没有需要保存的整理，你可以接着说。</p>'+button('继续说', 'continue', true)+workingDownload()+button('结束本次', 'end')+'</article>'; resizeFields(); return; }
-    main.innerHTML = '<article class="paper"><div class="actions"><span class="small">目前的整理</span>'+ (session.messages.length ? button('查看前文', 'history') : '')+'</div><h1>'+e(r.title)+'</h1>'+
+    const presentation=reviewPresentation(session);
+    main.innerHTML = '<article class="paper"><div class="actions"><span class="small">'+e(presentation.label)+'</span>'+ (session.messages.length ? button('查看前文', 'history') : '')+'</div><h1>'+e(r.title)+'</h1>'+
       (session.stale ? '<p class="help-note">表达有了变化，可以直接修改并重新核对。需要时再请留白整理。</p>' : '')+
+      (presentation.note ? '<p class="status" role="status">'+e(presentation.note)+'</p>' : '')+
       r.blocks.filter(b=>b.group==='main').map(renderBlock).join('')+r.blocks.filter(b=>b.group==='details').map(renderBlock).join('')+
       (!r.blocks.length ? '<p class="help-note">还没有保留内容。可以修改并恢复段落，或自己写一段。</p>' : '')+
       (session.actionProposal ? '<section class="help-note action-proposal"><h3>如果你愿意，可以这样说</h3><p>'+e(session.actionProposal.text)+'</p><div class="actions">'+button('放进这次记录', 'adopt-action')+button('先不用', 'dismiss-action')+'</div></section>' : '')+
-      (session.pending ? '<p class="status" role="status" data-wait-status>'+waitMessage()+'</p>'+button('暂停等待', 'cancel') : session.stage==='kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : button('确认并保存', 'save', true))+
+      (session.pending ? '<p class="status" role="status" data-wait-status>'+waitMessage()+'</p>'+button('暂停等待', 'cancel') : session.stage==='kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : '<p class="small">'+e(presentation.privacy)+'</p>'+button('确认并保存', 'save', true))+
       (session.paused ? '<p class="pause-note" role="status">已暂停，当前内容还在。</p>'+button('继续说', 'resume') : '')+
       (session.failure ? '<p class="error">'+e(clarityError(session.failure))+'</p>'+button('重新发送', 'retry') : '')+
       capacityNotice()+(localError ? '<p class="error" role="alert">'+e(localError)+'</p>' : '')+
       '<div class="actions">'+button('修改', 'edit')+(session.statements.length ? button('再聊一句', 'continue') : '')+button('结束本次', 'end')+'</div>'+
       (session.stale ? (route ? button('请AI重新整理成一份', 'generate-review') : '')+'<label class="small"><input id="review-rechecked" type="checkbox">我已重新核对这份整理</label>' : '')+
-      (session.stage==='kept' ? '<details><summary>导出或保留表达</summary><label class="small"><input id="export-details" type="checkbox">包括补充内容</label><div class="actions">'+button('下载整理文字', 'export-text')+button('导出整理图片', 'export-image')+workingDownload()+
+      (session.stage==='kept' ? '<details><summary>导出或保留表达</summary>'+(r.blocks.some(b=>b.group==='details')?'<label class="small"><input id="export-details" type="checkbox">包括原话和补充</label>':'')+'<div class="actions">'+button('下载整理文字', 'export-text')+button('导出整理图片', 'export-image')+workingDownload()+
       (route ? button('帮我想一句怎么说', 'request-action') : '')+'</div></details>' : '<details><summary>保留这次表达</summary>'+workingDownload()+'</details>')+'</article>';
   }
   resizeFields();
@@ -388,7 +393,7 @@ document.addEventListener('click', async event => {
     else if (action === 'request-action') { if (!route) { notice('这份记录来自本机。开始一次新的对话后可以请 AI 帮忙。'); return; } addExpression(session, '请根据刚才的期待，帮我想一句可以怎么说。', { kind: 'request' }); session.stage = 'reviewing'; await sendToAi({ action: true }); }
     else if (action === 'adopt-action') { addClarityNote(session, session.actionProposal.text); session.review.blocks.at(-1).label = '如果我愿意，可以这样说'; session.actionProposal = null; render(); }
     else if (action === 'dismiss-action') { session.actionProposal = null; render(); }
-    else if (action === 'privacy') openModal('关于留白与隐私', '<p>留白用 AI 陪你回看表达、拆解事情。理解可能不准确，你可以随时纠正或停下。</p><p>点击发送后，本次表达与已聊到的内容会经留白交给所选 AI 服务。旧记录不会自动上传。</p><p>对话与个人 Key 暂留本页，刷新或离开会清除。点击确认并保存后，只把确认的整理留在这个浏览器中，不另存原始对话。共用设备的人可能看到本机记录。</p><p>页面不录音。设备键盘的语音输入由设备处理。API 调用可能收费，失败或取消也可能产生费用。</p>');
+    else if (action === 'privacy') openModal('关于留白与隐私', '<p>留白用 AI 陪你回看表达、拆解事情。理解可能不准确，你可以随时纠正或停下。</p><p>点击发送后，本次表达与已聊到的内容会经留白交给所选 AI 服务。旧记录不会自动上传。</p><p>对话与个人 Key 暂留本页，刷新或离开会清除。点击确认并保存后，确认的记录与保留的生活原话一起存在这个浏览器中；原话可在修改时移除，不保存问答过程、交流指令或 Key。共用设备的人可能看到本机记录。</p><p>默认导出主文，可自行选择包括补充区的原话与内容。页面不录音。设备键盘的语音输入由设备处理。API 调用可能收费，失败或取消也可能产生费用。</p>');
   } catch (error) {
     if(['review_capacity_exceeded','active_claims_limit','manual_context_too_large'].includes(error.message)){
       capacityMessage='这次内容超过当前整理容量，原文和修改还在，可以下载完整表达。';render();

@@ -52,7 +52,7 @@ test('six fixed slots use the unchanged public v3 contract and native API ledger
     const {status,evidence:e}=await call(worker,f.env,slot),seed=prepareNativeFixture(slot,RUN);
     assert.equal(status,200);assert.equal(e.label,NATIVE_LABEL);assert.equal(e.kind,'fixed_context_native_v3');assert.deepEqual(e.context,seed.context);
     assert.equal(e.api.result.status,'candidate',JSON.stringify(e.api));assert.equal(e.api.result.flow,'clarity-v3');
-    assert.equal(e.api.result.schemaVersion,'liubai-clarity-2');assert.equal(e.hostRequest.policyVersion,'clarity-listening-1');assert.equal(e.hostRequest.schemaVersion,'liubai-clarity-2');
+    assert.equal(e.api.result.schemaVersion,'liubai-clarity-2');assert.equal(e.hostRequest.policyVersion,'clarity-listening-2');assert.equal(e.hostRequest.schemaVersion,'liubai-clarity-2');
     assert.deepEqual(e.hostRequest.expectedContext,seed.context);assert.equal(e.transport.dispatches,1);assert.equal(e.transport.returnedModel,NATIVE_SOURCE.modelId);
     const expected=prepareProviderRequest(buildClarityModelRequest(seed.context,route().profile),route());
     assert.deepEqual(e.transport.request,JSON.parse(expected.body));assert.equal(e.transport.byteLength,expected.byteLength);

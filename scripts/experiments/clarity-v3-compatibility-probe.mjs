@@ -10,7 +10,7 @@ import {buildClarityModelRequest,validateClarityResponse} from '../../ai/clarity
 import {getPersonalRoute} from '../../ai/providers.mjs';
 import {prepareProviderRequest} from '../../ai/provider-transport.mjs';
 import {deriveConversationPolicy} from '../../public/clarity-v3-intent.mjs';
-import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION} from '../../public/clarity-v3-contract.mjs';
+import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION,CLARITY_POLICY_VERSION} from '../../public/clarity-v3-contract.mjs';
 import {beginClarityRequest,applyClarityReply,addExpression,pauseClaritySession,editClarityBlock,saveClarityRecord,
   readRecordEntries,recordText,exportWorkingText} from '../../public/clarity-v3-state.mjs';
 
@@ -19,7 +19,7 @@ export const COMPATIBILITY_EVALUATION_SHA='fa6bd66ac17c9e5e53a8ab5a312b922e39b62
 const CAPTURE_COMMIT='29e4983f6e25eb7f24733656635e54b4c1dcaf82';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const envelope=(ticket,candidate)=>({status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,
+const envelope=(ticket,candidate)=>({status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:ticket.policyVersion,
   requestId:ticket.requestId,revision:ticket.revision,candidate:structuredClone(candidate)});
 function memory(){const values=new Map();return {values,getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};}
 const errorOf=operation=>{try{operation();return null;}catch(error){return error.message;}};
@@ -51,14 +51,13 @@ async function inspectArm(call,semanticGrade){
   const saved=saveProbe(session);assert.ok(saved.ok&&saved.roundTripExact);
   const insights=p.raw.claims.filter(c=>c.type==='insight').map(c=>c.text);
   const insightBlock=saved.record.review.blocks.find(b=>b.id==='insight');
-  const event=p.mapping.candidate.claims.find(c=>c.type==='event');
   const preservation={replyUnchanged:candidate.reply===p.raw.reply,titleUnchanged:candidate.title===p.raw.title,
     analysisTextsUnchanged:equal(candidate.claims.filter(c=>c.type!=='event').map(c=>c.text),p.raw.claims.map(c=>c.text)),
     insightParagraphsExact:insightBlock?.text===insights.join('\n\n'),
-    allSourceTextRetained:saved.record.review.blocks.find(b=>b.id==='context')?.text===event.text,
+    allSourceTextRetained:saved.record.review.blocks.find(b=>b.id==='source')?.text===policy.materials.map(s=>s.text).join('\n\n'),
     originalQuestionsAndAnswersExact:equal(ticket.context.dialogue,p.sourceContext.dialogue),
     originalSourcesExact:equal(ticket.context.statements.slice(0,p.sourceContext.statements.length),p.sourceContext.statements),
-    simulatedControlExcludedFromRecord:!recordText(saved.record).includes('请AI整理成一份。')};
+    simulatedControlExcludedFromRecord:!recordText(saved.record,{details:true}).includes('请AI整理成一份。')};
   assert.ok(Object.values(preservation).every(Boolean),'counterfactual_text_or_source_changed');
   return {arm:call.arm,requestedModel:route.modelId,nativeContentSha256:p.nativeContentSha256,
     original:{requestId:call.requestId,apiStatus:call.evidence.api.result.status,reason:call.evidence.api.result.reason??null,oldReplay:p.oldValidation},
@@ -143,7 +142,7 @@ export async function runV3CompatibilityProbe(evaluation){
     assert.equal(capture.arms[arm].calls.length,1);arms.push(await inspectArm(capture.arms[arm].calls[0],semantic.arms[arm].grade));
   }
   const reference=await prepareClarityV3Compatibility(capture.arms.reference.calls[0]),negativeControls=controls(reference);
-  return {version:'clarity-v3-compatibility-probe-1',counterfactual:true,modelCalls:0,providerRequests:0,sharedLedgerWrites:0,externalStorageWrites:0,
+  return {version:'clarity-v3-compatibility-probe-2',targetPolicyVersion:CLARITY_POLICY_VERSION,counterfactual:true,modelCalls:0,providerRequests:0,sharedLedgerWrites:0,externalStorageWrites:0,
     capture:{sourceCommit:CAPTURE_COMMIT,evaluationSerializedSha256:COMPATIBILITY_EVALUATION_SHA,liveSha256:COMPATIBILITY_CAPTURE_SHA,caseId:capture.caseId,knownRegression:true},
     unchangedPriorAssessment:{modelScreeningGate:evaluation.modelScreeningGate,originalCandidateCount:evaluation.counts.candidate,
       originalRejectedCount:evaluation.counts.runtimeRejected,eligibleCandidates:[]},
@@ -157,7 +156,7 @@ export function compatibilityProbeSourceMetadata(){
   const root=fileURLToPath(new URL('../../',import.meta.url)),git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
   const files=['ai/experiments/clarity-v3-compatibility.mjs','ai/experiments/clarity-v3-compatibility.test.mjs',
     'scripts/experiments/clarity-v3-compatibility-probe.mjs','scripts/experiments/clarity-v3-compatibility-probe.test.mjs',
-    'ai/clarity-v3.mjs','public/clarity-v3-contract.mjs','public/clarity-v3-intent.mjs','public/clarity-v3-state.mjs','public/clarity-state.mjs',
+    'ai/clarity-v3.mjs','ai/clarity-v3-correction.mjs','public/clarity-v3-contract.mjs','public/clarity-v3-intent.mjs','public/clarity-v3-state.mjs','public/clarity-state.mjs',
     'ai/experiments/clarity-example-review.mjs','ai/experiments/clarity-review-examples.mjs','ai/experiments/clarity-faithful-dialogue.mjs',
     'ai/experiments/clarity-source-checked.mjs','ai/experiments/clarity-duration-source.mjs','ai/experiments/clarity-retained-concern.mjs',
     'ai/experiments/clarity-retention-ledger.mjs','ai/experiments/clarity-materials.mjs','ai/provider-transport.mjs','ai/providers.mjs',

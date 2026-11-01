@@ -6,6 +6,26 @@
 
 ## ADDED Requirements
 
+### Requirement: Original material and provisional understanding ownership
+
+r5 policy2 SHALL 将原话保全与模型候选理解分开，沿用七字段schema2并将策略版本绑定请求票据和响应应用。Host SHALL 保留完整生活原话，剔除交流控制和历史问答，允许本人修改、移除和恢复；模型event和内部goal SHALL NOT 被当作给本人呈现的理解。模型非event候选 SHALL 保持可见，不以details隐藏新推断后总确认；超容量整体拒绝而非裁文或降组。纯倾诉、仅记原话及尚无理解 SHALL 保持正常。
+
+#### Scenario: Event-only review
+- **WHEN** 模型在明确成稿时只返回合法event摘录
+- **THEN** 原回包与工作claim保持，页面如实显示原话且记录里暂无候选理解；不补写insight、不确认隐藏event、不据保存成功提升内容等级
+
+#### Scenario: Multiple understandings and protected originals
+- **WHEN** 同批存在多条合法insight，或受保护原话与新来源发生冲突
+- **THEN** 理解原文与顺序保持，完整原话独立可回看；冲突保护原内容并标待核对，超三主文不隐藏候选或半应用
+
+#### Scenario: Explicit preservation of original material
+- **WHEN** 本人确认保存包含source块的记录
+- **THEN** 明确说明所选原话与整理保存在本机，可在保存前移除；不保存问答/控制/Key，默认导出主文，附带details需另选；历史或手改记录不凭块ID重评语义
+
+#### Scenario: Authorized negative-positive emotion wording
+- **WHEN** 本人明确纠正X为Y，候选以有限支持的第一/第二人称否定X并肯定Y，且claim引用实际纠正source
+- **THEN** 新v3 guard不把该否定句误作重新认定X，原始文字不归一改写；随后真实再次肯定X、错源及伪造event仍拒绝，不把有限规则宣称通用语义验证
+
 ### Requirement: Direct and simple primary path
 
 系统 SHALL 让首次访客直接输入表达，不要求先选主题、整理模式或模型服务。默认页面 SHALL 至多有一个高强调主动作，按钮名与行为一致；对话阶段不默认展示步骤导航、分类侧栏或逐条认可按钮组。必要的首次发送说明 SHALL 保持可读。

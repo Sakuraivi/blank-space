@@ -14,7 +14,7 @@ import {beginClarityRequest,applyClarityReply,wireSession,saveClarityRecord,read
 const evaluation=JSON.parse(readFileSync(new URL('../evaluations/2026-11-01-model-comparison-v1.json',import.meta.url),'utf8'));
 const captured=()=>structuredClone(evaluation.live.cases.find(row=>row.caseId==='RELATION_K_FULL').arms.reference.calls[0]);
 const sha=text=>createHash('sha256').update(text).digest('hex');
-const envelope=(ticket,candidate)=>({status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,
+const envelope=(ticket,candidate)=>({status:'candidate',flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:ticket.policyVersion,
   requestId:ticket.requestId,revision:ticket.revision,candidate});
 
 test('the captured old rejection remains unchanged while both original insights and exact anchor provenance are retained',async()=>{
@@ -58,7 +58,7 @@ test('an explicit hypothetical review passes the full v3 validator, groups both 
   assert.equal(applyClarityReply(session,ticket,envelope(ticket,checked.candidate)).ok,true);
   const block=session.review.blocks.find(item=>item.id==='insight');
   assert.equal(block.text,probe.raw.claims.map(claim=>claim.text).join('\n\n'));assert.equal(block.claimIds.length,2);
-  assert.equal(session.review.blocks.find(item=>item.id==='context').text,probe.mapping.candidate.claims[0].text);
+  assert.equal(session.review.blocks.find(item=>item.id==='source').text,probe.sourceContext.statements.map(s=>s.text).join('\n\n'));
   const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
   const saved=saveClarityRecord(session,storage);assert.equal(saved.ok,true);assert.equal(saved.record.formatVersion,2);
   assert.deepEqual(readRecordEntries(storage)[0].record,saved.record);

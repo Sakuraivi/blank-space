@@ -9,7 +9,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {getOrganizerRoute} from '../../ai/providers.mjs';
 import {prepareProviderRequest} from '../../ai/provider-transport.mjs';
 import {buildClarityModelRequest,validateClarityResponse} from '../../ai/clarity-v3.mjs';
-import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION} from '../../public/clarity-v3-contract.mjs';
+import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION,CLARITY_POLICY_VERSION} from '../../public/clarity-v3-contract.mjs';
 import {applyClarityReply,saveClarityRecord,readRecordEntries,RECORD_STORE} from '../../public/clarity-v3-state.mjs';
 import {NATIVE_LABEL,NATIVE_ORIGIN,NATIVE_TTL_MS,NATIVE_SOURCE,NATIVE_SLOT_IDS,NATIVE_CASES,
   validNativeRunId,prepareNativeFixture} from './clarity-v3-native-fixtures.mjs';
@@ -103,7 +103,7 @@ export async function runNativeV3Evaluation({runId,origin=NATIVE_ORIGIN,fetchImp
   if(!validNativeRunId(runId)||origin!==NATIVE_ORIGIN||typeof fetchImpl!=='function'||typeof persist!=='function'||typeof now!=='function')throw new TypeError('invalid_native_evaluation_options');
   const slots=NATIVE_SLOT_IDS.map(slotId=>{const seeded=prepareNativeFixture(slotId,runId);return {slotId,requestId:seeded.ticket?.requestId??null,
     plannedModelCalls:seeded.ticket===null?0:1,purpose:NATIVE_CASES.find(s=>s.id===slotId).purpose,status:'registered',handled:false,complete:false,call:null};});
-  const report={synthetic:true,label:NATIVE_LABEL,kind:'known_context_native_v3_qualification',runId,origin,source:NATIVE_SOURCE,
+  const report={synthetic:true,label:NATIVE_LABEL,kind:'known_context_native_v3_qualification',targetPolicyVersion:CLARITY_POLICY_VERSION,runId,origin,source:NATIVE_SOURCE,
     startedAt:new Date(now()).toISOString(),registeredSlots:slots,plannedMaximumModelCalls:6,retries:0,clientStepAttempts:0,
     modelDispatchesObserved:0,nativeResponseCount:0,complete:false,nativeAcceptedSlotCount:0,memorySavedSlotCount:0,
     semanticReview:'pending_manual_review',contentReleaseGate:'not_met',productionIntegrated:false,humanParticipants:0,
@@ -159,9 +159,9 @@ export function nativeV3SourceMetadata(){
   const root=fileURLToPath(new URL('../../',import.meta.url)),git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
   const files=['scripts/experiments/clarity-v3-native-fixtures.mjs','scripts/experiments/clarity-v3-native-fixtures.test.mjs','scripts/experiments/clarity-v3-native-worker.mjs','scripts/experiments/clarity-v3-native-worker.test.mjs',
     'scripts/experiments/clarity-v3-native-live.mjs','scripts/experiments/clarity-v3-native-live.test.mjs','scripts/experiments/clarity-model-comparison-worker.mjs',
-    'ai/fixtures/clarity-relation-plan-known.mjs','ai/clarity-v3.mjs','ai/clarity-grounding.mjs','ai/clarity-turn.mjs','ai/runtime.mjs','ai/providers.mjs','ai/provider-transport.mjs','ai/ledger.mjs',
+    'ai/fixtures/clarity-relation-plan-known.mjs','ai/clarity-v3.mjs','ai/clarity-v3-correction.mjs','ai/clarity-v3-correction.test.mjs','ai/clarity-v3-ownership.test.mjs','ai/clarity-v3-owned-review.test.mjs','ai/clarity-grounding.mjs','ai/clarity-turn.mjs','ai/runtime.mjs','ai/providers.mjs','ai/provider-transport.mjs','ai/ledger.mjs',
     'server/api.mjs','server/organizer-config.mjs','server/secrets.mjs','public/clarity-v3-contract.mjs','public/clarity-v3-intent.mjs','public/clarity-v3-state.mjs','public/clarity-state.mjs','public/clarity-contract.mjs',
-    'openspec/changes/clarity-tarot-reflection/v3-native-qualification.md','package.json'];
+    'openspec/changes/clarity-tarot-reflection/v3-native-qualification.md','openspec/changes/clarity-tarot-reflection/listening-2-repair.md','package.json'];
   return {sourceCommit:git(['rev-parse','HEAD']),sourceTreeDirty:git(['status','--porcelain']).length>0,sourceDigests:files.map(file=>({file,sha256:digest(readFileSync(new URL(`../../${file}`,import.meta.url)))}))};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as state from '../public/clarity-v3-state.mjs';
 import * as old from '../public/clarity-state.mjs';
-import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION,checkClarityContext} from '../public/clarity-v3-contract.mjs';
+import {CLARITY_FLOW,CLARITY_SCHEMA_VERSION,CLARITY_POLICY_VERSION,checkClarityContext} from '../public/clarity-v3-contract.mjs';
 const claim=(type,text,evidenceIds=['u1'],supersedes=[])=>({type,text,evidenceIds,supersedes,derivation:'stated'});
 const response=(overrides={})=>({modeId:'concern',goal:'聊聊这件事',title:'这次的表达',reply:'你可以按自己的节奏继续说。',question:null,claims:[],finish:false,...overrides});
-const envelope=(ticket,candidate,overrides={})=>({flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,requestId:ticket.requestId,revision:ticket.revision,status:'candidate',candidate,...overrides});
+const envelope=(ticket,candidate,overrides={})=>({flow:CLARITY_FLOW,schemaVersion:CLARITY_SCHEMA_VERSION,policyVersion:CLARITY_POLICY_VERSION,requestId:ticket.requestId,revision:ticket.revision,status:'candidate',candidate,...overrides});
 function accept(s,candidate=response(),options={}){const ticket=state.beginClarityRequest(s,options);assert.equal(state.applyClarityReply(s,ticket,envelope(ticket,candidate)).ok,true);return ticket;}
 function storage(initial=[]){const values=new Map(initial);return {values,getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};}
 function reviewed(){const s=state.createClaritySession();state.addExpression(s,'我想休息，也怕拒绝后见面尴尬。');
@@ -74,7 +74,7 @@ test('L05 local verbatim and local previews retain all actual source without lea
   assert.equal(state.saveClarityRecord(local,storage()).ok,true);assert.doesNotMatch(state.recordText(state.saveClarityRecord(local,storage()).record),/听着就好|别问我/);
 });
 
-test('L04 a natural feeling correction survives fresh review and format2 save without reviving the prior candidate',()=>{
+test('L04 current emotion correction stays separate from the exact retained history',()=>{
   const s=state.createClaritySession();state.addExpression(s,'朋友取消了，我很失落。');
   accept(s,response({claims:[claim('feeling','我很失落。')]}));const previous=s.claims[0].id;
   state.addExpression(s,'不是失落，是生气。她已经主动约了新时间。');assert.equal(s.statements.at(-1).kind,'expression');
@@ -82,7 +82,10 @@ test('L04 a natural feeling correction survives fresh review and format2 save wi
   assert.equal(s.claims.find(c=>c.id===previous).archived,true);
   const store=storage(),saved=state.saveClarityRecord(s,store);assert.equal(saved.ok,true);
   const reopened=state.readRecordEntries(store)[0].record;assert.deepEqual(reopened,saved.record);
-  assert.doesNotMatch(state.recordText(reopened),/我很失落/);assert.match(state.recordText(reopened),/是生气/);assert.match(state.recordText(reopened),/主动约了新时间/);
+  assert.equal(s.claims.find(c=>c.id===previous).archived,true);
+  assert.equal(reopened.review.blocks[0].label,'保留的原话');
+  assert.equal(reopened.review.blocks[0].text,s.statements.map(source=>source.text).join('\n\n'));
+  assert.match(state.recordText(reopened),/是生气/);assert.match(state.recordText(reopened),/主动约了新时间/);
 });
 
 test('edited and confirmed text, explicit removals and stale acknowledgements remain authoritative',()=>{
@@ -91,9 +94,9 @@ test('edited and confirmed text, explicit removals and stale acknowledgements re
   accept(s,candidate,{review:true});assert.equal(s.review.blocks.find(b=>b.id==='insight').text,'我现在更想把周末留给自己。');
   assert.equal(state.saveClarityRecord(s,storage()).reason,'review_stale');state.acknowledgeClarityReview(s);
   assert.equal(state.saveClarityRecord(s,storage()).ok,true);assert.equal(s.claims.find(c=>c.id===edited.id).locked,true);
-  const before=structuredClone(s.review);state.addExpression(s,'我想继续补充一点。');
-  accept(s,response({finish:true,claims:[claim('event','模型要替换确认后的原话。',['u3'],[before.blocks[0].claimIds[0]])]}),{review:true});
-  assert.deepEqual(s.review.blocks.find(b=>b.id===before.blocks[0].id),before.blocks[0]);assert.equal(s.stale,true);
+  const before=structuredClone(s.review),protectedInsight=before.blocks.find(b=>b.id==='insight');state.addExpression(s,'我想继续补充一点。');
+  accept(s,response({finish:true,claims:[claim('event','模型要替换确认后的原话。',['u3'],[protectedInsight.claimIds[0]])]}),{review:true});
+  assert.deepEqual(s.review.blocks.find(b=>b.id==='insight'),protectedInsight);assert.equal(s.stale,true);
   const removed=reviewed();for(const b of [...removed.review.blocks])state.removeClarityBlock(removed,b.id);
   assert.equal(removed.reviewReady,false);assert.equal(state.saveClarityRecord(removed,storage()).reason,'empty_review');
   state.restoreClarityBlock(removed);assert.equal(removed.reviewReady,true);
@@ -104,8 +107,9 @@ test('edited and confirmed text, explicit removals and stale acknowledgements re
 test('L08 source, active claim and storage capacity failures preserve full text and never claim a save',()=>{
   const s=state.createClaritySession();for(let i=0;i<12;i++)state.addExpression(s,`${i}：`+'长'.repeat(3990));
   const snapshot=structuredClone(s);assert.throws(()=>state.addExpression(s,'第十三条未提交草稿。'),/invalid_expression/);assert.deepEqual(s,snapshot);
-  assert.equal(state.openClarityReview(s).ok,true);const before=s.callCount;
-  assert.equal(state.saveClarityRecord(s,storage()).reason,'review_capacity_exceeded');assert.equal(s.callCount,before);assert.notEqual(s.stage,'kept');
+  const before=s.callCount,originalSession=structuredClone(s);
+  assert.equal(state.openClarityReview(s).reason,'review_capacity_exceeded');assert.deepEqual(s,originalSession);
+  assert.equal(s.callCount,before);assert.notEqual(s.stage,'kept');
   s.personalApiKey='not-exported-secret';const exported=state.exportWorkingText(s);for(const source of s.statements)assert.ok(exported.includes(source.text));
   assert.ok(exported.endsWith(s.statements.map(x=>x.text).join('\n\n')));assert.ok(!exported.includes('not-exported-secret'));
   const crowded=state.createClaritySession();state.addExpression(crowded,'这是保留的表达。');
@@ -116,7 +120,7 @@ test('L08 source, active claim and storage capacity failures preserve full text 
 });
 
 test('L07 binding, revisions, failures and action proposals cannot silently mutate review text',()=>{
-  for(const overrides of [{flow:'clarity-v2'},{schemaVersion:'liubai-clarity-1'},{requestId:'other'},{revision:1000}]){
+  for(const overrides of [{flow:'clarity-v2'},{schemaVersion:'liubai-clarity-1'},{policyVersion:'clarity-listening-1'},{policyVersion:undefined},{requestId:'other'},{revision:1000}]){
     const s=state.createClaritySession();state.addExpression(s,'今天还想说一点事。');const ticket=state.beginClarityRequest(s);
     assert.equal(state.applyClarityReply(s,ticket,envelope(ticket,response(),overrides)).reason,'invalid_response');assert.equal(s.claims.length,0);assert.equal(s.review,null);
   }
@@ -156,7 +160,7 @@ test('a later explicit request source follows local no-save without losing revie
 test('saved confirmed blocks survive a replacement or omitted group even when a model never declares supersedes',()=>{
   for(const omitContext of [false,true]){
     const s=reviewed();assert.equal(state.saveClarityRecord(s,storage()).ok,true);const before=structuredClone(s.review);
-    if(omitContext){state.reviseExpression(s,'u1','我现在更想把休息的需要讲清楚。');assert.ok(s.claims.every(c=>c.status==='stale'&&c.locked));}
+    if(omitContext){state.reviseExpression(s,'u1','我现在更想把休息的需要讲清楚。');assert.ok(s.claims.every(c=>c.status==='stale'));assert.ok(s.claims.filter(c=>c.type!=='event').every(c=>c.locked));}
     state.addExpression(s,'我还想补充接下来怎么安排。');
     const claims=omitContext?[claim('unknown','还没有确定下一步。',['u2'])]:[claim('event','模型改写了先前已经确认的正文。',['u2'])];
     accept(s,response({finish:true,title:'模型换了一个标题',claims}),{review:true});
@@ -172,9 +176,9 @@ test('saved local raw review with no claim IDs is protected; deleting a saved bl
   state.addExpression(s,'后来又补充一点。');accept(s,response({finish:true,claims:[claim('event','模型给出的另一段。',['u2'])]}),{review:true});
   assert.deepEqual(s.review.blocks.find(b=>b.id===before.id),before);assert.equal(s.stale,true);assert.equal(state.saveClarityRecord(s,storage()).reason,'review_stale');
   state.acknowledgeClarityReview(s);assert.equal(state.saveClarityRecord(s,storage()).ok,true);
-  state.removeClarityBlock(s,'context');
+  state.removeClarityBlock(s,'source');
   accept(s,response({finish:true,claims:[claim('event','模型想把已删段落放回来。',['u2']),claim('unknown','还没确定。',['u2'])]}),{review:true});
-  assert.equal(s.review.blocks.some(b=>b.id==='context'),false);
+  assert.equal(s.review.blocks.some(b=>b.id==='source'),false);
 });
 
 test('opening a persisted format2 record with no claim metadata keeps its confirmed visible text authoritative',()=>{

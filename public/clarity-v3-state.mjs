@@ -1,5 +1,5 @@
 // v3 working state. A model candidate is never a user's confirmed outcome.
-import {buildClarityContext,validateClarityCandidate,CLARITY_FLOW,CLARITY_SCHEMA_VERSION} from './clarity-v3-contract.mjs';
+import {buildClarityContext,validateClarityCandidate,CLARITY_FLOW,CLARITY_SCHEMA_VERSION,CLARITY_POLICY_VERSION} from './clarity-v3-contract.mjs';
 import {deriveConversationPolicy,expressionPartsV3} from './clarity-v3-intent.mjs';
 import {editClarityBlock as editStoredBlock,addClarityNote as addStoredNote,acknowledgeClarityReview as acknowledgeStoredReview,
   removeClarityBlock as removeStoredBlock,restoreClarityBlock as restoreStoredBlock,readClarityRecord,readRecordEntries,saveClarityRecord as saveStoredRecord,
@@ -20,7 +20,7 @@ export function createClaritySession(){
   return {id:uid(),createdAt:new Date().toISOString(),modeId:'auto',goal:null,revision:0,stage:'express',
     statements:[],dialogue:[],claims:[],messages:[],question:null,review:null,removed:[],pending:null,failure:null,
     lastRequestAction:false,lastRequestKind:'reflect',callCount:0,dirty:false,stale:false,complete:false,reviewReady:false,
-    paused:false,actionProposal:null,reviewConfirmed:false,confirmedBlockIds:[],confirmationTracked:false};
+    paused:false,actionProposal:null,reviewConfirmed:false,confirmedBlockIds:[],confirmationTracked:false,reviewEditSourceIds:[]};
 }
 
 function rememberReviewConfirmation(s){
@@ -67,6 +67,9 @@ export function reviseExpression(s,statementId,value){
   if(!source||!text(value,4000))throw new TypeError('invalid_expression');
   if(source.text===value.trim())return;
   invalidateClarity(s);source.text=value.trim();source.kind='correction';
+  // A direct user revision is now an authored expression, even when this ID
+  // originally came from the Host's manual-review wrapper.
+  s.reviewEditSourceIds=(s.reviewEditSourceIds??[]).filter(id=>id!==statementId);
   active(s).forEach(c=>{c.status='stale';});
   s.stale=true;s.complete=false;s.reviewReady=false;s.question=null;s.actionProposal=null;
 }
@@ -89,39 +92,64 @@ export function beginClarityRequest(s,{action=false,review=false}={}){
   const kind=action?'action':policy.reviewRequested?'review':'reflect';
   const context=buildClarityContext({session:wire,revision:s.revision,stage:kind==='reflect'?'reflect':'review',allowNextStep:action});
   captureSavedReview(s);
-  const ticket={requestId:uid(),revision:s.revision,sessionId:s.id,kind,context};
+  const ticket={requestId:uid(),revision:s.revision,sessionId:s.id,kind,policyVersion:CLARITY_POLICY_VERSION,context};
   s.pending=copy(ticket);s.failure=null;s.lastRequestAction=action;s.lastRequestKind=kind;s.callCount++;
   return copy(ticket);
 }
 export const isCurrentClarity=(s,ticket)=>Boolean(!s.paused&&s.pending&&ticket&&s.id===ticket.sessionId&&s.revision===ticket.revision&&
-  s.pending.requestId===ticket.requestId&&s.pending.kind===ticket.kind&&JSON.stringify(s.pending.context)===JSON.stringify(ticket.context));
+  s.pending.requestId===ticket.requestId&&s.pending.kind===ticket.kind&&s.pending.policyVersion===ticket.policyVersion&&
+  ticket.policyVersion===CLARITY_POLICY_VERSION&&JSON.stringify(s.pending.context)===JSON.stringify(ticket.context));
 export function failClarityRequest(s,ticket,reason){
   if(!isCurrentClarity(s,ticket))return {ok:false,reason:'inactive'};
   s.pending=null;s.failure=reason;return {ok:false,reason};
 }
 
-const groups={
-  concern:[['context','你说过的',['event','thought','feeling']],['insight','可能的理解',['insight','need','tradeoff','option']],['unknown','还想确认的',['unknown']]],
-  moment:[['context','这一刻',['event']],['insight','想留下的感受',['insight','feeling','need']],['unknown','还想慢慢想的',['unknown']]],
-  choice:[['context','已有的表达',['need','event']],['insight','目前的考虑',['tradeoff','insight','option']],['unknown','还缺的信息',['unknown']]],
+const groups=[
+  ['insight','一点可能的理解',['insight','tradeoff']],
+  ['self','此刻的感受与在意',['thought','feeling','need','option']],
+  ['unknown','还想确认的',['unknown']],
+];
+const materialText=s=>{
+  const hostEdits=new Set(s.reviewEditSourceIds??[]);
+  return deriveConversationPolicy({statements:s.statements.filter(source=>!hostEdits.has(source.id)),stage:'reflect',allowNextStep:false})
+    .materials.map(source=>source.text).join('\n\n');
 };
-const materialText=s=>s.statements.filter(source=>source.kind!=='request').map(source=>expressionPartsV3(source.text).content).filter(Boolean).join('\n\n');
 function fitsReview(review){return Boolean(review&&review.blocks.length<=6&&review.blocks.filter(b=>b.group==='main').length<=3&&
   review.blocks.every(b=>b.type!=='text'||typeof b.text==='string'&&b.text.length<=20000));}
 export function composeClarityReview(s,title='这次留下的',finalClaimIds=null){
-  const current=active(s).filter(c=>c.status!=='stale'&&c.type!=='action'),batch=finalClaimIds===null?null:new Set(finalClaimIds);
+  const batch=finalClaimIds===null?null:new Set(finalClaimIds);
+  const current=active(s).filter(c=>c.status!=='stale'&&!['action','event'].includes(c.type)&&(!batch||batch.has(c.id)));
   const blocks=[];
-  if(batch===null){
-    const content=materialText(s);
-    if(content)blocks.push({id:'context',type:'text',group:'main',label:'我写下的',text:content,claimIds:[],edited:false});
+  for(const [id,label,types]of groups){
+    const selected=current.filter(c=>types.includes(c.type));
+    // Each non-event candidate remains visible, in its original order. A
+    // second insight is not discarded merely because it shares a type.
+    if(selected.length)blocks.push({id,type:'text',group:'main',label,text:selected.map(c=>c.text).join('\n\n'),claimIds:selected.map(c=>c.id),edited:false});
   }
-  for(const [id,label,types]of groups[s.modeId]??groups.concern){
-    if(batch===null&&id==='context')continue;
-    const selected=batch?current.filter(c=>batch.has(c.id)&&types.includes(c.type)):[current.findLast(c=>types.includes(c.type))].filter(Boolean);
-    const distinct=selected.filter((c,index)=>!selected.some((other,i)=>i!==index&&other.text.includes(c.text)&&(other.text!==c.text||i<index)));
-    if(distinct.length)blocks.push({id,type:'text',group:'main',label,text:distinct.map(c=>c.text).join('\n\n'),claimIds:selected.map(c=>c.id),edited:false});
-  }
+  const content=materialText(s);
+  // Original life expressions belong to the Host. They are not a model claim,
+  // inferred understanding, transcript of questions, or interaction controls.
+  if(content)blocks.push({id:'source',type:'text',group:blocks.length?'details':'main',label:'保留的原话',text:content,claimIds:[],edited:false});
   return {title,blocks};
+}
+
+export function reviewPresentation(s){
+  const blocks=s.review?.blocks??[],hasSource=blocks.some(b=>b.id==='source');
+  const privacy=hasSource?'确认后，将记录和保留的原话存到这台设备。':'确认后，将这份记录存到这台设备。';
+  const neutral={kind:'record',label:'这份记录',note:'',privacy};
+  // Persisted format2 records intentionally omit claim types. Neither an old
+  // block id nor a person's hand edit proves that an understanding was made.
+  if(!s.statements?.length||s.stage==='kept'||s.confirmed===true||s.reviewConfirmed||blocks.some(b=>b.edited)||s.stale)return neutral;
+  const shown=new Set(blocks.flatMap(b=>b.claimIds??[]));
+  const possible=active(s).some(c=>shown.has(c.id)&&c.status!=='stale'&&['insight','tradeoff'].includes(c.type));
+  if(possible)return {kind:'candidate',label:'目前留下的',note:'',privacy};
+  const policy=deriveConversationPolicy({statements:s.statements,stage:'reflect',allowNextStep:false});
+  const preference=policy.controls.findLast(c=>['listening','interpret'].includes(c.type));
+  const requestedUnderstanding=policy.allowInterpretation&&preference?.type==='interpret';
+  const sourceOnly=blocks.length>0&&blocks.every(b=>b.id==='source'||b.id==='context'&&!b.claimIds?.length);
+  if(!requestedUnderstanding)return {kind:sourceOnly?'source':'record',label:sourceOnly?'先把原话留下':'先把这些话留下',note:'',privacy};
+  return sourceOnly?{kind:'source',label:'先把原话留下',note:'这里先保留原话，还没有写出理解。',privacy}:
+    {kind:'unresolved',label:'目前留下的',note:'这份记录还没有写出理解，想聊的可以接着说。',privacy};
 }
 function preserveReview(s,fresh,protectedIds=new Set()){
   if(!s.review)return {review:fresh,conflict:false};
@@ -133,16 +161,20 @@ function preserveReview(s,fresh,protectedIds=new Set()){
   const excluded=new Set(s.removed.map(x=>x.block.id));
   fresh.blocks=fresh.blocks.filter(b=>!excluded.has(b.id)).map(b=>copy(preserved.find(old=>old.id===b.id)??b));
   for(const block of preserved.filter(b=>!fresh.blocks.some(n=>n.id===b.id)))fresh.blocks.push(copy(block));
-  const preservedIds=new Set(preserved.map(b=>b.id));
-  let main=preserved.filter(b=>b.group==='main').length;
-  fresh.blocks=fresh.blocks.map(b=>!preservedIds.has(b.id)&&b.group==='main'&&++main>3?{...b,group:'details'}:b);
+  const source=fresh.blocks.find(b=>b.id==='source');
+  if(source&&!preserved.some(b=>b.id==='source')&&fresh.blocks.some(b=>b.id!=='source'&&b.group==='main'))source.group='details';
+  // Keep the Host reference after the visible candidate text, including when
+  // a protected understanding was restored from a previous composition.
+  fresh.blocks.sort((a,b)=>Number(a.id==='source')-Number(b.id==='source'));
+  // Do not hide a new model group under details to fit the main-block budget.
+  // The caller rejects an oversized whole composition without half-applying.
   if(s.reviewConfirmed&&fresh.title!==s.review.title){fresh.title=s.review.title;conflict=true;}
   return {review:fresh,conflict};
 }
 
 export function applyClarityReply(s,ticket,envelope){
   if(!isCurrentClarity(s,ticket))return {ok:false,reason:'inactive'};
-  if(envelope?.flow!==CLARITY_FLOW||envelope.schemaVersion!==CLARITY_SCHEMA_VERSION||envelope.requestId!==ticket.requestId||envelope.revision!==ticket.revision)
+  if(envelope?.flow!==CLARITY_FLOW||envelope.schemaVersion!==CLARITY_SCHEMA_VERSION||envelope.policyVersion!==ticket.policyVersion||envelope.requestId!==ticket.requestId||envelope.revision!==ticket.revision)
     return failClarityRequest(s,ticket,'invalid_response');
   if(envelope.status!=='candidate')return failClarityRequest(s,ticket,envelope.reason??'generation_failed');
   const checked=validateClarityCandidate(envelope.candidate,s.pending.context);
@@ -182,6 +214,7 @@ export function openClarityReview(s){
   captureSavedReview(s);
   const protectedReview=s.review&&!s.stale?{review:copy(s.review),conflict:false}:preserveReview(s,composeClarityReview(s));
   if(!protectedReview.review.blocks.length)return {ok:false,reason:'no_materials'};
+  if(!fitsReview(protectedReview.review))return {ok:false,reason:'review_capacity_exceeded'};
   invalidateClarity(s);
   s.review=protectedReview.review;s.stale||=protectedReview.conflict;
   s.reviewReady=true;s.complete=true;s.stage='reviewing';
@@ -197,7 +230,15 @@ export function keepClarityVerbatim(s,value){
   s.review={title:'想留下的一句话',blocks:[{id:'context',type:'text',group:'main',label:'我写下的',text:content,claimIds:[],edited:false}]};
   s.reviewReady=true;s.complete=true;s.stage='reviewing';return {handled:true,ok:true};
 }
-export function editClarityBlock(s,id,value){captureSavedReview(s);editStoredBlock(s,id,value);s.reviewReady=Boolean(s.review);s.complete=s.reviewReady;}
+export function editClarityBlock(s,id,value){
+  captureSavedReview(s);
+  const before=new Set(s.statements.map(source=>source.id));
+  editStoredBlock(s,id,value);
+  // The legacy edit helper adds a Host-wrapped correction for model context.
+  // Remember its ID rather than deleting a possibly user-authored prefix.
+  s.reviewEditSourceIds=[...new Set([...(s.reviewEditSourceIds??[]),...s.statements.filter(source=>!before.has(source.id)).map(source=>source.id)])];
+  s.reviewReady=Boolean(s.review);s.complete=s.reviewReady;
+}
 export function addClarityNote(s,value){captureSavedReview(s);addStoredNote(s,value);s.reviewReady=Boolean(s.review);s.complete=s.reviewReady;}
 export function removeClarityBlock(s,id){captureSavedReview(s);removeStoredBlock(s,id);s.reviewReady=Boolean(s.review?.blocks.length);s.complete=s.reviewReady;}
 export function restoreClarityBlock(s){captureSavedReview(s);restoreStoredBlock(s);s.reviewReady=Boolean(s.review?.blocks.length);s.complete=s.reviewReady;}
