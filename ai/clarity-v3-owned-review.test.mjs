@@ -63,6 +63,7 @@ test('full life words enter storage only at confirmation; default export include
 test('history, acknowledged and manually edited blocks use a neutral record label instead of inferring semantics from an id',()=>{
   const s=seeded();assert.equal(send(s,[claim('need','我想保住学日语的时间。')]).ok,true);
   assert.equal(state.reviewPresentation(s).kind,'unresolved');
+  assert.equal(state.reviewPresentation(s).label,'目前的整理');assert.equal(state.reviewPresentation(s).note,'','claim type is not a semantic judgment that no understanding exists');
   const historical={review:{title:'旧记录',blocks:[{id:'insight',type:'text',group:'main',label:'想留下的感受',text:'今天很轻松。'}]}};
   assert.equal(state.reviewPresentation(historical).kind,'record');assert.equal(state.reviewPresentation(historical).note,'');
   const current=seeded();send(current,[claim('insight','想休息，也怕拒绝后尴尬。')]);state.editClarityBlock(current,'insight','这是我亲手改的表达。');

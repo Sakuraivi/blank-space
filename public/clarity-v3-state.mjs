@@ -161,7 +161,7 @@ export function reviewPresentation(s){
   const sourceOnly=blocks.length>0&&blocks.every(b=>b.id==='source'||b.id==='context'&&!b.claimIds?.length);
   if(!requestedUnderstanding)return {kind:sourceOnly?'source':'record',label:sourceOnly?'先把原话留下':'先把这些话留下',note:'',privacy};
   return sourceOnly?{kind:'source',label:'先把原话留下',note:'这里先保留原话，还没有写出理解。',privacy}:
-    {kind:'unresolved',label:'目前留下的',note:'这份记录还没有写出理解，想聊的可以接着说。',privacy};
+    {kind:'unresolved',label:'目前的整理',note:'',privacy};
 }
 function preserveReview(s,fresh,protectedIds=new Set()){
   if(!s.review)return {review:fresh,conflict:false};
