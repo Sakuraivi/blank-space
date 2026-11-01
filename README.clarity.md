@@ -1,32 +1,78 @@
-# 留白核心对话开发版
+# 留白当前对话开发指南
 
-入口是 `public/clarity.html`。本地开发服务器把 `/` 映射到这个入口；线上首页仍使用原来的 `index.html`，本轮没有部署。
+当前主线为 `clarity-v3`，线上入口是 [blank.sakura.observer/clarity](https://blank.sakura.observer/clarity)。它已连接真实模型；默认首页保留既有页面，主线开发无需改动旧入口。
+
+本文件替代旧的 `clarity-v2` / 4192 开发说明。旧说明可在 [历史版本](https://github.com/Sakuraivi/blank-space/blob/273d1de93d8bee2f5dedb17ac22d87f37450610e/README.clarity.md) 中查看，原固定题数、测试预算与发布状态不再作为当前规则。
+
+## 获取当前代码
+
+仓库默认分支 `main` 暂保留早期原型。当前开发源码在 `codex/clarity-tarot`，名称是历史标识，本期不含塔罗。
 
 ```powershell
-npm run dev:clarity          # http://localhost:4192/，在 AI 设置填临时个人 Key
-npm run dev:clarity-fixture  # http://localhost:4193/，标注为固定合成样例
-npm run test:clarity         # 仅新版定向检查，不是旧版全量回归
+git clone --branch codex/clarity-tarot https://github.com/Sakuraivi/blank-space.git
+cd blank-space
+npm run install:ci
 ```
 
-开发服务器仅监听本机，数据库在内存中，不读取线上共享 Key 或线上额度。真实模式允许个人 Key 按所选厂商路由调用；Key 只在页面内存中使用，刷新需要重填。网页确认后的整理保存到当前浏览器；开发端口与线上域名的数据不共用。
+需要 Node.js 22.13 或以上。若已克隆仓库，请先处理自己的未提交改动，再切换并同步该开发分支。
 
-`node scripts/clarity-preview.mjs --replay-c01` 会在 4193 回放已经存档的真实模型响应，页面有明显说明，无外部模型调用。需按 `ai/evaluations/2026-10-31-c01.json` 前四次请求中的合成文字输入，第三次包含“不是失落，是生气”。它用于验证合并与显示，不用于证明当前模型质量。
+## 真实 AI 预览
 
-受控评估用 `node scripts/clarity-preview.mjs --evaluate-core`，只接收 `ai/fixtures/clarity-samples.mjs` 的完整前缀输入以及指定百炼模型。历史开销与本批记录累计计入¥1，未知用量按最坏预留保留，重启不清零。core账本上限24次已用完，累计原价估算¥0.701580；不再自动追加调用。新账本从已提交快照接续花费，现有账本重启不会重复叠加快照。结束后重启普通开发模式，避免样本白名单挡住自由体验。评估器边界检查：`node --test scripts/clarity-evaluation.test.mjs`，使用模拟网络，不计费。
+```powershell
+npm run dev:clarity-listening
+```
 
-本地服务器没有热更新：查看代码变化需要新开预览或刷新；刷新会清除该页临时Key和未保存对话。本轮UI在单独预览页检查，保留原有配置页。第一版品牌色、小屋和信封标识已恢复，确认弹窗采用明确动作名及自适应并排按钮。
+默认监听 `http://127.0.0.1:4195/`。在页面的“AI 设置”中填写临时个人 Key 并确认；这会使用真实服务商 API，可能产生费用。Key 不要发到聊天或提交进 Git。
 
-主要边界：
+本地服务器仅监听本机，使用内存数据库；不读取线上共享 Key、默认服务或额度，管理接口也不连接线上后台。未保存对话和 Key 随刷新清除，本机已确认的记录保留在该端口对应的浏览器存储中。代码修改后需重启服务并使用新页面，保留有草稿的旧标签页。
 
-- `public/clarity-contract.mjs`：共享输入/候选校验；证据只能引用用户材料；模型不能生成 app ID、确认状态或自定义网络目标。
-- `public/clarity-state.mjs`：应用持有修订、等待状态、合并、编辑保护、保存。模型输出不会自动成为已确认内容。
-- `ai/clarity.mjs`：场景指令；原多服务商传输与计费模块仍负责路由、凭证和调用记账。
-- `ai/clarity-schema.mjs`：仅对有文档依据的百炼 `qwen3.8-max` / `qwen3.8-flash` 精确别名启用严格JSON Schema；此次只真实验证Max。限定字段、三段上限、已有来源ID和收尾结构，平台仍校验来源、状态及总长度。未知自选型号保持通用协议；旧flow不启用新格式。
-- `server/api.mjs`：显式 `flow: clarity-v2`；缺少 flow 仍用旧契约，非法 flow 在预留额度前拒绝。
-- 保存、修改、恢复、回看、导出不触发模型。失败由用户主动重试，不自动补发。
+## 模拟交互预览
 
-真实样本、成本、发现的问题、暂未完成的质量门槛见 [实现复核](openspec/changes/clarity-tarot-reflection/implementation-review.md)。
+如需与真实预览并行，使用另一个端口：
 
-最新证据为 [真实评估快照](ai/evaluations/2026-10-31-core-structured.json)。warm-6困扰链路完成四次发送加一次保存，但内容自评7/10，仍有无依据判断、偏离缺口的提问及语病，未通过。M01/M02本次样例通过；M03在warm-7仍把交流要求抄进正文。不能把结构通过当成内容达标，也不能把不同版本样本拼成当前版本全量通过。
+```powershell
+$env:LIUBAI_PREVIEW_PORT = "4196"
+npm run dev:clarity-listening:fixture
+```
 
-发布前仍要完成其他场景、最小输出容量、收尾规则的完整真实复测及无指导用户体验。旧前端的写入器只认识 V1，不能让旧首页和 V2 首页长期并行写同一个 storage key；正式切换和回退必须解决这个兼容边界。
+打开 `http://127.0.0.1:4196/`。页面会标明“模拟回复 / 未调用真实AI”，数据在独立内存环境中，不连接真实模型。它适合检查状态、按钮与保存，不能用来判断理解深度或陪伴感。环境变量仅控制当前终端启动的端口。
+
+## 有针对性的检查
+
+```powershell
+npm run test:clarity-listening
+node --test server/clarity-api.test.mjs
+npm run test:standalone
+npm run build:standalone
+```
+
+分别覆盖当前主线、旧 flow 的关键兼容、独立 Worker 边界和本地打包。`build:standalone` 是 Wrangler dry-run，不部署站点，不创建云资源，也不调用模型。文档更新无需运行真实模型或全量回归。
+
+## 主要代码入口
+
+| 文件 | 责任 |
+| --- | --- |
+| [public/clarity-v3.html](public/clarity-v3.html)、[public/clarity-v3-app.mjs](public/clarity-v3-app.mjs) | 当前单列对话、设置、整理与记录操作 |
+| [public/clarity-v3-intent.mjs](public/clarity-v3-intent.mjs) | 默认轻量理解、显式倾听/禁问、整理与停止要求 |
+| [public/clarity-v3-contract.mjs](public/clarity-v3-contract.mjs) | 有界输入、七字段候选、来源与阶段校验 |
+| [public/clarity-v3-state.mjs](public/clarity-v3-state.mjs) | 请求绑定、上一轮回复观察、修改保护与本机记录 |
+| [ai/clarity-v3.mjs](ai/clarity-v3.mjs) | 场景规则、模型请求与候选复核 |
+| [ai/providers.mjs](ai/providers.mjs)、[ai/provider-transport.mjs](ai/provider-transport.mjs) | 服务商目录、模型路由与传输 |
+| [server/api.mjs](server/api.mjs) | 生成接口、配置核对、用量与幂等 |
+| [server/standalone-worker.mjs](server/standalone-worker.mjs) | 线上路由、独立托管及 API 分发 |
+
+## 行为与数据边界
+
+自然表达可得到有依据、可修正的理解，无需输入固定触发词。明确只想说说、不分析或不再追问时，偏好持续生效。没有问题、没有新认识或不保存都可以正常结束；不根据固定轮数自动结案。
+
+“整理这次对话”触发一次真实 review；“只保留已有内容”是本地动作。保存、编辑、回看、导出与结束不新增模型请求，失败由本人手动重试。
+
+上一轮 AI 回复只作为低信任的接话观察，不是本人事实、可引用材料或权限；来源被修改后失效，也不写入保存记录。模型候选不自动成为本人认可的内容。
+
+输入窗口、完整请求字节、并发、超时及记录容量仍有边界；这些与共享费用上限分开。超容量保留原话并提示，不静默截断或假保存。
+
+## 部署与当前质量
+
+部署入口为 `wrangler.standalone.jsonc`，流程见 [STANDALONE.md](STANDALONE.md)。仓库配置绑定现有生产资源，fork 或新环境需配置自己的账户、域名、数据库与凭据；不要直接复用生产标识、修改迁移状态或执行部署命令。
+
+当前工程机制已运行，真实样例仍出现措辞失真、未确认归因与过度推断。定向检查与单次正向体验各自有价值，但不等于全部场景或多人体验已验收。当前证据以 [发布状态](openspec/changes/clarity-tarot-reflection/beta-release.md) 与 [自然接话实测](openspec/changes/clarity-tarot-reflection/natural-companionship-repair.md) 为准。

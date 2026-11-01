@@ -1,5 +1,7 @@
 # 独立 Cloudflare 托管
 
+当前站点已迁至独立 Cloudflare Workers / D1，真实试用入口为 `https://blank.sakura.observer/clarity`，组织者口令后台为 `/admin`。最新版本与回退信息见[发布状态](openspec/changes/clarity-tarot-reflection/beta-release.md)，本文件下方保留迁移过程和数据库安全边界。仓库配置绑定现有生产资源；fork 或新环境需使用自己的账户、域名、数据库与凭据，不能照搬已验证的迁移状态。
+
 此入口与原 Sites/Vinext 构建并存：`npm run build` 及 Sites helper 保持原流程；独立部署直接复用 `public/`、`server/api.mjs` 和 `drizzle/`，不复制生成的 bundle 或前端进源码。
 
 用户已授权在账户 `1420888f16c72742e6bde4cd995d156f` 建立候选及完成核验后切换域名。已建立 Worker `liubai-blank` 与 D1 `liubai-blank-db`（`6bc9e1c5-eac1-4c07-ba26-69b920f89ceb`）；实际发布、数据迁移和域名状态以 [QA.md](QA.md) 的发布记录为准。配置不包含 Key、令牌或其他运行时秘密。
@@ -44,4 +46,4 @@ npm run verify:migration -- work/migration-private/source.json work/migration-pr
 
 正式 `blank.sakura.observer` 的绑定是迁移最后一步，执行前旧 Sites 保持冻结。绑定完成后把已确认的路由写入部署配置，并在未来部署时维持该库的已验证状态；不要用旧候选配置覆盖已开放的正式服务。回退前先冻结候选、排空、合并并核验增量账本与配置差异，禁止双端同时生成或直接恢复旧快照。
 
-独立入口拒绝旧 `/api/admin` 和 Sites OAuth 路径，并移除外部 `oai-*`、`x-openai-user-*` 身份头；这些头不构成自管环境的公网认证。当前不另开管理入口。去除 `chatgpt.site` 依赖不保证所有网络可达，原受阻测试者成功访问页面、静态资源及状态 API 后才可报告该次拦截修复。
+独立入口拒绝旧 `/api/admin` 和 Sites OAuth 路径，并移除外部 `oai-*`、`x-openai-user-*` 身份头；这些头不构成自管环境的公网认证。当前管理页面为 `/admin`，使用 `/api/organizer/*` 口令与会话认证，访客无需 ChatGPT 登录；管理口令和共享 Key 不写入文档。去除 `chatgpt.site` 依赖不保证所有网络可达，访问验证仍按实际结果记录。
