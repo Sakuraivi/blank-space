@@ -64,3 +64,5 @@ core10+harness6共16项通过；相关faithful/source-checked 16项、原retenti
 ## Next step
 
 暂停扩展focus结构：本批原话与问答来源已在输入里，错误不是缺原话，字面回填无法替代选对关系；也不采用此前漏报审校放行。下一步建议回到旧三字段生成基线，对同一组冻结context、同一模型作单变量成对对照，只改是否加入少量自然成品示例，先验证选对目标/担心、条件、期待主体和无需强填；模型对照单列下一组，不同时换模型与契约。此下一步目前not started，不能提前称已有效。1.1/4.1 in progress、4.2 not started、整体4/10，无需用户重新配置Key。
+
+后续进展：上述单变量示例配对现已执行，固定16次生成、逐句结果及下一步见[example-review-v1-evaluation.md](example-review-v1-evaluation.md)；本页not started描述保留为当时决策记录，不代表当前仍未执行。
