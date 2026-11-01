@@ -10,6 +10,20 @@ const prefix='(?:其实|现在|还是|仍然|又|也|觉得|感到|很|挺|有�
 const connective='(?:(?:但是|不过|可是|但)\\s*)?';
 const reference=()=>new RegExp(`(^|[。！？!?；;，,\\n])(\\s*${connective}(?:我|你)?${prefix})(${emotionPattern})`,'gu');
 const contrast=new RegExp(`^\\s*${connective}(?:我|你)?不是(${emotionPattern})[，,]\\s*(?:我|你)?(?:主要)?是(${emotionPattern})(?=[。！？!?；;，,\\n]|$)`,'u');
+const priorPositive=new RegExp(`(?:^|[。！？!?；;，,\\n])\\s*${connective}(我|你)(?:主要)?是(${emotionPattern})\\s*$`,'u');
+const followingNegative=new RegExp(`^\\s*(我|你)?不是(${emotionPattern})(?=[。！？!?；;，,\\n]|$)`,'u');
+
+function authorizedReverseContrast(part,match,denied,authorized){
+  // A reverse pair must join two immediately adjacent clauses at this comma.
+  // Never search an earlier sentence, another quote segment or arbitrary text
+  // for a positive emotion to exempt an unrelated negative occurrence.
+  if(!['，',','].includes(match[1]))return false;
+  const positive=priorPositive.exec(part.slice(0,match.index));
+  const negative=followingNegative.exec(part.slice(match.index+match[1].length));
+  if(!positive||!negative||negative[2]!==match[3]||negative[1]&&negative[1]!==positive[1])return false;
+  const from=negative[2],to=positive[2];
+  return !denied.has(to)&&authorized.some(fix=>fix.from===from&&fix.to===to);
+}
 
 function outsideQuotes(text){
   const pairs={'“':'”','「':'」','『':'』','"':'"'},ends=[],parts=[];
@@ -39,6 +53,7 @@ function invalidEmotionReference(text,denied,authorized){
       // Only this exact finite contrast is exempt. Subsequent clauses are
       // still scanned, so a later affirmative old emotion is never masked.
       if(pair&&pair[1]===word&&!denied.has(pair[2])&&authorized.some(fix=>fix.from===pair[1]&&fix.to===pair[2]))continue;
+      if(authorizedReverseContrast(part,match,denied,authorized))continue;
       return true;
     }
   }

@@ -26,6 +26,10 @@ r5 policy2 SHALL 将原话保全与模型候选理解分开，沿用七字段sch
 - **WHEN** 本人明确纠正X为Y，候选以有限支持的第一/第二人称否定X并肯定Y，且claim引用实际纠正source
 - **THEN** 新v3 guard不把该否定句误作重新认定X，原始文字不归一改写；随后真实再次肯定X、错源及伪造event仍拒绝，不把有限规则宣称通用语义验证
 
+#### Scenario: Accepted understanding is visible during reflection
+- **WHEN** 合法reflect响应本批实际接受insight或tradeoff，且来源和请求仍有效
+- **THEN** 对话页在原reply后呈现这批可能理解，不等到成稿才可见；不隐藏原reply、不增加确认步骤、不称本人已理清；失效内容不冒充当前理解，历史保留当时原文快照而不受后续手改回写
+
 ### Requirement: Direct and simple primary path
 
 系统 SHALL 让首次访客直接输入表达，不要求先选主题、整理模式或模型服务。默认页面 SHALL 至多有一个高强调主动作，按钮名与行为一致；对话阶段不默认展示步骤导航、分类侧栏或逐条认可按钮组。必要的首次发送说明 SHALL 保持可读。

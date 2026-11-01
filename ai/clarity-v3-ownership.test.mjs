@@ -9,6 +9,7 @@ import {prepareProviderRequest} from './provider-transport.mjs';
 import {prepareNativeFixture,NATIVE_SLOT_IDS} from '../scripts/experiments/clarity-v3-native-fixtures.mjs';
 
 const published=JSON.parse(readFileSync(new URL('./evaluations/2026-11-01-v3-native-qualification.json',import.meta.url),'utf8'));
+const policy2=JSON.parse(readFileSync(new URL('./evaluations/2026-11-01-listening-2-repair.json',import.meta.url),'utf8'));
 const captured=id=>published.trace.registeredSlots.find(s=>s.slotId===id).call;
 const route=getOrganizerRoute({providerId:'bailian',modelId:'deepseek-v4-pro-0813',pricingMode:'manual',inputRate:null,outputRate:null,revision:3});
 test('the recorded negative-positive emotion wording passes the new full contract unchanged while the old failure stays frozen',()=>{
@@ -60,4 +61,13 @@ test('an exact own-correction event or positive suffix is accepted unchanged at 
     const duplicate=structuredClone(candidate);duplicate.claims[0].text+='\n生气。';assert.equal(validateClarityResponse(duplicate,context).reason,'ungrounded_event');
     const changed=structuredClone(candidate);changed.claims[0].text='我现在很生气。';assert.equal(validateClarityResponse(changed,context).reason,'ungrounded_event');
   }
+});
+test('the second native reverse-order emotion failure now passes offline unchanged without rewriting its actual API outcome',()=>{
+  const call=policy2.realQualification.trace.registeredSlots.find(s=>s.slotId==='correction').call;
+  assert.equal(call.evidence.api.result.status,'fallback');assert.equal(call.evidence.api.result.reason,'correction_not_applied');
+  const result=validateClarityResponse(call.rawOutput,call.context);
+  assert.equal(result.ok,true);assert.deepEqual(result.candidate,call.rawOutput);
+  assert.equal(createHash('sha256').update(JSON.stringify(policy2.realQualification.trace)).digest('hex'),'7e968219d7e7d4b537c6934d239f3e69e1a6cffdfcd0dcb33f32ebb99aae660d');
+  const wrong=structuredClone(call.rawOutput);wrong.claims[0].evidenceIds=['u1'];
+  assert.equal(validateClarityResponse(wrong,call.context).reason,'correction_not_applied');
 });

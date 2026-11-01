@@ -88,3 +88,46 @@ test('every supported source emotion keeps the old affirmative-denial guard and 
     assert.equal(validateV3EmotionCorrection(allowed,context).ok,true,word);
   }
 });
+test('the observed reverse-order correction and finite I/you variants pass byte-for-byte',()=>{
+  for(const person of ['我','你'])for(const qualifier of ['是','主要是'])for(const negativePerson of ['',person]){
+    const text=`${person}${qualifier}生气，${negativePerson}不是委屈。`;
+    const value=candidate(text,{reply:text,goal:text,title:text}),before=structuredClone(value),context=ctx(),sourceBefore=structuredClone(context);
+    const result=validateV3EmotionCorrection(value,context);
+    assert.equal(result.ok,true,text);assert.deepEqual(result.candidate,before);assert.equal(JSON.stringify(result.candidate),JSON.stringify(value));
+    assert.deepEqual(value,before);assert.deepEqual(context,sourceBefore);
+  }
+});
+test('reverse-order exemption requires the matching correction source and exact positive target',()=>{
+  const value=candidate('我主要是生气，不是委屈。');value.claims[0].evidenceIds=['u1'];expectRejected(value);
+  const context=ctx(['我很委屈。','不是委屈，是生气。','不是难过，是焦虑。']);
+  value.claims[0].evidenceIds=['u3'];expectRejected(value,context);
+  value.claims[0].evidenceIds=['u2'];assert.equal(validateV3EmotionCorrection(value,context).ok,true);
+  expectRejected(candidate('我主要是轻松，不是委屈。'));
+});
+test('reverse-order matching uses only its adjacent own positive clause, without crossing quotes or unclear speakers',()=>{
+  for(const text of [
+    '我主要是生气。不是委屈。',
+    '我主要是生气，聊到这里，不是委屈。',
+    '她主要是生气，不是委屈。',
+    '她说我主要是生气，不是委屈。',
+    '“我主要是生气”，不是委屈。',
+    '我主要是生气“嗯”，不是委屈。',
+    '我主要是生气，你不是委屈。',
+    '我主要是生气，不是委屈的那种。',
+  ])expectRejected(candidate(text));
+});
+test('a reverse-order pair does not mask a later actual reaffirmation of the denied emotion',()=>{
+  for(const text of [
+    '我主要是生气，不是委屈，但我还是委屈。',
+    '你是生气，不是委屈。你仍然很委屈。',
+    '我主要是生气，不是委屈；不过我也有点委屈。',
+    '我主要是生气，不是委屈，她说“先等等。”我很委屈。',
+  ])expectRejected(candidate(text));
+});
+test('newer corrections cannot be bypassed by a reverse pair whose positive half is now denied',()=>{
+  const context=ctx(['我很委屈。','不是委屈，是生气。','不是生气，是焦虑。']);
+  const old=candidate('我主要是生气，不是委屈。',{reply:'现在主要是焦虑。'});expectRejected(old,context);
+  const current=candidate('我主要是焦虑，不是生气。',{reply:'现在主要是焦虑。'});current.claims[0].evidenceIds=['u3'];
+  assert.equal(validateV3EmotionCorrection(current,context).ok,true);
+  current.claims[0].evidenceIds=['u2'];expectRejected(current,context);
+});

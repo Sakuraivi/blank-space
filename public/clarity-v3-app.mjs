@@ -3,7 +3,7 @@ import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection
 import { CLARITY_FLOW } from './clarity-v3-contract.mjs';
 import { expressionPartsV3 } from './clarity-v3-intent.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
-import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, reviewPresentation } from './clarity-v3-state.mjs';
+import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, currentClarityUnderstanding, historicalClarityUnderstanding, reviewPresentation } from './clarity-v3-state.mjs';
 
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'), modalBody = document.querySelector('#modal-body');
 const preference = createPersonalKeyPreference();
@@ -88,9 +88,12 @@ function renderBlock(b) {
   // their manual edits remain visible before the single confirmation.
   return b.id==='source'&&b.group==='details'&&!b.edited ? `<details><summary>回看我的原话</summary>${section}</details>` : section;
 }
+function renderUnderstanding(claims,historical=false){
+  return claims.length?`<section class="review-block insight"><h3>${historical?'当时一点可能的理解':'一点可能的理解'}</h3>${claims.map(c=>`<p>${e(c.text)}</p>`).join('')}</section>`:'';
+}
 function render() {
   if (view === 'history') {
-    main.innerHTML = `<article class="paper"><h1>前面说过的</h1>${session.messages.map(m => m.role === 'user' ? (() => { const u = session.statements.find(x => x.id === m.statementId); return `<section class="history-item"><p class="small">你</p><p>${e(u.text)}</p>${button('修改这段', `revise:${u.id}`)}</section>`; })() : `<section class="history-item"><p class="small">留白</p><p>${e(m.text)}</p>${m.question ? `<p>${e(m.question)}</p>` : ''}</section>`).join('')}${button('返回当前内容', 'return', true)}</article>`;
+    main.innerHTML = `<article class="paper"><h1>前面说过的</h1>${session.messages.map(m => m.role === 'user' ? (() => { const u = session.statements.find(x => x.id === m.statementId); return `<section class="history-item"><p class="small">你</p><p>${e(u.text)}</p>${button('修改这段', `revise:${u.id}`)}</section>`; })() : `<section class="history-item"><p class="small">留白</p><p>${e(m.text)}</p>${renderUnderstanding(historicalClarityUnderstanding(m),true)}${m.question ? `<p>${e(m.question)}</p>` : ''}</section>`).join('')}${button('返回当前内容', 'return', true)}</article>`;
   } else if (view === 'edit') {
     main.innerHTML = `<article class="paper"><h1>改成你的意思</h1><label for="review-title">记录名字</label><input id="review-title" maxlength="200" value="${e(editDraft.title)}">${editDraft.blocks.map((b, i) => `<section>${field(b.type === 'text' ? b.text : b.rows.map(r => `${r.option}：${r.benefit}；${r.cost}；${r.unknown}`).join('\n'), e(b.label), `edit-${i}`, 20000)}${button('移除这段', `remove:${b.id}`)}</section>`).join('')}${editDraft.removed.length ? button('恢复刚才移除的段落', 'restore') : ''}${button('自己写一段', 'add-note')}${localError ? `<p class="error" role="alert">${e(localError)}</p>` : ''}${button('完成修改', 'apply-edit', true)}${button('取消修改', 'cancel-edit')}</article>`;
   } else if (session.stage === 'express') {
@@ -107,6 +110,7 @@ function render() {
       ? '<p class="status" role="status" data-wait-status>'+waitMessage()+'</p>'+button('暂停等待', 'cancel')
       : session.paused ? pause
       : (reply ? '<p class="companion-reply">'+e(reply.text)+'</p>' : '')+
+        renderUnderstanding(currentClarityUnderstanding(session))+
         (session.failure ? '<p class="error" role="alert">这次没有收到可用的回复。</p><p class="small">'+e(clarityError(session.failure))+'</p>'+button('重新发送', 'retry') : '')+
         (session.question && !session.failure ? '<h1 class="question">'+e(session.question.text)+'</h1>' : '')+
         '<form id="expression-form">'+field(draft, '还想说的话，可以接着写。')+'<button class="primary">发送</button></form>';

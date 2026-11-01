@@ -116,3 +116,66 @@ test('a direct user revision of a Host-wrapped edit becomes retained original ma
   assert.match(state.composeClarityReview(s).blocks.find(b=>b.id==='source').text,/我后来主动和她谈过一次，还没定下新安排。/);
   assert.equal(s.stale,true);
 });
+
+test('a reflected understanding is available immediately while the actual reply stays unchanged',()=>{
+  const s=seeded(),ticket=state.beginClarityRequest(s),text='我想留住学日语的时间，但也怕拒绝后见面尴尬。';
+  const candidate={...response([claim('insight',text,['u1','u2'])],false),reply:'你怕拒绝，所以还没有和她提。'};
+  assert.equal(state.applyClarityReply(s,ticket,envelope(ticket,candidate)).ok,true);
+  const current=state.currentClarityUnderstanding(s);assert.equal(current.length,1);assert.equal(current[0].text,text);
+  assert.equal(state.currentClarityReply(s).text,candidate.reply,'the display hook does not hide or rewrite an unsupported causal reply');
+  assert.deepEqual(s.messages.at(-1).claimIds,[current[0].id]);assert.equal(s.review,null);assert.equal(s.complete,false);
+});
+
+test('current understanding uses only the latest accepted batch, preserving multiple texts and order',()=>{
+  const s=seeded();send(s,[claim('insight','旧的一点理解。')],{review:false});
+  const texts=['我想保留学习时间。','我想保留学习时间，也怕拒绝后尴尬。','是否答应临时安排，让这两个顾虑碰到一起。'];
+  send(s,[claim('insight',texts[0]),claim('insight',texts[1],['u1','u2']),claim('tradeoff',texts[2],['u1','u2'])],{review:false});
+  const current=state.currentClarityUnderstanding(s);assert.deepEqual(current.map(c=>c.text),texts);assert.equal(current.length,3);
+  current[0].text='外部改动';assert.deepEqual(state.currentClarityUnderstanding(s).map(c=>c.text),texts,'getter returns independent copies');
+});
+
+test('waiting, failure, a new expression or a source revision cannot present an old understanding as a new response',()=>{
+  const s=seeded();send(s,[claim('insight','想守住学习时间，也怕拒绝后尴尬。')],{review:false});assert.equal(state.currentClarityUnderstanding(s).length,1);
+  const retry=state.beginClarityRequest(s);assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+  state.failClarityRequest(s,retry,'timeout');assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+  send(s,[claim('insight','这是这次实际收到的候选理解。')],{review:false});assert.equal(state.currentClarityUnderstanding(s).length,1);
+  state.addExpression(s,'后来又发生了一件事。');assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+  send(s,[claim('insight','这是补充材料后的候选理解。',['u3'])],{review:false});assert.equal(state.currentClarityUnderstanding(s).length,1);
+  state.reviseExpression(s,'u1','我现在想把周末更多留给自己。');assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+});
+
+test('pause and a late candidate do not add an understanding or replace what history actually showed',()=>{
+  const s=seeded(),original='想保住时间，也担心拒绝后尴尬。';send(s,[claim('insight',original)],{review:false});
+  const historical=s.messages.at(-1),beforeMessages=structuredClone(s.messages),ticket=state.beginClarityRequest(s);
+  state.pauseClaritySession(s);assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+  assert.equal(state.applyClarityReply(s,ticket,envelope(ticket,response([claim('insight','晚到的新说法。')],false))).reason,'inactive');
+  assert.deepEqual(s.messages,beforeMessages);assert.deepEqual(state.historicalClarityUnderstanding(historical).map(c=>c.text),[original]);
+});
+
+test('messages without an understanding keep no extra content and action replies never invent one',()=>{
+  const s=seeded();send(s,[claim('event','原话事件。'),claim('need','我想保住学习时间。')],{review:false});
+  assert.deepEqual(state.currentClarityUnderstanding(s),[]);assert.deepEqual(state.historicalClarityUnderstanding(s.messages.at(-1)),[]);
+  const action=state.beginClarityRequest(s,{action:true});
+  assert.equal(state.applyClarityReply(s,action,envelope(action,response([claim('action','可以先写下想说的话。')],true))).ok,true);
+  assert.deepEqual(state.currentClarityUnderstanding(s),[]);assert.deepEqual(state.historicalClarityUnderstanding(s.messages.at(-1)),[]);
+  assert.deepEqual(state.historicalClarityUnderstanding({role:'assistant',text:'旧版本的一句承接。'}),[]);
+});
+
+test('historical understanding is an immutable transient snapshot, not a rewritten working claim or saved transcript',()=>{
+  const s=seeded(),original='我想留住学习时间，也担心拒绝后的相处。';send(s,[claim('insight',original)],{review:false});
+  const message=s.messages.at(-1),before=structuredClone(message);assert.equal(state.openClarityReview(s).ok,true);
+  state.editClarityBlock(s,'insight','这是本人后来修改的意思。');
+  assert.notEqual(s.claims.find(c=>c.id===message.claimIds[0]).text,original);
+  assert.deepEqual(message,before);assert.deepEqual(state.historicalClarityUnderstanding(message).map(c=>c.text),[original]);
+  assert.deepEqual(state.currentClarityUnderstanding(s),[]);assert.equal(Object.hasOwn(state.wireSession(s),'messages'),false);
+  state.acknowledgeClarityReview(s);const saved=state.saveClarityRecord(s,store());assert.equal(saved.ok,true);
+  assert.equal(Object.hasOwn(saved.record,'messages'),false);assert.doesNotMatch(JSON.stringify(saved.record),/"understanding"|"sourceBinding"/);
+});
+
+test('a manual edit that cannot become fresh model context is not displayed as a new model understanding',()=>{
+  const s=seeded();while(s.statements.length<12)state.addExpression(s,'还有一点实际补充。');
+  const original='我想留住学习时间，也担心拒绝后的相处。';send(s,[claim('insight',original)],{review:false});
+  const message=s.messages.at(-1);state.openClarityReview(s);state.editClarityBlock(s,'insight','长'.repeat(4000));
+  assert.equal(s.aiContextInvalid,true);assert.deepEqual(state.currentClarityUnderstanding(s),[]);
+  assert.deepEqual(state.historicalClarityUnderstanding(message).map(c=>c.text),[original]);
+});

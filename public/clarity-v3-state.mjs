@@ -15,6 +15,18 @@ export function currentClarityReply(s){
   const latest=s.messages.at(-1);
   return latest?.role==='assistant'&&latest.sourceBinding===sourceBinding(s.statements)?latest:null;
 }
+export function currentClarityUnderstanding(s){
+  if(s.pending||s.paused||s.failure||s.aiContextInvalid)return [];
+  const message=currentClarityReply(s);
+  if(!Array.isArray(message?.claimIds))return [];
+  return message.claimIds.map(id=>s.claims.find(c=>c.id===id&&!c.archived&&c.status!=='stale'&&['insight','tradeoff'].includes(c.type))).filter(Boolean).map(copy);
+}
+export function historicalClarityUnderstanding(message){
+  if(message?.role!=='assistant'||!Array.isArray(message.claimIds)||!Array.isArray(message.understanding))return [];
+  // A manual edit can change a working claim. History retains the exact
+  // provisional wording that this actual response previously displayed.
+  return message.understanding.filter(c=>message.claimIds.includes(c.id)&&['insight','tradeoff'].includes(c.type)).map(copy);
+}
 
 export function createClaritySession(){
   return {id:uid(),createdAt:new Date().toISOString(),modeId:'auto',goal:null,revision:0,stage:'express',
@@ -199,6 +211,12 @@ export function applyClarityReply(s,ticket,envelope){
     next.claims.push(claim);accepted.push(claim.id);
   }
   if(active(next).length>15)return failClarityRequest(s,ticket,'active_claims_limit');
+  if(ticket.kind==='reflect'){
+    const message=next.messages.at(-1);
+    message.claimIds=copy(accepted);
+    message.understanding=accepted.map(id=>next.claims.find(c=>c.id===id)).filter(c=>['insight','tradeoff'].includes(c.type))
+      .map(({id,type,text})=>({id,type,text}));
+  }
   next.question=candidate.question;
   next.stale=protectedConflict||active(next).some(c=>c.status==='stale')||(s.stale&&ticket.kind!=='review');
   next.reviewReady=ticket.kind==='review';next.complete=next.reviewReady;
