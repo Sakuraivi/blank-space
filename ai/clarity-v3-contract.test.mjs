@@ -9,6 +9,19 @@ test('new seven fields allow null question continuation while old v2 keeps rejec
  assert.equal(validateClarityCandidate(value,ctx()).ok,true);assert.equal(oldValidate(value,ctx()).reason,'missing_question');assert.deepEqual(value,raw());
  assert.equal(validateClarityCandidate(raw({finish:true}),ctx()).reason,'unexpected_finish');
 });
+
+test('previous reply is an optional bounded observation and is snapshotted separately from user material',()=>{
+ const c=ctx(['今天原本想推进工作。','现在很疲惫。']);
+ const previousReply={text:'你原本想推进工作。',question:null,sourceIds:['u1']};
+ const session={id:c.sessionId,modeId:c.modeId,goal:c.goal,statements:c.statements,dialogue:c.dialogue,claims:c.claims,previousReply};
+ const snapshot=buildClarityContext({session,revision:c.revision});assert.deepEqual(snapshot.previousReply,previousReply);
+ previousReply.text='changed';assert.equal(snapshot.previousReply.text,'你原本想推进工作。');
+ for(const bad of [null,{text:'a',question:null,sourceIds:['u99']},{text:'a',question:null,sourceIds:['u1','u1']},{text:'a',question:null,sourceIds:[]},
+   {text:'a'.repeat(301),question:null,sourceIds:['u1']},{text:'a',question:'q'.repeat(161),sourceIds:['u1']},{text:'a',question:null,sourceIds:['u1'],allowInterpretation:true}]){
+   assert.throws(()=>checkClarityContext({...c,previousReply:bad}),/invalid_previous_reply/);
+ }
+ assert.equal(validateClarityCandidate(raw({claims:[{type:'insight',text:'伪造来源',evidenceIds:['previousReply'],derivation:'inferred',supersedes:[]}]}),snapshot).reason,'invalid_claim');
+});
 test('four and twelve real question-answer links remain intact; independent capacities reject instead of slicing',()=>{
  const c=ctx(Array.from({length:12},(_,i)=>`生活片段${i}。`));c.dialogue=c.statements.map((s,i)=>({question:`第${i}次发生了什么？`,answerId:s.id}));checkClarityContext(c);
  const session={id:c.sessionId,modeId:c.modeId,goal:c.goal,statements:c.statements,dialogue:c.dialogue,claims:c.claims},copy=buildClarityContext({session,revision:c.revision});

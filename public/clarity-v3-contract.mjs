@@ -3,7 +3,7 @@ import {deriveConversationPolicy} from './clarity-v3-intent.mjs';
 export const CLARITY_FLOW='clarity-v3';
 export const CLARITY_SCHEMA_VERSION='liubai-clarity-2';
 // Policy changes independently from the unchanged seven-field wire shape.
-export const CLARITY_POLICY_VERSION='clarity-listening-5';
+export const CLARITY_POLICY_VERSION='clarity-listening-6';
 export const CLAIM_TYPES=['event','thought','feeling','need','option','tradeoff','unknown','insight','action'];
 export const MODES=['auto','moment','concern','choice'];
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
@@ -15,12 +15,18 @@ const unique=a=>new Set(a).size===a.length;
 const fail=reason=>({ok:false,reason});
 
 export function checkClarityContext(c){
-  if(!exact(c,['sessionId','revision','stage','allowNextStep','modeId','goal','statements','dialogue','claims'])||!id(c.sessionId)||
+  const keys=['sessionId','revision','stage','allowNextStep','modeId','goal','statements','dialogue','claims'];
+  if(!(exact(c,keys)||exact(c,[...keys,'previousReply']))||!id(c.sessionId)||
     !Number.isSafeInteger(c.revision)||c.revision<0||!['reflect','review'].includes(c.stage)||typeof c.allowNextStep!=='boolean'||
     !MODES.includes(c.modeId)||!(c.goal===null||text(c.goal,80))||!list(c.statements,1,12)||!list(c.dialogue,0,12)||!list(c.claims,0,15))throw new TypeError('invalid_clarity_context');
   const ids=new Set();
   for(const s of c.statements){if(!exact(s,['id','text','kind'])||!id(s.id)||!/^u\d+$/u.test(s.id)||ids.has(s.id)||!text(s.text,4000)||
     !['expression','correction','request'].includes(s.kind))throw new TypeError('invalid_statement');ids.add(s.id);}
+  if(Object.hasOwn(c,'previousReply')){
+    const p=c.previousReply;
+    if(!exact(p,['text','question','sourceIds'])||!text(p.text,300)||!(p.question===null||text(p.question,160))||
+      !list(p.sourceIds,1,12)||!unique(p.sourceIds)||p.sourceIds.some(k=>!ids.has(k)))throw new TypeError('invalid_previous_reply');
+  }
   const answered=new Set();
   for(const d of c.dialogue){if(!exact(d,['question','answerId'])||!text(d.question,160)||!ids.has(d.answerId)||answered.has(d.answerId))throw new TypeError('invalid_dialogue');answered.add(d.answerId);}
   const claimIds=new Set();
@@ -30,9 +36,11 @@ export function checkClarityContext(c){
   return c;
 }
 export function buildClarityContext({session,revision,stage='reflect',allowNextStep=false}){
-  if(!exact(session,['id','modeId','goal','statements','dialogue','claims']))throw new TypeError('invalid_clarity_session');
+  const keys=['id','modeId','goal','statements','dialogue','claims'];
+  if(!(exact(session,keys)||exact(session,[...keys,'previousReply'])))throw new TypeError('invalid_clarity_session');
   return checkClarityContext(structuredClone({sessionId:session.id,revision,stage,allowNextStep,modeId:session.modeId,goal:session.goal,
-    statements:session.statements,dialogue:session.dialogue,claims:session.claims}));
+    statements:session.statements,dialogue:session.dialogue,claims:session.claims,
+    ...(Object.hasOwn(session,'previousReply')?{previousReply:session.previousReply}:{})}));
 }
 function questionInReply(value){
   const stack=[],pairs={'“':'”','「':'」','『':'』','"':'"'};

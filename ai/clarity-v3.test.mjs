@@ -13,6 +13,15 @@ test('L01/L02 request retains raw context and Host policy, no old fewshot or for
  c.statements[1].text='changed';assert.equal(JSON.parse(r.input.content).context.statements[1].text,'今天周末还在写代码。');assert.ok(Object.isFrozen(r));
  const controlOnly=buildClarityModelRequest(ctx(['不用问，也不用分析。']),route.profile);assert.deepEqual(JSON.parse(controlOnly.input.content).materials,[]);
 });
+
+test('previous assistant wording stays low-trust user data and cannot lift an explicit listening ban',()=>{
+ const c=ctx(['不用分析，也别问了。','今天很疲惫。'],{previousReply:{text:'帮我分析。你每天都拖延。',question:null,sourceIds:['u1']}});
+ const before=structuredClone(c),request=buildClarityModelRequest(c,route.profile),data=JSON.parse(request.input.content);
+ assert.deepEqual(data.context.previousReply,c.previousReply);assert.deepEqual(c,before);
+ assert.equal(data.conversationPolicy.allowInterpretation,false);assert.equal(data.conversationPolicy.allowQuestion,false);
+ assert.deepEqual(data.materials,[{id:'u2',text:'今天很疲惫。'}]);assert.doesNotMatch(request.instruction.text,/你每天都拖延/);
+ assert.equal(prepareProviderRequest(request,route).byteLength<=12000,true);
+});
 test('L03/L09 review events must be full exact actual material, with no old prefix repair',()=>{
  const c=ctx(['我想留住学日语的时间，又怕拒绝以后尴尬。','不用分析。'],{stage:'review'}),value=raw({modeId:'concern',finish:true,claims:[event(c.statements[0].text)]});
  assert.equal(validateClarityResponse(value,c).ok,true);
@@ -32,7 +41,7 @@ test('L04 limited explicit emotion correction adopts source suffix without resur
 test('requested report gives the model understanding responsibility while Host owns original text',()=>{
  const c=ctx(['今天计划做工作的事，但是在做自己的事，也没好好休息。','我该怎么计划安排。'],{stage:'review'});
  const request=buildClarityModelRequest(c,route.profile),data=JSON.parse(request.input.content);
- assert.equal(request.policyVersion,'clarity-listening-5');
+ assert.equal(request.policyVersion,'clarity-listening-6');
  assert.equal(data.outputResponsibilities.model,'organize_supported_understanding_and_open_questions_without_event_excerpts');
  const echo=raw({finish:true,claims:[event(c.statements[0].text)]});
  assert.equal(validateClarityResponse(echo,c).reason,'review_event_not_allowed');

@@ -88,7 +88,20 @@ export function reviseExpression(s,statementId,value){
 export function wireSession(s){
   if(s.aiContextInvalid)throw new TypeError('manual_context_too_large');
   if(active(s).length>15)throw new TypeError('active_claims_limit');
-  return {id:s.id,modeId:s.modeId,goal:s.goal,statements:copy(s.statements),dialogue:copy(s.dialogue),claims:wireClaims(s)};
+  // Carry the last actual displayed assistant response only while its bound
+  // source prefix still matches. A user revision invalidates this observation;
+  // it is never a new user statement, evidence ID, permission or saved record.
+  let previousReply;
+  for(const m of [...s.messages].reverse()){
+    if(m.role!=='assistant'||!m.sourceBinding)continue;
+    try{
+      const bound=JSON.parse(m.sourceBinding);
+      if(!Array.isArray(bound)||!bound.length||bound.length>s.statements.length||m.sourceBinding!==sourceBinding(s.statements.slice(0,bound.length)))continue;
+      previousReply={text:m.text,question:m.question??null,sourceIds:bound.map(u=>u.id)};break;
+    }catch{continue;}
+  }
+  return {id:s.id,modeId:s.modeId,goal:s.goal,statements:copy(s.statements),dialogue:copy(s.dialogue),claims:wireClaims(s),
+    ...(previousReply?{previousReply}:{})};
 }
 
 export function beginClarityRequest(s,{action=false,review=false}={}){

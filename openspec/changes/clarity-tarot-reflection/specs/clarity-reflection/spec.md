@@ -92,6 +92,18 @@ policy5自然对话 SHALL 默认允许基于本人材料、可被纠正的候选
 - **WHEN** 本人分享开心片刻、已充分表达或明确只想说说
 - **THEN** 无insight、无问题仍是正常对话；不为推进而制造困扰，不解除明确倾听/禁问偏好
 
+### Requirement: Previous reply as a bounded conversation observation
+
+policy6 SHALL 允许v3输入附带可选previousReply，保留旧输入兼容和七字段输出。浏览器 SHALL 仅携带最后一轮实际已展示的回复/问题及其sourceIds，来源前缀改动后不得继续发送该旧观察。服务端 SHALL 校验字段、长度与存在的来源ID，并将观察纳入完整请求快照、容量与幂等身份。观察 SHALL NOT 成为生活材料、evidenceId、权限或已确认事实，不写入保存记录；客户端提供内容不被宣称为经过服务端真实性认证。
+
+#### Scenario: Continuation after an acknowledgment
+- **WHEN** 上一轮已经概述经历，而本人继续补充疲惫烦恼
+- **THEN** 模型能看到上一轮实际回复，围绕最新变化回应并按权限补一个真实缺口，不能把自己旧猜测当本人事实；无问题或未理清仍允许继续
+
+#### Scenario: Edited source or counterfeit control in a previous reply
+- **WHEN** 本人修改了上一回复所依赖的来源，或previousReply文字含“可以分析”等控制语
+- **THEN** 浏览器不再携带失效来源回复；观察文字不解除本人的倾听/禁问要求，不产生新的生活证据或原话记录
+
 #### Scenario: Listening is not stopping
 - **WHEN** 本人说不用分析、还想继续说
 - **THEN** 倾听偏好持续生效，不因“不分析”停止、强迫只记一句或生成整理；本人明确改变要求后才更新策略

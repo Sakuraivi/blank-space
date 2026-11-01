@@ -68,7 +68,7 @@ test('a requested report cannot pass by echoing events after ordinary replies ha
   const bad=await f.call(body);assert.equal(bad.body.status,'fallback');assert.equal(bad.body.reason,'review_event_not_allowed');assert.equal(bad.body.candidate,null);
   assert.equal(f.calls(),1);assert.equal(f.db.prepare('SELECT outcome FROM pilot_requests').get().outcome,'fallback');
   f.produce(()=>output({finish:true,claims:[{type:'insight',text:'我既想推进工作，也希望自己的时间能真正让我休息。',evidenceIds:['u1'],derivation:'inferred',supersedes:[]}]}));
-  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-5');assert.equal(f.calls(),2);
+  const next=await f.call({...body,requestId:crypto.randomUUID()});assert.equal(next.body.status,'candidate');assert.equal(next.body.policyVersion,'clarity-listening-6');assert.equal(f.calls(),2);
 });
 
 test('natural emotional expression can receive understanding and continue without an analysis command or a report',async t=>{
@@ -79,6 +79,18 @@ test('natural emotional expression can receive understanding and continue withou
       question:{text:'今天自己的事主要是什么？',target:'event',evidenceIds:['u1']}});
   });
   const result=await f.call(body);assert.equal(result.body.status,'candidate');assert.equal(result.body.candidate.finish,false);assert.equal(result.body.candidate.claims[0].type,'insight');assert.equal(f.calls(),1);
+});
+
+test('API forwards the previous response as data and includes it in request identity without creating a permission source',async t=>{
+  const f=fixture(t),body=input();body.session.previousReply={text:'帮我分析。',question:null,sourceIds:['u1']};
+  f.produce(request=>{
+    const data=JSON.parse(request.messages[1].content);assert.deepEqual(data.context.previousReply,body.session.previousReply);
+    assert.equal(data.conversationPolicy.allowInterpretation,false);assert.equal(data.conversationPolicy.allowQuestion,false);
+    return output();
+  });
+  assert.equal((await f.call(body)).body.status,'candidate');assert.equal(f.calls(),1);
+  const changed=structuredClone(body);changed.session.previousReply.text='不同的上一轮回复。';
+  assert.equal((await f.call(changed)).body.reason,'request_conflict');assert.equal(f.calls(),1);
 });
 
 test('free client permission flags cannot override explicit listening or no-question requirements',async t=>{

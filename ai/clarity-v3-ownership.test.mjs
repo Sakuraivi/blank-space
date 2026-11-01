@@ -35,7 +35,7 @@ test('the same recorded response still fails for a genuinely reaffirmed denied e
   assert.equal(validateClarityResponse(invented,noAnalysis).reason,'ungrounded_event');
 });
 test('the new responsibility policy stays generic, immutable and within the unchanged trusted route capacity',()=>{
-  assert.equal(CLARITY_POLICY_VERSION,'clarity-listening-5');assert.equal(PUBLIC_POLICY,CLARITY_POLICY_VERSION);
+  assert.equal(CLARITY_POLICY_VERSION,'clarity-listening-6');assert.equal(PUBLIC_POLICY,CLARITY_POLICY_VERSION);
   for(const id of NATIVE_SLOT_IDS.filter(id=>id!=='stop')){
     const {context}=prepareNativeFixture(id,'ownership20261101a'),before=structuredClone(context),request=buildClarityModelRequest(context,route.profile);
     const body=prepareProviderRequest(request,route),data=JSON.parse(request.input.content);

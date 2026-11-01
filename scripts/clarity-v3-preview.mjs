@@ -10,10 +10,10 @@ import {checkClarityContext} from '../public/clarity-v3-contract.mjs';
 import {deriveConversationPolicy} from '../public/clarity-v3-intent.mjs';
 
 const root=resolve(import.meta.dirname,'..'),assets=resolve(root,'public');
-const contextKeys=['sessionId','revision','stage','allowNextStep','modeId','goal','statements','dialogue','claims'];
+const contextKeys=['sessionId','revision','stage','allowNextStep','modeId','goal','statements','dialogue','claims','previousReply'];
 const mime={'.html':'text/html; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.woff2':'font/woff2'};
 export function fixtureCandidate(input){
-  const c=checkClarityContext(Object.fromEntries(contextKeys.map(key=>[key,input[key]]))),p=deriveConversationPolicy(c);
+  const c=checkClarityContext(Object.fromEntries(contextKeys.filter(key=>Object.hasOwn(input,key)).map(key=>[key,input[key]]))),p=deriveConversationPolicy(c);
   const materials=p.materials,latest=materials.at(-1);
   if(!latest)throw new TypeError('fixture_no_materials');
   const base={modeId:'concern',goal:c.goal??'先听你说',reply:'',question:null,claims:[],finish:false,title:'目前的整理'};

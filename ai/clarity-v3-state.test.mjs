@@ -19,6 +19,19 @@ test('L01/L02 no-question reflection keeps a writable conversation and ordinary 
   assert.deepEqual(s.statements.map(x=>x.kind),['expression','expression']);assert.equal(s.dialogue.length,0);assert.equal(s.review,null);
 });
 
+test('the next request carries the actual previous reply, but source revision invalidates it and saves exclude it',()=>{
+  const s=state.createClaritySession();state.addExpression(s,'周末原本想推进工作。');
+  const question={text:'当时发生了什么？',target:'event',evidenceIds:['u1']};
+  accept(s,response({reply:'你原本想给工作留出时间。',question}));
+  state.addExpression(s,'后来处理了自己的事，现在很疲惫。');
+  const wire=state.wireSession(s);assert.deepEqual(wire.previousReply,{text:'你原本想给工作留出时间。',question:question.text,sourceIds:['u1']});
+  const ticket=state.beginClarityRequest(s);assert.deepEqual(ticket.context.previousReply,wire.previousReply);
+  state.failClarityRequest(s,ticket,'timeout');state.reviseExpression(s,'u1','周末原本想休息。');
+  assert.equal(Object.hasOwn(state.wireSession(s),'previousReply'),false,'do not send a reply grounded in an edited source');
+  assert.equal(state.openClarityReview(s).ok,true);state.acknowledgeClarityReview(s);
+  const saved=state.saveClarityRecord(s,storage());assert.equal(saved.ok,true);assert.doesNotMatch(JSON.stringify(saved.record),/previousReply|你原本想给工作留出时间/);
+});
+
 test('L08 actual question-answer links survive more than three answers without routing expectations to review',()=>{
   const s=state.createClaritySession();state.addExpression(s,'我想把最近的安排说一说。');
   for(let i=0;i<4;i++){
