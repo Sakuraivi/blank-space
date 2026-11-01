@@ -30,7 +30,7 @@ r5可交付范围为倾听与困扰纵向切片，保留片刻/原话和旧选�
 
 r4历史进度：4/10项完成。r5本地工程实现3/9，当前任务清单合计7/19；这只是检查项计数，不是成熟度百分比。分项历史见[implementation-review.md](implementation-review.md)，本次验收以[acceptance.md](acceptance.md)的L01–L09及[beta-test-kit.md](beta-test-kit.md)为准。真实模型与真人效果均未据此通过。
 
-## 5. r5倾听与按需梳理增量（5.1–5.3 completed，其余not started）
+## 5. r5倾听与按需梳理增量（5.1–5.3 completed，5.4 in progress，其余not started）
 
 - [x] 5.1 实现显式clarity-v3/liubai-clarity-2版本适配：reflect仅finish=false且question可null、明示成稿review才允许整理finish=true、既有行动权限单列；绑定context/profile/revision，旧flow校验不变。定向覆盖L01/L02/L08/L09与真实完整payload，不把字段合法当语义正确。
 - [x] 5.2 实现Host意愿、问答归类与状态分离：倾听/禁问/理清/成稿/暂停/明确不保存结束分别处理；无问句普通续说仍expression，保留实际问答关联，去除自动三答结案及3条关联上限。联审12源/claims/路由/记录容量，超限保全文，不自动摘要、清关联或假保存；L01/L02/L04/L06/L07/L08机制检查通过，真实模型/语义验收不在此项代签。
@@ -46,7 +46,7 @@ r4历史进度：4/10项完成。r5本地工程实现3/9，当前任务清单合
 | --- | --- | --- | --- |
 | 1 规划冻结 | 本轮授权、现有代码/评测复盘 | 六份文件、L01–L09、责任/版本/调用边界及审阅 | completed |
 | 2A 倾听切片（5.1–5.3） | 阶段1 | 新版本stub纵向状态/页面；49项新定向、31项相邻兼容及实际浏览器/构建/审阅；不冒称真实内容 | completed |
-| 2B 候选筛选（5.4） | 阶段1、可用且隔离的候选路由 | 固定条件的原生比较及Go/No-Go | not started |
+| 2B 候选筛选（5.4） | 阶段1、可用且隔离的候选路由 | 固定E/8已知context/三字段、候选官方能力与仅换model的24份body核验通过；真实权限与质量待检，见[执行契约](model-comparison-v1-evaluation.md) | in progress |
 | 2C 形成性研究（5.5） | 阶段1、可用且说明真实身份的原型/入口 | 两名参与者的发现，不卡在全模型评分 | not started |
 | 3 同版本联调（5.6–5.7） | 2A/2B完成、2C发现已处理或注明 | 新材料真实完整链路、分支/容量/兼容/视觉证据 | not started |
 | 4 五人验收（5.8） | 阶段3关键阻断关闭 | 操作、内容、本人感受与存储分别判定 | not started |
