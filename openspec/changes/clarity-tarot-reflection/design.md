@@ -4,7 +4,7 @@
 
 旧v2背景：独立 `/clarity` 已有稳定内测，历史发布信息以[beta-release.md](beta-release.md)为准。旧程序有固定缺口问句、三答后review、无问句必须finish、模型finish驱动complete，以及无question的续说被标correction等耦合；这与原设计「不固定问卷」已有距离。麦圆体、纸面、梅紫和小屋已有实现，r5保留此视觉身份。
 
-最新完整示例实验只比较同模型的受控收尾：baseline 5 pass/3 partial，examples 7 pass/1 partial，核心FULL仍未连起学习时间和怕尴尬，并出现特定行为泛化；不作为r5合格模型或真实陪伴证据。详见[example-review-v1-evaluation.md](example-review-v1-evaluation.md)。首次无指导体验尚未执行。
+前一完整示例实验只比较同模型的受控收尾：baseline 5 pass/3 partial，examples 7 pass/1 partial，FULL未过，详见[历史报告](example-review-v1-evaluation.md)。随后固定E的三模型筛选已完成：两候选FULL仍遗漏一侧，参考FULL原生含关系但被旧同类型约束拒绝，结论No-Go。该[模型对照](model-comparison-v1-evaluation.md)不认证新Host或模型固有能力；下一阶段先分开内容遗漏与契约不兼容。首次无指导体验尚未执行。
 
 ## Goals / Non-Goals
 

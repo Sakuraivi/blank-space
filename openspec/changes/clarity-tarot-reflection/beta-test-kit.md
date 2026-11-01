@@ -1,6 +1,6 @@
 # 留白 r5 形成性研究与无指导验收执行卡
 
-目标：让人容易开口、被具体回应、按需梳理并自主结束；成稿和保存均为自选。温馨感、源事实忠实、操作自主性和保存能力分别判断。阶段1执行计划已冻结，阶段2A已完成本地模拟倾听切片；未进行真实模型验收、招募或真人测试，本轮未改生产。工程边界见[listening-first-r5-slice.md](listening-first-r5-slice.md)。
+目标：让人容易开口、被具体回应、按需梳理并自主结束；成稿和保存均为自选。温馨感、源事实忠实、操作自主性和保存能力分别判断。阶段1计划、阶段2A本地模拟切片及阶段2B旧协议模型筛选已完成，筛选No-Go；未进行新Host原生模型验收、招募或真人测试，本轮未改生产。见[工程边界](listening-first-r5-slice.md)和[筛选报告](model-comparison-v1-evaluation.md)。
 
 | 步骤 | 状态 | 证据边界 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | 5名新手无指导验收 | not started | 另行招募未用待验版本的人；先2名、暂停检查，再决定后3名 |
 | 主线自主性／保存功能／主观价值 | not started | 三类证据分别记录，不能以保存率或模型评测数互相替代 |
 
-进度保留双口径：r4原10项实现完成4项，r5新增9项完成本地工程3项（3/9）；合并CLI任务口径为7/19。阶段1规划完成单列，不增加实现分子；不是内容质量或成熟度百分比。r4发布、用户确认保存/刷新/导出及模型实验的历史见 [beta-release.md](beta-release.md)；[r4旧执行卡（74d9cca）](https://github.com/Sakuraivi/blank-space/blob/74d9cca160d977ca69c43302dc962681b3151ad4/openspec/changes/clarity-tarot-reflection/beta-test-kit.md)保留当时门槛，不将旧结果写成r5验证。
+进度保留双口径：r4原10项完成4项，r5新增9项完成本地工程3项及模型筛选1项（4/9）；合并CLI任务口径为8/19。筛选No-Go不增加内容质量分；规划完成单列，不增加实现分子，也不是成熟度百分比。r4发布、用户确认保存/刷新/导出及模型实验的历史见 [beta-release.md](beta-release.md)；[r4旧执行卡（74d9cca）](https://github.com/Sakuraivi/blank-space/blob/74d9cca160d977ca69c43302dc962681b3151ad4/openspec/changes/clarity-tarot-reflection/beta-test-kit.md)保留当时门槛，不将旧结果写成r5验证。
 
 ## 研究记录先填写版本
 

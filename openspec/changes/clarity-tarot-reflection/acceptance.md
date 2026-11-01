@@ -1,6 +1,6 @@
 # 设计与实现验收
 
-状态：r5 修订为倾听优先、按需梳理、自主收尾和可选保存；本地模拟倾听切片已交付，r5整体实现仍in progress，新版真实模型验收、两人形成性研究及五人无指导验收尚未开始。保留 r4 的来源忠实、具体承接、可修正和兼容门槛；塔罗仍不在本期。工程证据见[listening-first-r5-slice.md](listening-first-r5-slice.md)，历史见 [implementation-review.md](implementation-review.md)，发布与隔离实验见 [beta-release.md](beta-release.md)，不以历史或stub通过项认定真实模型效果。
+状态：r5 修订为倾听优先、按需梳理、自主收尾和可选保存；本地模拟倾听切片已交付，旧三字段[候选模型筛选](model-comparison-v1-evaluation.md)完成但No-Go。r5整体仍in progress，新版原生真实模型验收、两人形成性研究及五人无指导验收尚未开始。保留 r4 的来源忠实、具体承接、可修正和兼容门槛；塔罗仍不在本期。工程证据见[listening-first-r5-slice.md](listening-first-r5-slice.md)，历史见 [implementation-review.md](implementation-review.md)，发布与隔离实验见 [beta-release.md](beta-release.md)，不以历史或stub通过项认定真实模型效果。
 
 本期正常完成包括：把想说的话说出来后结束、按需理清一点、只留一个片刻，以及明确选择保存。没有问题不等于需要成稿，没有保存不等于体验失败。“被理解”“轻松一点”须来自参与者自愿反馈，不能由系统自行宣布；不承诺情绪改善或疗效。首页不增加模式选择，系统不把普通续说一律当纠正，也不把每次表达都变成问卷。
 
@@ -155,6 +155,7 @@ r4 的 C01 脚本原本就允许材料已齐时提前收尾，不是所有体验
 | r4 OpenSpec 语法/结构 | completed | 严格校验与变更空白检查通过；不代表程序实现完成 |
 | r5 验收契约与执行卡 | completed | 本页与执行卡已区分倾听、按需成稿、自主收尾、可选保存及两组研究；只完成文档修订，不代表实现或参与者结果 |
 | r5 实现与新版本验证 | in progress | 阶段2A本地模拟切片completed：49新定向、31相邻兼容及实际DOM/保存读回/容量/视觉检查；L03核心语义、真实模型及真人效果未通过，未改生产能力。见[listening-first-r5-slice.md](listening-first-r5-slice.md) |
+| 固定E候选模型筛选 | completed | 同条件24次真实生成、23份候选保存；两候选FULL均漏一侧，参考FULL原生有关系但旧协议拒绝，筛选No-Go；不抵新Host原生或真人验收，见[报告](model-comparison-v1-evaluation.md) |
 | 两人形成性研究 | not started | 原型或回放必须标识，研究发现不能替代后续五人验收 |
 | r2 历史示意证据 | completed | 曾通过固定交互与390px/两倍字号CSS检查；用户仍指出缺少分析与陪伴，说明布局检查不能证明内容价值 |
 | r3 历史示意证据 | completed | 固定脚本曾检查三轮推进、提前整理/继续、移除全部/恢复及保存示意；三块成品正文190字符、唯一主按钮，390px外层视口下内容宽与滚动宽均343px，正文18px/标题24px。未验证真实软键盘、两倍文字、模型或实际存储 |
