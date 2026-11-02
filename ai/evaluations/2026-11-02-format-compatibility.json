@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-02",
+  "scope": "bounded_v3_format_compatibility",
+  "sourceCommit": "c3c2917166cfb7af03e60282c17af7e9ba633443",
+  "workerVersion": "6c30a929-3c6e-48cf-a56b-27f64f7ad4fb",
+  "rollbackVersion": "749532e0-3edd-458f-b4ba-219b1a8d0831",
+  "online": {
+    "checks": [
+      {
+        "path": "/clarity-v3-app.mjs",
+        "http": 200,
+        "cache": "no-store",
+        "matchesLocal": true
+      },
+      {
+        "path": "/clarity-v3-contract.mjs",
+        "http": 200,
+        "cache": "no-store",
+        "matchesLocal": true
+      },
+      {
+        "path": "/clarity-v3-errors.mjs",
+        "http": 200,
+        "cache": "no-store",
+        "matchesLocal": true
+      },
+      {
+        "path": "/clarity-contract.mjs",
+        "http": 200,
+        "cache": "public, max-age=0, must-revalidate",
+        "matchesLocal": true
+      },
+      {
+        "path": "/clarity",
+        "http": 200,
+        "realPage": true
+      },
+      {
+        "path": "/admin",
+        "http": 200
+      },
+      {
+        "path": "/api/organizer/status",
+        "http": 401
+      }
+    ],
+    "route": {
+      "sourceMode": "default",
+      "providerId": "bailian",
+      "modelId": "deepseek-v4-pro-0813",
+      "defaultRevision": 3,
+      "configVersion": "multi-flex-v1",
+      "consentVersion": "multi-provider-v1"
+    },
+    "calls": [
+      {
+        "requestId": "8fde8ae1-19bc-4c82-9612-68206faced94",
+        "stage": "reflect",
+        "http": 200,
+        "status": "candidate",
+        "reason": null,
+        "validationDetail": null,
+        "formatAdjustments": null,
+        "timing": "prepare;dur=1048, model;dur=5268, finalize;dur=493, total;dur=6809",
+        "elapsedMs": 7229,
+        "apply": {
+          "ok": true
+        }
+      },
+      {
+        "requestId": "51d29af4-f6e6-4662-8911-e86e2c2de8d7",
+        "stage": "review",
+        "http": 200,
+        "status": "candidate",
+        "reason": null,
+        "validationDetail": null,
+        "formatAdjustments": null,
+        "timing": "prepare;dur=762, model;dur=4701, finalize;dur=588, total;dur=6051",
+        "elapsedMs": 6506,
+        "apply": {
+          "ok": true
+        }
+      }
+    ],
+    "remainingCalls": null,
+    "remainingBudgetCny": null
+  },
+  "ledger": {
+    "calls": 2,
+    "candidates": 2,
+    "input_tokens": 3820,
+    "output_tokens": 329,
+    "total_tokens": 4149
+  },
+  "configurationUnchanged": true,
+  "config": {
+    "provider_id": "bailian",
+    "model_id": "deepseek-v4-pro-0813",
+    "revision": 3,
+    "enabled": 1,
+    "call_limit": null,
+    "shared_budget_micros": null
+  },
+  "tests": {
+    "listening": 122,
+    "adjacent": 61,
+    "fixtureRealModelCalls": 0,
+    "ui390NoHorizontalOverflow": true
+  },
+  "automaticRetries": 0,
+  "paidRepairGenerations": 0,
+  "failureRateReduction": "not_measured",
+  "historicalFailureRootCauses": "not_proven",
+  "contentQuality": "not_evaluated",
+  "rawSyntheticTraceLocation": "ignored work/format-compatibility/raw-*.json",
+  "privateDialogueRead": false
+}
