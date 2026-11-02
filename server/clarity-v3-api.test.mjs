@@ -36,6 +36,26 @@ test('v3 runs the existing real API transport and ledger, preserving a no-questi
   assert.equal(row.source_mode,'personal');assert.equal(row.reserved_micros,0);assert.equal(row.prompt_tokens,1000);assert.equal(row.completion_tokens,100);assert.equal(row.outcome,'candidate');
 });
 
+test('v3 rejection details survive the actual API once, without source values or an automatic retry',async t=>{
+  const logs=[];t.mock.method(console,'info',line=>logs.push(JSON.parse(line)));
+  const f=fixture(t),privateValue='synthetic-private-value-not-for-diagnostics';
+  const cases=[
+    ['invalid_shape','shape_fields',()=>output({[privateValue]:privateValue})],
+    ['invalid_shape','shape_reply',()=>output({reply:privateValue.repeat(12)})],
+    ['invalid_claim','claim_evidence',()=>output({claims:[{type:'feeling',text:'今天很累。',evidenceIds:[privateValue],derivation:'stated',supersedes:[]}]})],
+    ['question_in_reply',null,()=>output({reply:'今天很累。为什么呢？'})],
+  ];
+  for(const [reason,detail,produce]of cases){
+    f.produce(produce);const body=input(),result=await f.call(body);
+    assert.equal(result.body.status,'fallback');assert.equal(result.body.reason,reason);assert.equal(result.body.candidate,null);
+    assert.equal(result.headers.get('X-Liubai-Validation'),detail);
+    const log=logs.find(entry=>entry.requestId===body.requestId);assert.equal(log.reason,reason);assert.equal(log.validationDetail,detail??undefined);
+    assert.doesNotMatch(JSON.stringify([result.body,[...result.headers],log]),new RegExp(privateValue));
+  }
+  assert.equal(f.calls(),cases.length);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM pilot_requests WHERE state=\'finished\' AND outcome=\'fallback\' AND completion_tokens=100').get().n,cases.length);
+});
+
 test('four actual question associations fit v3 without truncation, while v2 keeps its old context boundary',async t=>{
   const f=fixture(t),texts=['我想说一件周末的事。','第一次发生在周六。','我后来又补了一个细节。','我想继续讲经过。','这是第四次回答。'];
   const dialogue=texts.slice(1).map((_,i)=>({question:`第${i+1}个实际问题？`,answerId:`u${i+2}`}));

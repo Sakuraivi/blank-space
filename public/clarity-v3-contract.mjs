@@ -12,7 +12,7 @@ const text=(x,max)=>typeof x==='string'&&x.trim().length>0&&x.length<=max;
 const id=x=>text(x,100)&&/^[a-zA-Z0-9_-]+$/u.test(x);
 const list=(x,min,max)=>Array.isArray(x)&&x.length>=min&&x.length<=max;
 const unique=a=>new Set(a).size===a.length;
-const fail=reason=>({ok:false,reason});
+const fail=(reason,detail)=>({ok:false,reason,...(detail?{detail}:{})});
 
 export function checkClarityContext(c){
   const keys=['sessionId','revision','stage','allowNextStep','modeId','goal','statements','dialogue','claims'];
@@ -43,21 +43,32 @@ export function buildClarityContext({session,revision,stage='reflect',allowNextS
     ...(Object.hasOwn(session,'previousReply')?{previousReply:session.previousReply}:{})}));
 }
 function questionInReply(value){
-  const stack=[],pairs={'“':'”','「':'」','『':'』','"':'"'};
+  const stack=[],pairs={'“':'”','‘':'’','「':'」','『':'』','"':'"'};
   for(const ch of value){if(stack.at(-1)===ch)stack.pop();else if(pairs[ch])stack.push(pairs[ch]);else if(!stack.length&&/[?？]/u.test(ch))return true;}
   return stack.length>0&&/[?？]/u.test(value);
 }
 export function validateClarityCandidate(value,context){
   checkClarityContext(context);const policy=deriveConversationPolicy(context);
-  if(!exact(value,['modeId','goal','reply','question','claims','finish','title']))return fail('invalid_shape');
-  if(!MODES.slice(1).includes(value.modeId)||!text(value.goal,80)||!text(value.title,60)||!text(value.reply,300)||typeof value.finish!=='boolean'||!list(value.claims,0,3))return fail('invalid_shape');
+  if(!exact(value,['modeId','goal','reply','question','claims','finish','title']))return fail('invalid_shape','shape_fields');
+  if(!MODES.slice(1).includes(value.modeId))return fail('invalid_shape','shape_mode');
+  if(!text(value.goal,80))return fail('invalid_shape','shape_goal');
+  if(!text(value.title,60))return fail('invalid_shape','shape_title');
+  if(!text(value.reply,300))return fail('invalid_shape','shape_reply');
+  if(typeof value.finish!=='boolean')return fail('invalid_shape','shape_finish');
+  if(!list(value.claims,0,3))return fail('invalid_shape','shape_claims');
   if(policy.endRequested||policy.pauseRequested||policy.recordOnly||policy.discardRequested&&(context.stage==='review'||context.allowNextStep))return fail('generation_not_allowed');
   if(questionInReply(value.reply))return fail('question_in_reply');
   const evidence=new Set(policy.materials.map(s=>s.id)),existing=new Set(context.claims.map(c=>c.id)),replaced=new Set();
   const sources=ids=>list(ids,1,12)&&unique(ids)&&ids.every(x=>evidence.has(x));
   for(const claim of value.claims){
-    if(!exact(claim,['type','text','evidenceIds','derivation','supersedes'])||!CLAIM_TYPES.includes(claim.type)||!text(claim.text,240)||!sources(claim.evidenceIds)||
-      !['stated','inferred'].includes(claim.derivation)||!list(claim.supersedes,0,15)||!unique(claim.supersedes)||claim.supersedes.some(k=>!existing.has(k)||replaced.has(k)))return fail('invalid_claim');
+    if(!exact(claim,['type','text','evidenceIds','derivation','supersedes']))return fail('invalid_claim','claim_shape');
+    if(!CLAIM_TYPES.includes(claim.type))return fail('invalid_claim','claim_type');
+    if(!text(claim.text,240))return fail('invalid_claim','claim_text');
+    if(!sources(claim.evidenceIds))return fail('invalid_claim','claim_evidence');
+    if(!['stated','inferred'].includes(claim.derivation))return fail('invalid_claim','claim_derivation');
+    if(!list(claim.supersedes,0,15))return fail('invalid_claim','supersedes_shape');
+    if(!unique(claim.supersedes)||claim.supersedes.some(k=>replaced.has(k)))return fail('invalid_claim','supersedes_duplicate');
+    if(claim.supersedes.some(k=>!existing.has(k)))return fail('invalid_claim','supersedes_unknown');
     claim.supersedes.forEach(k=>replaced.add(k));
     if(policy.actionRequested){if(claim.type!=='action')return fail('action_only');}
     else if(claim.type==='action')return fail('action_not_allowed');

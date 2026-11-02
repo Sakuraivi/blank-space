@@ -11,6 +11,9 @@ const REASONS = new Set([
   'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected',
   'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds',
   'config_changed', 'ungrounded_event', 'correction_not_applied',
+  'question_in_reply', 'invalid_question', 'repeated_question', 'interpretation_not_allowed',
+  'action_only', 'invalid_action', 'invalid_review_stage', 'empty_review', 'unexpected_finish',
+  'generation_not_allowed', 'review_event_not_allowed',
 ]);
 
 export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode, timings, validationDetail }, write = console.info) {

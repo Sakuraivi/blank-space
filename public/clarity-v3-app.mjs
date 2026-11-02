@@ -1,14 +1,16 @@
 import { createPersonalKeyPreference } from './personal-key.mjs';
-import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute, aiErrorMessage } from './ai-settings.mjs';
+import { emptyAiStatus, normalizeAiStatus, aiSelectionProfile, canUseAiSelection, createAiSettingsDraft, changeAiSettingsProvider, changeAiSettingsModel, CUSTOM_MODEL_OPTION, sameAiRoute } from './ai-settings.mjs';
 import { CLARITY_FLOW } from './clarity-v3-contract.mjs';
 import { expressionPartsV3, shouldGenerateClarityReply } from './clarity-v3-intent.mjs';
 import { ClarityWaitError, waitForClarityRequest } from './clarity-wait.mjs';
+import { clarityFailureInfo } from './clarity-v3-errors.mjs';
 import { createClaritySession, keepClarityVerbatim, addExpression, reviseExpression, wireSession, beginClarityRequest, applyClarityReply, failClarityRequest, isCurrentClarity, invalidateClarity, openClarityReview, editClarityBlock, addClarityNote, acknowledgeClarityReview, readClarityRecord, readRecordEntries, saveClarityRecord, recordText, RECORD_STORE, pauseClaritySession, resumeClaritySession, conversationControl, exportWorkingText, currentClarityReply, currentClarityUnderstanding, historicalClarityUnderstanding, reviewPresentation } from './clarity-v3-state.mjs';
 
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'), modalBody = document.querySelector('#modal-body');
 const preference = createPersonalKeyPreference();
 let session = createClaritySession(), status = { ...emptyAiStatus(), loading: true }, route = null, controller = null;
 let draft = '', view = 'main', settings = null, editDraft = null, previousFocus = null, modalAction = null, localError = '', capacityMessage = '', settingsGeneration = 0, statusGeneration = 0, waitingSlow = false;
+let failureContext = null;
 const e = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const button = (text, action, primary = false, extra = '') => `<button type="button" data-action="${action}" class="${primary ? 'primary' : ''}" ${extra}>${text}</button>`;
 const field = (value, label = '写下你想说的', id = 'expression', max = 4000) => `<label class="small" for="${id}">${label}</label><textarea id="${id}" rows="3" maxlength="${max}" ${session.pending && id === 'expression' ? 'readonly' : ''}>${e(value)}</textarea>`;
@@ -26,7 +28,11 @@ function updateStartAction() {
   if (!submit || !hint) return;
   const action=startAction(); submit.textContent=action.label; submit.disabled=action.disabled; hint.textContent=action.hint;
 }
-const clarityError = reason => reason === 'timeout' ? '这次等待有些久，已停止等待，文字仍在本页。可以重新发送，也可以先整理；已发出的请求仍可能计费。' : aiErrorMessage(reason);
+const clarityError = reason => clarityFailureInfo(reason, failureContext ?? {}).message;
+function failureDetails() {
+  const info = clarityFailureInfo(session.failure, failureContext ?? {});
+  return `<details><summary>查看问题信息</summary><p class="small">错误类型：${e(info.code)}${info.validationDetail ? `<br>校验项：${e(info.validationDetail)}` : ''}${info.requestId ? `<br>问题编号：${e(info.requestId)}` : ''}<br>阶段：${session.lastRequestKind === 'review' ? '整理' : session.lastRequestKind === 'action' ? '小行动' : '对话'}</p></details>`;
+}
 const waitMessage = () => waitingSlow ? '这次等待有些久，你可以继续等，也可以先保留已有内容。' : session.pending?.kind==='review' ? '正在整理这次对话…' : '正在等待回复…';
 const locked = () => session.statements.length > 0;
 const notice = text => { document.querySelector('#notice').textContent = text; };
@@ -111,7 +117,7 @@ function render() {
       : session.paused ? pause
       : (reply ? '<p class="companion-reply">'+e(reply.text)+'</p>' : '')+
         renderUnderstanding(currentClarityUnderstanding(session))+
-        (session.failure ? '<p class="error" role="alert">'+(session.lastRequestKind==='review'?'这次没能完成整理，原话和对话还在。':'这次没有收到可用的回复。')+'</p><p class="small">'+e(clarityError(session.failure))+'</p>'+button(session.lastRequestKind==='review'?'重新整理':'重新发送', 'retry') : '')+
+        (session.failure ? '<p class="error" role="alert">'+(session.lastRequestKind==='review'?'这次没能完成整理，原话和对话还在。':'这次暂时没能接上。')+'</p><p class="small">'+e(clarityError(session.failure))+'</p>'+button(session.lastRequestKind==='review'?'重新整理':'重新发送', 'retry')+failureDetails() : '')+
         (session.question && !session.failure ? '<h1 class="question">'+e(session.question.text)+'</h1>' : '')+
         '<form id="expression-form">'+field(draft, '还想说的话，可以接着写。')+'<button class="primary">发送</button></form>';
     main.innerHTML = '<article class="paper"><div class="actions">'+button('查看前文', 'history')+button('结束本次', 'end')+'</div>'+
@@ -131,7 +137,7 @@ function render() {
       (session.actionProposal ? '<section class="help-note action-proposal"><h3>如果你愿意，可以这样说</h3><p>'+e(session.actionProposal.text)+'</p><div class="actions">'+button('放进这次记录', 'adopt-action')+button('先不用', 'dismiss-action')+'</div></section>' : '')+
       (session.pending ? '<p class="status" role="status" data-wait-status>'+waitMessage()+'</p>'+button('暂停等待', 'cancel') : session.stage==='kept' ? '<p class="status" role="status">已保存在这台设备。</p>' : '<p class="small">'+e(presentation.privacy)+'</p>'+button('确认并保存', 'save', true))+
       (session.paused ? '<p class="pause-note" role="status">已暂停，当前内容还在。</p>'+button('继续说', 'resume') : '')+
-      (session.failure ? '<p class="error">'+e(clarityError(session.failure))+'</p>'+button('重新发送', 'retry') : '')+
+      (session.failure ? '<p class="error">'+e(clarityError(session.failure))+'</p>'+button('重新发送', 'retry')+failureDetails() : '')+
       capacityNotice()+(localError ? '<p class="error" role="alert">'+e(localError)+'</p>' : '')+
       '<div class="actions">'+button('修改', 'edit')+(session.statements.length ? button('再聊一句', 'continue') : '')+button('结束本次', 'end')+'</div>'+
       (session.stale ? '<label class="small"><input id="review-rechecked" type="checkbox">我已重新核对这份整理</label>' : '')+
@@ -174,6 +180,7 @@ async function sendToAi({ action = false, review = false } = {}) {
     render(); return;
   }
   const active = session, requestRoute = { ...route };
+  failureContext = { requestId: ticket.requestId };
   controller = new AbortController(); const requestController = controller;
   localError = ''; capacityMessage = ''; waitingSlow = false; render();
   try {
@@ -186,7 +193,10 @@ async function sendToAi({ action = false, review = false } = {}) {
       if (new TextEncoder().encode(requestBody).byteLength > 24000) return { status:'fallback', reason:'context_capacity' };
       const response = await fetch('/api/ai/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
         body: requestBody });
-      return response.json();
+      if (active === session && controller === requestController && active.pending?.requestId === ticket.requestId)
+        failureContext = { requestId: ticket.requestId, validationDetail: response.headers.get('X-Liubai-Validation') };
+      try { return await response.json(); }
+      catch { return { status: 'fallback', reason: response.ok ? 'invalid_response' : 'service_unavailable' }; }
     }, { controller: requestController, onSlow() {
       if (active !== session || controller !== requestController || active.pending?.requestId !== ticket.requestId) return;
       waitingSlow = true;
@@ -336,7 +346,7 @@ function showRecords() {
   try { const entries = readRecordEntries(localStorage).filter(x => x.record); openModal('我的记录', `<p class="small">保存在这个浏览器中；内测版与旧版分开保存。</p>${entries.length ? entries.map(({ record: r }) => `<div class="record-row">${button(e(r.review.title), `open:${r.id}`)}<small>${e(new Date(r.createdAt).toLocaleDateString('zh-CN'))}</small>${button('删除', `delete:${r.id}`)}</div>`).join('') : '<p>还没有保存的记录。</p>'}`); }
   catch { notice('暂时无法读取本机记录。原有数据没有被覆盖。'); }
 }
-function reset() { abortRequest(); session = createClaritySession(); route = null; draft = ''; view = 'main'; editDraft = null; localError = ''; capacityMessage = ''; notice(''); closeModal(); render(); }
+function reset() { abortRequest(); session = createClaritySession(); route = null; draft = ''; view = 'main'; editDraft = null; localError = ''; capacityMessage = ''; failureContext = null; notice(''); closeModal(); render(); }
 
 document.addEventListener('submit', async event => {
   if (event.target.id === 'expression-form') return submitExpression(event);
