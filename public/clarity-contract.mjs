@@ -8,9 +8,11 @@ export const MODES = ['auto', 'moment', 'concern', 'choice'];
 export const CLAIM_VALIDATION_DETAILS = Object.freeze(['claim_shape', 'claim_type', 'claim_text', 'claim_evidence', 'claim_derivation',
   'supersedes_shape', 'supersedes_unknown', 'supersedes_duplicate']);
 export const SHAPE_VALIDATION_DETAILS = Object.freeze(['shape_fields', 'shape_mode', 'shape_goal', 'shape_title', 'shape_reply', 'shape_finish', 'shape_claims']);
+export const QUESTION_VALIDATION_DETAILS = Object.freeze(['question_shape', 'question_text', 'question_target', 'question_evidence']);
 export const isClaimValidationDetail = value => typeof value === 'string' && CLAIM_VALIDATION_DETAILS.includes(value);
 export const isClarityValidationDetail = (reason, value) => reason === 'invalid_claim' ? isClaimValidationDetail(value)
-  : reason === 'invalid_shape' && typeof value === 'string' && SHAPE_VALIDATION_DETAILS.includes(value);
+  : reason === 'invalid_shape' ? typeof value === 'string' && SHAPE_VALIDATION_DETAILS.includes(value)
+    : reason === 'invalid_question' && typeof value === 'string' && QUESTION_VALIDATION_DETAILS.includes(value);
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const exact = (x, keys) => plain(x) && Object.keys(x).length === keys.length && keys.every(k => Object.hasOwn(x, k));
 const text = (x, max) => typeof x === 'string' && x.trim().length > 0 && x.length <= max;

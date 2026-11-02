@@ -1,5 +1,6 @@
 import { isTrustedRoute } from './providers.mjs';
 import { supportsClaritySchema } from './clarity-schema.mjs';
+import { decodeClarityV3Json } from './clarity-v3-format.mjs';
 
 export const MAX_RESPONSE_BYTES = 128 * 1024;
 export const MAX_ERROR_BYTES = 4096;
@@ -193,6 +194,15 @@ export function createProviderAdapter({ route, apiKey, fetchImpl = globalThis.fe
             (message.reasoning_content !== undefined && message.reasoning_content !== null &&
               (typeof message.reasoning_content !== 'string' || (route.providerId !== 'kimi' && route.transportMode !== 'generic-chat' && message.reasoning_content !== '')))) {
           return { status: 'failed', reason: 'invalid_response' };
+        }
+        if (request.schemaVersion === 'liubai-clarity-2' && request.output?.format === 'json_text') {
+          // Decode only an unambiguous envelope. The complete original values
+          // still pass the Host validator; no repair generation or second fetch.
+          let decoded;
+          try { decoded = decodeClarityV3Json(message.content); }
+          catch { return { status: 'failed', reason: 'invalid_model_json' }; }
+          return { status: 'completed', output: decoded.value,
+            ...(decoded.adjustments.length ? { formatAdjustments: decoded.adjustments } : {}) };
         }
         return { status: 'completed', output: JSON.parse(message.content) };
       } catch (error) {

@@ -13,19 +13,66 @@ function input({texts=['今天有点烦。先不用问，也不用分析。'],di
 }
 function fixture(t){
   const db=new DatabaseSync(':memory:');db.exec(sql);t.after(()=>db.close());
-  let produce=()=>output(),onDispatch=()=>{},calls=0;const requests=[];
+  let produce=()=>output(),encode=value=>JSON.stringify(value),finishReason='stop',onDispatch=()=>{},calls=0;const requests=[];
   const env={DB:{prepare(query){let values=[];return{bind(...args){values=args;return this;},async first(){return db.prepare(query).get(...values)??null;},async run(){return{meta:{changes:Number(db.prepare(query).run(...values).changes)}};}};}}};
   const call=async(body,{signal,hook}={})=>{
     const response=await handleApi(new Request(origin+'/api/ai/generate',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body),...(signal?{signal}:{})}),env,
       {now:()=>Date.parse('2026-11-01T00:00:00Z'),...(hook?{prepareClarityRun:hook}:{}),fetchImpl:async(url,options)=>{
         assert.equal(url,'https://api.deepseek.com/chat/completions');assert.equal(options.method,'POST');assert.equal(options.redirect,'manual');
         calls++;const request=JSON.parse(options.body);requests.push(request);onDispatch();
-        return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(produce(request))}}],usage:{prompt_tokens:1000,completion_tokens:100,total_tokens:1100}});
+        return Response.json({choices:[{finish_reason:finishReason,message:{content:encode(produce(request))}}],usage:{prompt_tokens:1000,completion_tokens:100,total_tokens:1100}});
       }});
     return{status:response.status,body:await response.json(),headers:response.headers};
   };
-  return{db,call,requests,calls:()=>calls,produce:fn=>{produce=fn;},onDispatch:fn=>{onDispatch=fn;}};
+  return{db,call,requests,calls:()=>calls,produce:fn=>{produce=fn;},encode:fn=>{encode=fn;},finish:value=>{finishReason=value;},onDispatch:fn=>{onDispatch=fn;}};
 }
+
+test('v3 decodes a complete JSON envelope and bounded absent optionals with one billed dispatch and actual Host apply',async t=>{
+  const {createClaritySession,addExpression,beginClarityRequest,wireSession,applyClarityReply}=await import('../public/clarity-v3-state.mjs');
+  const f=fixture(t),s=createClaritySession();addExpression(s,'今天有点烦。');const ticket=beginClarityRequest(s);
+  const raw=output({reply:'今天的烦闷，可以慢慢说。'});delete raw.question;delete raw.claims;const before=structuredClone(raw);
+  f.produce(()=>raw);f.encode(value=>'\uFEFF \n```json\n'+JSON.stringify(value)+'\n```\n');
+  const r=await f.call(input({session:wireSession(s),requestId:ticket.requestId,revision:ticket.revision}));
+  assert.equal(r.body.status,'candidate',JSON.stringify(r.body));assert.equal(r.body.candidate.reply,raw.reply);
+  assert.equal(r.body.candidate.question,null);assert.deepEqual(r.body.candidate.claims,[]);assert.deepEqual(raw,before);
+  assert.deepEqual(new Set(r.headers.get('X-Liubai-Format').split(',')),new Set(['json_whitespace','json_fence','question_default','claims_default']));
+  assert.equal(applyClarityReply(s,ticket,r.body).ok,true);assert.equal(s.stage,'exploring');assert.equal(s.messages.at(-1).text,raw.reply);
+  assert.equal(f.calls(),1);assert.equal(f.db.prepare('SELECT outcome FROM pilot_requests').get().outcome,'candidate');
+});
+
+test('decoding an envelope cannot bypass source, preference, stage, text limits or prohibited field checks',async t=>{
+  const f=fixture(t);f.encode(value=>'```json\n'+JSON.stringify(value)+'\n```');
+  const claim={type:'feeling',text:'今天有点烦。',evidenceIds:['missing'],derivation:'stated',supersedes:[]};
+  const variants=[
+    ['invalid_claim','claim_evidence',output({claims:[claim]})],
+    ['invalid_question','question_evidence',output({question:{text:'后来呢？',target:'event',evidenceIds:['missing']}})],
+    ['question_not_allowed',null,output({question:{text:'后来呢？',target:'event',evidenceIds:['u1']}})],
+    ['interpretation_not_allowed',null,output({claims:[{...claim,type:'insight',evidenceIds:['u1'],derivation:'inferred'}]})],
+    ['unexpected_finish',null,output({finish:true})],
+    ['invalid_shape','shape_finish',output({finish:'false'})],
+    ['invalid_shape','shape_reply',output({reply:'字'.repeat(301)})],
+    ['invalid_shape','shape_fields',output({apiKey:'private-not-for-public-output'})],
+  ];
+  for(const [reason,detail,value]of variants){
+    f.produce(()=>value);const r=await f.call(input());assert.equal(r.body.status,'fallback');assert.equal(r.body.reason,reason);assert.equal(r.body.candidate,null);
+    assert.equal(r.headers.get('X-Liubai-Validation'),detail);assert.equal(r.headers.get('X-Liubai-Format'),'json_fence');
+    assert.doesNotMatch(JSON.stringify([r.body,[...r.headers]]),/private-not-for-public-output/);
+  }
+  assert.equal(f.calls(),variants.length,'no repair generation or retry');
+});
+
+test('incomplete, ambiguous and explanatory payloads remain failures, while old v2 does not inherit v3 decoding',async t=>{
+  const f=fixture(t);
+  for(const encode of [value=>'说明：\n'+JSON.stringify(value),value=>'```json\n'+JSON.stringify(value)+'\n```\n额外说明',
+    value=>JSON.stringify(value).replace('"finish":false','"finish":true,"finish":false'),()=>'{"reply":"截断']){
+    f.encode(encode);const r=await f.call(input());assert.equal(r.body.status,'fallback');assert.equal(r.body.reason,'invalid_model_json');assert.equal(r.body.candidate,null);
+  }
+  f.encode(value=>'```json\n'+JSON.stringify(value)+'\n```');f.finish('length');
+  assert.equal((await f.call(input())).body.reason,'incomplete_response');
+  f.finish('stop');
+  const old=await f.call(input({flow:'clarity-v2'}));assert.equal(old.body.status,'fallback');assert.equal(old.body.reason,'provider_response_failed');
+  assert.equal(f.calls(),6);
+});
 
 test('v3 runs the existing real API transport and ledger, preserving a no-question non-final reply',async t=>{
   const f=fixture(t),body=input(),r=await f.call(body);

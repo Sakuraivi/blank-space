@@ -31,7 +31,7 @@ function updateStartAction() {
 const clarityError = reason => clarityFailureInfo(reason, failureContext ?? {}).message;
 function failureDetails() {
   const info = clarityFailureInfo(session.failure, failureContext ?? {});
-  return `<details><summary>查看问题信息</summary><p class="small">错误类型：${e(info.code)}${info.validationDetail ? `<br>校验项：${e(info.validationDetail)}` : ''}${info.requestId ? `<br>问题编号：${e(info.requestId)}` : ''}<br>阶段：${session.lastRequestKind === 'review' ? '整理' : session.lastRequestKind === 'action' ? '小行动' : '对话'}</p></details>`;
+  return `<details><summary>查看问题信息</summary><p class="small">问题类别：${e(info.categoryLabel)}<br>错误类型：${e(info.code)}${info.validationDetail ? `<br>校验项：${e(info.validationDetail)}` : ''}${info.requestId ? `<br>问题编号：${e(info.requestId)}` : ''}<br>阶段：${session.lastRequestKind === 'review' ? '整理' : session.lastRequestKind === 'action' ? '小行动' : '对话'}</p></details>`;
 }
 const waitMessage = () => waitingSlow ? '这次等待有些久，你可以继续等，也可以先保留已有内容。' : session.pending?.kind==='review' ? '正在整理这次对话…' : '正在等待回复…';
 const locked = () => session.statements.length > 0;

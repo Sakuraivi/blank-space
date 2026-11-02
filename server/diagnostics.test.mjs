@@ -21,6 +21,18 @@ test('diagnostic sink failure never replaces an otherwise usable result', () => 
   assert.doesNotThrow(() => recordAiResult({ status: 'candidate', stage: 'review' }, () => { throw Error('sink unavailable'); }));
 });
 
+test('format metadata and question-source details remain bounded even on rejection',()=>{
+  const logs=[],write=line=>logs.push(JSON.parse(line));
+  recordAiResult({status:'fallback',reason:'invalid_question',validationDetail:'question_evidence',formatAdjustments:['json_fence','question_default']},write);
+  assert.equal(logs[0].validationDetail,'question_evidence');assert.deepEqual(logs[0].formatAdjustments,['json_fence','question_default']);
+  for(const formatAdjustments of [['private-output'],['json_fence','private-output'],['json_fence','json_fence'],{text:'private-output'}]){
+    recordAiResult({status:'candidate',formatAdjustments},write);assert.equal(logs.at(-1).formatAdjustments,undefined);
+  }
+  recordAiResult({status:'fallback',reason:'invalid_model_json',validationDetail:'question_evidence'},write);
+  assert.equal(logs.at(-1).reason,'invalid_model_json');assert.equal(logs.at(-1).validationDetail,undefined);
+  assert.doesNotMatch(JSON.stringify(logs),/private-output/);
+});
+
 test('claim validation diagnostics accept only fixed codes for the matching failure', () => {
   const logs = [], write = line => logs.push(JSON.parse(line));
   for (const validationDetail of CLAIM_VALIDATION_DETAILS) {

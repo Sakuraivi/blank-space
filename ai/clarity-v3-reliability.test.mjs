@@ -111,8 +111,8 @@ test('failure presentation distinguishes response format, content checks, timeou
   const boundary = clarityFailureInfo('question_in_reply');
   const timeout = clarityFailureInfo('timeout');
   const network = clarityFailureInfo('network_error');
-  assert.match(format.message, /回复没能完整接上/u);
-  assert.match(boundary.message, /没有通过内容检查/u);
+  assert.match(format.message, /格式/u);
+  assert.match(boundary.message, /交流约定/u);
   assert.match(timeout.message, /等待太久/u);
   assert.match(network.message, /连接/u);
   assert.notEqual(format.message, boundary.message);
@@ -127,9 +127,9 @@ test('failure presentation distinguishes response format, content checks, timeou
 test('problem details accept only matching fixed enums and a string UUID, never arbitrary diagnostic content', () => {
   for (const [reason, details] of [['invalid_shape', SHAPE_VALIDATION_DETAILS], ['invalid_claim', CLAIM_VALIDATION_DETAILS]]) {
     for (const validationDetail of details) {
-      assert.deepEqual(clarityFailureInfo(reason, { requestId, validationDetail }), {
-        code: reason, message: clarityFailureInfo(reason).message, requestId, validationDetail,
-      });
+      const info=clarityFailureInfo(reason,{requestId,validationDetail});
+      assert.equal(info.code,reason);assert.equal(info.requestId,requestId);assert.equal(info.validationDetail,validationDetail);
+      assert.deepEqual(Object.keys(info).sort(),['code','category','categoryLabel','message','requestId','validationDetail'].sort());
     }
   }
   for (const reason of [privateValue, { value: privateValue }, [privateValue], null, undefined]) {
@@ -150,4 +150,18 @@ test('problem details accept only matching fixed enums and a string UUID, never 
     ['timeout', 'shape_reply'], ['question_in_reply', 'claim_evidence']]) {
     assert.equal(Object.hasOwn(clarityFailureInfo(reason, { validationDetail }), 'validationDetail'), false);
   }
+});
+
+test('source and conversation failures are not mislabeled as fixable formatting',()=>{
+  for(const [reason,detail,category] of [
+    ['invalid_claim','claim_evidence','source'],['invalid_claim','supersedes_unknown','source'],
+    ['invalid_question','question_evidence','source'],['invalid_claim','claim_text','format'],
+    ['invalid_question','question_text','format'],['invalid_question','question_target','format'],
+    ['invalid_claim',undefined,'validation'],['invalid_question',undefined,'validation'],
+    ['question_not_allowed',undefined,'conversation'],['interpretation_not_allowed',undefined,'conversation'],
+    ['unexpected_finish',undefined,'conversation'],['correction_not_applied',undefined,'source'],
+    ['invalid_model_json',undefined,'format'],['response_too_large',undefined,'capacity'],
+    ['provider_response_failed',undefined,'service'],
+  ])assert.equal(clarityFailureInfo(reason,{validationDetail:detail}).category,category,reason+':'+detail);
+  assert.equal(clarityFailureInfo('invalid_claim',{validationDetail:'question_evidence'}).category,'validation');
 });

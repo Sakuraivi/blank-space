@@ -522,6 +522,22 @@ findings SHALL 引用Host文字字段与精确原话，保留全部匹配位置�
 
 ### Requirement: Bounded candidate formatting
 
+v3 SHALL 在有界完整provider响应之后，允许无损解码单一完整JSON代码框及外部BOM/空白；不从前后解释中提取对象，不修补断裂语法，不选择多个对象，不接受重复键。解码与空值约定 SHALL 分开：question省略可设null；claims省略仅在非action的reflect设[]；supersedes省略仅在无历史claims时设[]。显式错误值、正文、来源、未知字段、长度和生命周期值不得被修写或丢弃。
+
+所有处理后的候选 SHALL 继续完整通过既有来源、交流意愿、阶段和容量校验；格式处理不等于内容合格，不追加模型调用。旧flow解析保持；客户端仍接收原七字段canonical候选。受限诊断 SHALL 区分格式、来源和交流约定，不将缺失明细的来源类失败笼统标为可修复格式。
+
+#### Scenario: Complete JSON is fenced
+- **WHEN** v3模型把完整合法候选放在单一json代码框内，其他校验全部通过
+- **THEN** 系统在同一次请求内解码并展示原文字，不要求重发，不改变字段文字或新增费用
+
+#### Scenario: An invalid source is fenced
+- **WHEN** 完整代码框中的候选引用不存在的原话编号，或违背本人禁问要求
+- **THEN** 解开外框后仍拒绝候选，分别呈现来源/交流约定问题，不补来源、删问题或自动重试
+
+#### Scenario: Defaultable absence and incorrect values differ
+- **WHEN** 普通reflect省略question/claims，或者显式提供错误类型/超长文字/未知字段
+- **THEN** 只对契约允许的缺省空值处理；其他错误仍拒绝，review缺失正文不因默认化变为成功
+
 系统 SHALL 只在有文档依据的精确模型别名上启用严格结构化输出，约束字段、条数、已有来源ID及收尾形式；未知自选模型保留通用协议。供应商结构化输出 SHALL 不替代平台来源、长度、状态及内容验收，不放宽单次容量边界，不自动重试。
 
 #### Scenario: Supported structured output

@@ -78,8 +78,11 @@ export function validateClarityCandidate(value,context){
   if(policy.actionRequested){if(value.question!==null||!value.finish||value.claims.length!==1)return fail('invalid_action');}
   else if(policy.reviewRequested){if(context.stage!=='review'||!value.finish||value.question!==null)return fail('invalid_review_stage');if(!value.claims.length)return fail('empty_review');}
   else if(value.finish||context.stage!=='reflect')return fail('unexpected_finish');
-  if(value.question!==null){const q=value.question;if(!exact(q,['text','target','evidenceIds'])||!text(q.text,160)||!sources(q.evidenceIds)||
-    !['event','interpretation','need','tradeoff','unknown','correction'].includes(q.target))return fail('invalid_question');
+  if(value.question!==null){const q=value.question;
+    if(!exact(q,['text','target','evidenceIds']))return fail('invalid_question','question_shape');
+    if(!text(q.text,160))return fail('invalid_question','question_text');
+    if(!sources(q.evidenceIds))return fail('invalid_question','question_evidence');
+    if(!['event','interpretation','need','tradeoff','unknown','correction'].includes(q.target))return fail('invalid_question','question_target');
     if(!policy.allowQuestion)return fail('question_not_allowed');
     if(context.dialogue.some(d=>d.question.trim()===q.text.trim()))return fail('repeated_question');}
   return {ok:true,candidate:structuredClone(value)};

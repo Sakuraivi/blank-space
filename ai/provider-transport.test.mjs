@@ -385,7 +385,7 @@ test('invalid key and adapter options are rejected with fixed messages', () => {
 
 test('known and custom personal routes use Workerd-compatible manual fetch and reject 302 without a second outbound request', { timeout: 30000 }, async t => {
   const { Miniflare, Response: WorkerResponse } = await import('miniflare');
-  const paths = ['providers.mjs', 'provider-transport.mjs', 'clarity-schema.mjs', 'clarity-turn.mjs', '../public/clarity-contract.mjs', '../public/clarity-expression.mjs'];
+  const paths = ['providers.mjs', 'provider-transport.mjs', 'clarity-v3-format.mjs', 'clarity-schema.mjs', 'clarity-turn.mjs', '../public/clarity-contract.mjs', '../public/clarity-expression.mjs'];
   let mode = 'success'; const calls = [];
   const worker = new Miniflare({
     modulesRoot: fileURLToPath(new URL('../', import.meta.url)), compatibilityDate: '2026-05-01', cf: false,

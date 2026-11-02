@@ -11,17 +11,20 @@ import { recordAiResult } from './diagnostics.mjs';
 import { resolveOrganizerSource } from './organizer-config.mjs';
 import { createRequestTiming, serverTimingHeader } from './request-timing.mjs';
 import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
+import { safeFormatAdjustments } from '../ai/clarity-v3-format.mjs';
 
 export const CONSENT_VERSION = 'multi-provider-v1';
 // Version the public routing/consent contract, never a credential or its hash.
 export const PUBLIC_CONFIG_VERSION = 'multi-flex-v1';
 export { PRICE_VALID_UNTIL };
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-const response = (body, status = 200, timings, validationDetail) => {
+const response = (body, status = 200, timings, validationDetail, formatAdjustments) => {
   const timingHeader = serverTimingHeader(timings);
   const diagnostic = body?.status === 'fallback' && isClarityValidationDetail(body.reason, validationDetail);
+  const adjusted = safeFormatAdjustments(formatAdjustments);
   return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(timingHeader ? { 'Server-Timing': timingHeader } : {}),
-    ...(diagnostic ? { 'X-Liubai-Validation': validationDetail } : {}) } });
+    ...(diagnostic ? { 'X-Liubai-Validation': validationDetail } : {}),
+    ...(adjusted.length ? { 'X-Liubai-Format': adjusted.join(',') } : {}) } });
 };
 const fallback = (reason, status = 400) => response({ status: 'fallback', reason }, status);
 const validId = x => typeof x === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test(x);
@@ -31,7 +34,7 @@ const isConfigured = (c, env) => !!(c?.encrypted_key && c?.iv && c?.invite_hash 
 const validKey = value => typeof value === 'string' && /^[\x21-\x7E]{16,256}$/.test(value);
 const unsafeUsage = (usage, route) => !!usage && (usage.promptTokens > route.maxPromptTokens || usage.completionTokens > route.maxOutputTokens ||
   route.inputRateCnyPerMillion !== null && route.outputRateCnyPerMillion !== null && usage.promptTokens * route.inputRateCnyPerMillion + usage.completionTokens * route.outputRateCnyPerMillion > route.reserveMicros);
-const SAFE_PROVIDER_REASONS = new Set(['provider_auth_failed', 'provider_balance_low', 'provider_rate_limited', 'provider_access_denied', 'provider_model_unavailable', 'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected', 'provider_response_failed', 'response_too_large', 'invalid_response', 'usage_out_of_bounds', 'incomplete_response', 'config_changed']);
+const SAFE_PROVIDER_REASONS = new Set(['provider_auth_failed', 'provider_balance_low', 'provider_rate_limited', 'provider_access_denied', 'provider_model_unavailable', 'provider_request_rejected', 'provider_unavailable', 'provider_redirect_rejected', 'provider_response_failed', 'invalid_model_json', 'response_too_large', 'invalid_response', 'usage_out_of_bounds', 'incomplete_response', 'config_changed']);
 
 const publicProfile = source => source ? { providerId: source.route.providerId, modelId: source.route.modelId, providerLabel: source.route.providerLabel,
   modelLabel: source.route.modelLabel, ...(source.type === 'organizer' ? { defaultRevision: source.revision } : {}) } : null;
@@ -220,7 +223,7 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       sourceMode: body.sourceMode, providerId: route.providerId, modelId: route.modelId, priceVersion: route.priceVersion,
       reservedMicros: body.sourceMode === 'default' ? route.reserveMicros : 0, now: now() });
     if (!reservation.ok) return fallback(reservation.reason, 429);
-    let usage = null, result, providerReason = null, validationDetail;
+    let usage = null, result, providerReason = null, validationDetail, formatAdjustments;
     if (isClarity) requestTiming.startModel();
     try {
       const transport = createProviderAdapter({ route, apiKey, fetchImpl, onUsage: value => { usage = value; } });
@@ -236,8 +239,9 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
       const runtimeOptions = {
         adapter,
         ...(isClarity ? { onValidationFailure: detail => {
-          if (isClarityValidationDetail('invalid_claim', detail) || isClarityValidationDetail('invalid_shape', detail)) validationDetail = detail;
+          if (isClarityValidationDetail('invalid_claim', detail) || isClarityValidationDetail('invalid_shape', detail) || isClarityValidationDetail('invalid_question', detail)) validationDetail = detail;
         } } : {}),
+        ...(isClarityV3 ? { onFormatNormalization: value => { formatAdjustments = safeFormatAdjustments(value); } } : {}),
         signal: request.signal, isCurrent: () => !request.signal.aborted, timeoutMs: 45000 };
       result = preparedClarity
         ? await preparedClarity.run(runtimeOptions)
@@ -249,8 +253,8 @@ export async function handleApi(request, env, { fetchImpl = globalThis.fetch, no
     // claim about pure provider inference time or time to its first token.
     const completeGeneration = (value, httpStatus = 200) => {
       const timings = isClarity ? requestTiming.finish() : undefined;
-      recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings, validationDetail });
-      return response(value, httpStatus, timings, validationDetail);
+      recordAiResult({ requestId: body.requestId, stage: body.stage, status: value.status, reason: value.reason, ...responseRoute, timings, validationDetail, formatAdjustments });
+      return response(value, httpStatus, timings, validationDetail, formatAdjustments);
     };
     // Already dispatched inference may be billed even after cancellation.
     await ledger.finish(body.requestId, { outcome: (body.sourceMode === 'default' && unsafeUsage(usage, route)) || result.reason === 'usage_out_of_bounds' ? 'error' : result.status, usage, now: now() });

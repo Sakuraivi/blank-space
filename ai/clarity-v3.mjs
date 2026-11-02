@@ -2,6 +2,7 @@ import {CLARITY_SCHEMA_VERSION,CLARITY_POLICY_VERSION,checkClarityContext,valida
 import {deriveConversationPolicy} from '../public/clarity-v3-intent.mjs';
 import {groundingPlan,materialSentences,parseExplicitEmotionCorrection} from './clarity-grounding.mjs';
 import {validateV3EmotionCorrection} from './clarity-v3-correction.mjs';
+import {normalizeClarityV3Candidate} from './clarity-v3-format.mjs';
 export {buildClarityContext,validateClarityCandidate} from '../public/clarity-v3-contract.mjs';
 export {CLARITY_POLICY_VERSION};
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x);}return x;};
@@ -82,4 +83,4 @@ export function validateClarityResponse(value,context){
   if(policy.reviewRequested&&!exactEvents(candidate,sourcePlan(context,policy)))return {ok:false,reason:'ungrounded_event'};
   return validateClarityCandidate(candidate,context);
 }
-export const clarityContract=Object.freeze({buildModelRequest:buildClarityModelRequest,validateCandidate:validateClarityResponse});
+export const clarityContract=Object.freeze({buildModelRequest:buildClarityModelRequest,validateCandidate:validateClarityResponse,normalizeCandidate:normalizeClarityV3Candidate});

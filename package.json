@@ -37,7 +37,7 @@
     "evaluate:clarity-materials": "node scripts/clarity-materials-evaluation.mjs",
     "dev:clarity": "node scripts/clarity-preview.mjs",
     "dev:clarity-fixture": "node scripts/clarity-preview.mjs --fixture",
-    "test:clarity-listening": "node --test ai/clarity-v3-reliability.test.mjs ai/clarity-v3-intent.test.mjs ai/clarity-v3-online-intent.test.mjs ai/clarity-v3-contract.test.mjs ai/clarity-v3.test.mjs ai/clarity-v3-correction.test.mjs ai/clarity-v3-ownership.test.mjs ai/clarity-v3-state.test.mjs ai/clarity-v3-owned-review.test.mjs server/clarity-v3-api.test.mjs scripts/clarity-v3-preview.test.mjs",
+    "test:clarity-listening": "node --test ai/clarity-v3-format.test.mjs ai/clarity-v3-reliability.test.mjs ai/clarity-v3-intent.test.mjs ai/clarity-v3-online-intent.test.mjs ai/clarity-v3-contract.test.mjs ai/clarity-v3.test.mjs ai/clarity-v3-correction.test.mjs ai/clarity-v3-ownership.test.mjs ai/clarity-v3-state.test.mjs ai/clarity-v3-owned-review.test.mjs server/clarity-v3-api.test.mjs scripts/clarity-v3-preview.test.mjs",
     "dev:clarity-listening": "node scripts/clarity-v3-preview.mjs",
     "dev:clarity-listening:fixture": "node scripts/clarity-v3-preview.mjs --fixture",
     "test:clarity-model-comparison": "node --test ai/experiments/clarity-model-comparison.test.mjs scripts/experiments/clarity-model-comparison-worker.test.mjs scripts/experiments/clarity-model-comparison-live.test.mjs",

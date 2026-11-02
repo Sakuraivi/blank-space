@@ -3,6 +3,7 @@
 import { getRoute, getPersonalRoute } from '../ai/providers.mjs';
 import { sanitizedRequestTimings } from './request-timing.mjs';
 import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
+import { safeFormatAdjustments } from '../ai/clarity-v3-format.mjs';
 const REASONS = new Set([
   'inactive', 'timeout', 'error', 'incomplete_response', 'generation_failed',
   'invalid_shape', 'invalid_claim', 'invalid_evidence', 'question_not_allowed', 'action_not_allowed',
@@ -14,9 +15,10 @@ const REASONS = new Set([
   'question_in_reply', 'invalid_question', 'repeated_question', 'interpretation_not_allowed',
   'action_only', 'invalid_action', 'invalid_review_stage', 'empty_review', 'unexpected_finish',
   'generation_not_allowed', 'review_event_not_allowed',
+  'invalid_model_json',
 ]);
 
-export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode, timings, validationDetail }, write = console.info) {
+export function recordAiResult({ requestId, stage, status, reason, providerId, modelId, sourceMode, timings, validationDetail, formatAdjustments }, write = console.info) {
   const event = {
     event: 'liubai_ai_result',
     requestId: typeof requestId === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId) ? requestId : 'unavailable',
@@ -34,6 +36,8 @@ export function recordAiResult({ requestId, stage, status, reason, providerId, m
   const safeTimings = sanitizedRequestTimings(timings);
   if (safeTimings) event.timings = safeTimings;
   if (status === 'fallback' && isClarityValidationDetail(reason, validationDetail)) event.validationDetail = validationDetail;
+  const adjusted = safeFormatAdjustments(formatAdjustments);
+  if (adjusted.length) event.formatAdjustments = adjusted;
   // Logging failure must not change the model result or invite another call.
   try { write(JSON.stringify(event)); } catch {}
 }

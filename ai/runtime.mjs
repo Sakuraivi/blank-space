@@ -1,9 +1,10 @@
 import { buildModelRequest, validateCandidate } from './contract.mjs';
 import { isClarityValidationDetail } from '../public/clarity-contract.mjs';
+import { safeFormatAdjustments } from './clarity-v3-format.mjs';
 
 // No network, credential, rendering or persistence ownership in this module.
 // Adapter supplies transport. Caller owns revision and lifecycle checks.
-export async function runCandidate({ context, adapter, signal, isCurrent, timeoutMs = 15000, contract = { buildModelRequest, validateCandidate }, onValidationFailure }) {
+export async function runCandidate({ context, adapter, signal, isCurrent, timeoutMs = 15000, contract = { buildModelRequest, validateCandidate }, onValidationFailure, onFormatNormalization }) {
   if (typeof isCurrent !== 'function' || !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new TypeError('invalid_runtime_options');
   const snapshot = structuredClone(context);
   const request = contract.buildModelRequest(snapshot, adapter?.profile);
@@ -34,7 +35,17 @@ export async function runCandidate({ context, adapter, signal, isCurrent, timeou
     if (!current() || result.type === 'aborted') return { status: 'discarded', reason: 'inactive', candidate: null };
     if (result.type !== 'response') return { status: 'fallback', reason: result.type, candidate: null };
     if (result.value?.status !== 'completed') return { status: 'fallback', reason: 'incomplete_response', candidate: null };
-    const checked = contract.validateCandidate(result.value.output, snapshot);
+    const normalized = typeof contract.normalizeCandidate === 'function'
+      ? contract.normalizeCandidate(result.value.output, snapshot) : { candidate: result.value.output };
+    const adjustments = safeFormatAdjustments([...safeFormatAdjustments(result.value.formatAdjustments),
+      ...safeFormatAdjustments(normalized.adjustments)]);
+    if (adjustments.length && typeof onFormatNormalization === 'function') {
+      try {
+        const notified = onFormatNormalization(adjustments);
+        if (notified && typeof notified.then === 'function') Promise.resolve(notified).catch(() => {});
+      } catch {}
+    }
+    const checked = contract.validateCandidate(normalized.candidate, snapshot);
     if (!checked.ok) {
       if (isClarityValidationDetail(checked.reason, checked.detail) && typeof onValidationFailure === 'function') {
         // A diagnostic sink cannot replace the result, delay it, or trigger a
